@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/glide/manifest.json">
+<title>Glide</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  background: #0a0a0a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 40px;
+  color: #ccc;
+  overflow-x: hidden;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #666;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+  margin-bottom: 10px;
+}
+.back-link:hover { color: #4af; }
+
+h1 {
+  font-size: clamp(1.8rem, 7vw, 2.8rem);
+  font-weight: 800;
+  color: #4af;
+  text-shadow: 0 0 10px #4af, 0 0 24px #06f;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.tagline {
+  font-size: 0.78rem;
+  color: #555;
+  text-align: center;
+  margin-bottom: 14px;
+  letter-spacing: 0.04em;
+}
+
+.info-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #888;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pill {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid #2a2a2a;
+  padding: 4px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+}
+
+.grid-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.grid-bg {
+  display: grid;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 14px;
+  padding: 8px;
+  gap: 4px;
+}
+
+.cell {
+  background: #181818;
+  border-radius: 8px;
+  border: 1px solid #252525;
+}
+
+.blocks-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.block {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  pointer-events: all;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-weight: 700;
+  transition: box-shadow 0.15s;
+}
+
+.block.hint {
+  outline: 3px solid #ff0;
+  outline-offset: -2px;
+  animation: pulse 0.6s ease-in-out 2;
+}
+
+@keyframes pulse {
+  0%,100% { box-shadow: 0 3px 12px var(--glow); }
+  50% { box-shadow: 0 0 0 6px rgba(255,255,0,0.35), 0 3px 12px var(--glow); }
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.block.shake { animation: shake 0.3s ease; }
+
+.btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  padding: 11px 26px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 100px;
+}
+.btn:active { transform: scale(0.94); }
+
+.btn-reset {
+  background: rgba(255,255,255,0.07);
+  color: #aaa;
+  border: 1px solid #333;
+}
+.btn-reset:hover { color: #fff; border-color: #555; }
+
+.btn-hint {
+  background: linear-gradient(135deg, #f80 0%, #c50 100%);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(255,136,0,0.3);
+}
+.btn-hint:hover { opacity: 0.9; }
+
+.toast {
+  position: fixed;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(220,50,50,0.92);
+  color: #fff;
+  padding: 9px 22px;
+  border-radius: 30px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+
+#winOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+#winOverlay.on { display: flex; }
+
+.win-star {
+  font-size: clamp(2.5rem, 12vw, 4.5rem);
+  line-height: 1;
+  animation: pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-title {
+  font-size: clamp(1.8rem, 7vw, 3rem);
+  font-weight: 800;
+  color: #4af;
+  text-shadow: 0 0 20px #4af;
+  animation: pop 0.5s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-sub {
+  font-size: 0.95rem;
+  color: #888;
+  text-align: center;
+  padding: 0 20px;
+  animation: pop 0.5s 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.btn-next {
+  background: linear-gradient(135deg, #4af 0%, #06f 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0,100,255,0.4);
+  padding: 13px 44px;
+  font-size: 1rem;
+  animation: pop 0.5s 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.btn-next:hover { opacity: 0.9; }
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.confetti-p {
+  position: fixed;
+  top: -20px;
+  pointer-events: none;
+  z-index: 200;
+  animation: cfall linear forwards;
+}
+@keyframes cfall {
+  to { transform: translateY(110vh) rotate(var(--spin)); opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<a href="/" class="back-link">&larr; All Games</a>
+<h1>Glide</h1>
+<p class="tagline">Tap a block — it slides until it exits or stops. Clear the board.</p>
+
+<div class="info-bar">
+  <span class="pill" id="lvlPill">Level 1</span>
+  <span class="pill" id="tapPill">Taps: 0</span>
+  <span class="pill" id="blkPill">Blocks: 0</span>
+</div>
+
+<div class="grid-wrap" id="gridWrap">
+  <div class="grid-bg" id="gridBg"></div>
+  <div class="blocks-layer" id="blocksLayer"></div>
+</div>
+
+<div class="btns">
+  <button class="btn btn-reset" id="btnReset">&#8635; Reset</button>
+  <button class="btn btn-hint" id="btnHint">&#128161; Hint</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="winOverlay">
+  <div class="win-star">&#10024;</div>
+  <div class="win-title">Cleared!</div>
+  <div class="win-sub" id="winSub"></div>
+  <button class="btn btn-next" id="btnNext">Next Level &#8594;</button>
+</div>
+
+<script>
+'use strict';
+
+var G = 5;
+var DIRS = [
+  {dr:-1, dc: 0, sym:'↑'},
+  {dr: 0, dc: 1, sym:'→'},
+  {dr: 1, dc: 0, sym:'↓'},
+  {dr: 0, dc:-1, sym:'←'}
+];
+var COLORS = [
+  {a:'#4af', b:'#06f', glow:'rgba(0,120,255,.45)'},
+  {a:'#f4a', b:'#c06', glow:'rgba(200,0,100,.45)'},
+  {a:'#4fa', b:'#0b6', glow:'rgba(0,180,80,.45)'},
+  {a:'#fa4', b:'#c60', glow:'rgba(220,100,0,.45)'},
+  {a:'#a4f', b:'#60c', glow:'rgba(100,0,220,.45)'},
+  {a:'#4ff', b:'#09b', glow:'rgba(0,170,200,.45)'}
+];
+
+var PAD = 8, GAP = 4;
+var cs = 60;
+var uid = 0;
+
+var game = {
+  lvl: 1,
+  taps: 0,
+  minTaps: 0,
+  blocks: [],
+  init: [],
+  busy: false
+};
+
+function blockXY(r, c) {
+  return {x: PAD + c*(cs+GAP), y: PAD + r*(cs+GAP)};
+}
+
+function computeCS() {
+  var avail = Math.min(window.innerWidth - 32, window.innerHeight - 240, 400);
+  cs = Math.max(44, Math.min(76, Math.floor((avail - 2*PAD - (G-1)*GAP) / G)));
+}
+
+// ── BFS Solver ───────────────────────────────────────────────────────────────
+
+function stateKey(bs) {
+  return bs.map(function(b) { return b.r+','+b.c+','+b.d; }).sort().join('|');
+}
+
+function applySlide(bs, id) {
+  var a = bs.map(function(b) { return {id:b.id, r:b.r, c:b.c, d:b.d}; });
+  var i = 0;
+  for (; i < a.length; i++) if (a[i].id === id) break;
+  if (i === a.length) return null;
+  var b = a[i], dir = DIRS[b.d];
+  for (;;) {
+    var nr = b.r + dir.dr, nc = b.c + dir.dc;
+    if (nr < 0 || nr >= G || nc < 0 || nc >= G) { a.splice(i, 1); return a; }
+    var hit = false;
+    for (var j = 0; j < a.length; j++) {
+      if (j !== i && a[j].r === nr && a[j].c === nc) { hit = true; break; }
+    }
+    if (hit) return a;
+    b.r = nr; b.c = nc;
+  }
+}
+
+function solve(bs, lim) {
+  var visited = {}, q = [];
+  var k0 = stateKey(bs);
+  visited[k0] = 1;
+  q.push({bs: bs, path: []});
+  var n = 0, limit = lim || 60000;
+  while (q.length) {
+    var item = q.shift();
+    var cur = item.bs, path = item.path;
+    if (!cur.length) return path;
+    if (++n >= limit) return null;
+    for (var i = 0; i < cur.length; i++) {
+      var nxt = applySlide(cur, cur[i].id);
+      if (!nxt) continue;
+      var k = stateKey(nxt);
+      if (!visited[k]) {
+        visited[k] = 1;
+        q.push({bs: nxt, path: path.concat(cur[i].id)});
+      }
+    }
+  }
+  return null;
+}
+
+// ── Level Generation ─────────────────────────────────────────────────────────
+
+function numBlocks(lvl) {
+  if (lvl <= 2)  return 3;
+  if (lvl <= 5)  return 4;
+  if (lvl <= 9)  return 5;
+  if (lvl <= 14) return 6;
+  return 7;
+}
+
+function randBlocks(n) {
+  var used = {}, bs = [];
+  for (var i = 0; i < n; i++) {
+    var r, c, t = 0;
+    do {
+      r = Math.floor(Math.random() * G);
+      c = Math.floor(Math.random() * G);
+    } while (used[r+','+c] && ++t < 40);
+    if (t >= 40) return null;
+    used[r+','+c] = 1;
+    bs.push({id: uid++, r: r, c: c, d: Math.floor(Math.random()*4), ci: i % COLORS.length});
+  }
+  return bs;
+}
+
+function genLevel(lvl) {
+  var n = numBlocks(lvl);
+  for (var a = 0; a < 200; a++) {
+    var bs = randBlocks(n);
+    if (!bs) continue;
+    var sol = solve(bs, 40000);
+    if (sol) return {bs: bs, min: sol.length};
+  }
+  // Fallback: each block faces an open edge, guaranteed solvable in any order
+  var fb = [
+    {id:uid++, r:0, c:1, d:0, ci:0},
+    {id:uid++, r:2, c:0, d:3, ci:1},
+    {id:uid++, r:4, c:3, d:2, ci:2}
+  ];
+  return {bs: fb, min: 3};
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+
+function renderGrid() {
+  var bg = document.getElementById('gridBg');
+  bg.innerHTML = '';
+  bg.style.gridTemplateColumns = 'repeat('+G+','+cs+'px)';
+  bg.style.gap = GAP+'px';
+  bg.style.padding = PAD+'px';
+  for (var i = 0; i < G*G; i++) {
+    var cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.width = cs+'px';
+    cell.style.height = cs+'px';
+    bg.appendChild(cell);
+  }
+  var total = 2*PAD + (G-1)*GAP + G*cs;
+  var wrap = document.getElementById('gridWrap');
+  wrap.style.width = total+'px';
+  wrap.style.height = total+'px';
+}
+
+function renderBlocks() {
+  var layer = document.getElementById('blocksLayer');
+  layer.innerHTML = '';
+  game.blocks.forEach(function(b) {
+    var pos = blockXY(b.r, b.c);
+    var el = document.createElement('div');
+    el.className = 'block';
+    el.id = 'b' + b.id;
+    el.dataset.id = b.id;
+    var col = COLORS[b.ci];
+    el.style.cssText =
+      'width:'+cs+'px;height:'+cs+'px;'+
+      'left:'+pos.x+'px;top:'+pos.y+'px;'+
+      'font-size:'+Math.round(cs*0.44)+'px;'+
+      'background:linear-gradient(145deg,'+col.a+' 0%,'+col.b+' 100%);'+
+      'box-shadow:0 3px 12px '+col.glow+';'+
+      '--glow:'+col.glow+';';
+    el.textContent = DIRS[b.d].sym;
+    el.addEventListener('click', onTap);
+    el.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      onTap.call(this, e);
+    }, {passive: false});
+    layer.appendChild(el);
+  });
+}
+
+function updateHUD() {
+  document.getElementById('lvlPill').textContent  = 'Level ' + game.lvl;
+  document.getElementById('tapPill').textContent  = 'Taps: '  + game.taps;
+  document.getElementById('blkPill').textContent  = 'Blocks: ' + game.blocks.length;
+}
+
+// ── Game Logic ───────────────────────────────────────────────────────────────
+
+function initLevel(lvl) {
+  game.lvl = lvl;
+  game.taps = 0;
+  game.busy = false;
+  document.getElementById('winOverlay').classList.remove('on');
+  var data = genLevel(lvl);
+  game.blocks  = data.bs;
+  game.minTaps = data.min;
+  game.init = data.bs.map(function(b) {
+    return {id:b.id, r:b.r, c:b.c, d:b.d, ci:b.ci};
+  });
+  computeCS();
+  renderGrid();
+  renderBlocks();
+  updateHUD();
+}
+
+function resetLevel() {
+  game.blocks = game.init.map(function(b) {
+    return {id:b.id, r:b.r, c:b.c, d:b.d, ci:b.ci};
+  });
+  game.taps = 0;
+  game.busy = false;
+  renderBlocks();
+  updateHUD();
+}
+
+function onTap(e) {
+  if (game.busy) return;
+  doTap(parseInt(this.dataset.id, 10));
+}
+
+function doTap(id) {
+  var idx = -1;
+  for (var i = 0; i < game.blocks.length; i++) {
+    if (game.blocks[i].id === id) { idx = i; break; }
+  }
+  if (idx === -1) return;
+
+  var b = game.blocks[idx], dir = DIRS[b.d];
+  var r = b.r, c = b.c, exits = false;
+
+  for (;;) {
+    var nr = r + dir.dr, nc = c + dir.dc;
+    if (nr < 0 || nr >= G || nc < 0 || nc >= G) { exits = true; break; }
+    var hit = false;
+    for (var j = 0; j < game.blocks.length; j++) {
+      if (j !== idx && game.blocks[j].r === nr && game.blocks[j].c === nc) {
+        hit = true; break;
+      }
+    }
+    if (hit) break;
+    r = nr; c = nc;
+  }
+
+  if (!exits && r === b.r && c === b.c) {
+    var el = document.getElementById('b'+id);
+    if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    return;
+  }
+
+  game.taps++;
+  game.busy = true;
+
+  var el = document.getElementById('b'+id);
+  if (!el) { finishTap(id, idx, r, c, exits); return; }
+
+  var from = blockXY(b.r, b.c);
+  var ar = exits ? r + dir.dr : r;
+  var ac = exits ? c + dir.dc : c;
+  var to = blockXY(ar, ac);
+  var dx = to.x - from.x, dy = to.y - from.y;
+
+  el.style.transition = 'transform .22s ease-out' + (exits ? ',opacity .14s .1s' : '');
+  el.style.transform  = 'translate('+dx+'px,'+dy+'px)';
+  if (exits) el.style.opacity = '0';
+
+  setTimeout(function() { finishTap(id, idx, r, c, exits); }, 280);
+}
+
+function finishTap(id, idx, r, c, exits) {
+  if (exits) {
+    game.blocks.splice(idx, 1);
+  } else {
+    game.blocks[idx].r = r;
+    game.blocks[idx].c = c;
+  }
+  renderBlocks();
+  updateHUD();
+  game.busy = false;
+
+  if (!game.blocks.length) {
+    setTimeout(showWin, 150);
+    return;
+  }
+
+  var cur = game.blocks.map(function(b) { return {id:b.id, r:b.r, c:b.c, d:b.d}; });
+  if (!solve(cur, 20000)) {
+    showToast('Stuck! Resetting…');
+    setTimeout(resetLevel, 1300);
+  }
+}
+
+function showHint() {
+  var cur = game.blocks.map(function(b) { return {id:b.id, r:b.r, c:b.c, d:b.d}; });
+  var sol = solve(cur, 30000);
+  if (!sol || !sol.length) return;
+  var el = document.getElementById('b'+sol[0]);
+  if (!el) return;
+  el.classList.remove('hint');
+  void el.offsetWidth;
+  el.classList.add('hint');
+  setTimeout(function() { el.classList.remove('hint'); }, 1400);
+}
+
+function showWin() {
+  var sub = 'Cleared in ' + game.taps + ' tap' + (game.taps !== 1 ? 's' : '') + '!';
+  if (game.taps <= game.minTaps) sub += '  ✨ Perfect!';
+  else sub += '  (min: ' + game.minTaps + ')';
+  document.getElementById('winSub').textContent = sub;
+  document.getElementById('winOverlay').classList.add('on');
+  spawnConfetti();
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 1200);
+}
+
+var CC = ['#FF6B6B','#4ECDC4','#FFB800','#A29BFE','#FD79A8','#45B7D1','#6C5CE7','#00B894'];
+function spawnConfetti() {
+  for (var i = 0; i < 80; i++) {
+    (function(n) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'confetti-p';
+        var w = 6 + Math.random()*8;
+        var h = Math.random() < 0.5 ? w : w*(1.4 + Math.random()*0.8);
+        var dur = 1.8 + Math.random()*2;
+        el.style.cssText =
+          'left:'+(Math.random()*100)+'vw;'+
+          'width:'+w+'px;height:'+h+'px;'+
+          'border-radius:'+(Math.random()<0.5?'50%':'2px')+';'+
+          'background:'+CC[Math.floor(Math.random()*CC.length)]+';'+
+          '--spin:'+(Math.random()*720-360)+'deg;'+
+          'animation-duration:'+dur+'s;';
+        document.body.appendChild(el);
+        setTimeout(function() {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, (dur+0.3)*1000);
+      }, n*22);
+    }(i));
+  }
+}
+
+// ── Events ───────────────────────────────────────────────────────────────────
+
+document.getElementById('btnReset').addEventListener('click', function() {
+  if (!game.busy) resetLevel();
+});
+document.getElementById('btnHint').addEventListener('click', function() {
+  if (!game.busy) showHint();
+});
+document.getElementById('btnNext').addEventListener('click', function() {
+  initLevel(game.lvl + 1);
+});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+computeCS();
+initLevel(1);
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+</body>
+</html>
