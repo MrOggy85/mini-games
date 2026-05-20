@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sliding Puzzle</title>
+<style>
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: #f7f7f3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow-x: hidden;
+  padding: 20px 16px 40px;
+}
+
+.landscape-bg {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100%;
+}
+
+.wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.title {
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 800;
+  color: #3d3d3d;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.info-bar {
+  display: flex;
+  gap: 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #5a5a5a;
+}
+
+.info-pill {
+  background: rgba(255,255,255,0.75);
+  padding: 5px 14px;
+  border-radius: 20px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.09);
+  letter-spacing: 0.03em;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  background: rgba(255,255,255,0.6);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.tile {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.2rem, 5vw, 1.8rem);
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  background: linear-gradient(145deg, #4a90e2 0%, #357abd 100%);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(74,144,226,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tile:hover {
+  transform: scale(1.04);
+  box-shadow: 0 5px 16px rgba(74,144,226,0.48), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tile:active {
+  transform: scale(0.97);
+}
+
+.tile.empty {
+  background: transparent;
+  box-shadow: none;
+  cursor: default;
+  pointer-events: none;
+}
+
+.tile.solved {
+  background: linear-gradient(145deg, #16a34a 0%, #166534 100%);
+  box-shadow: 0 3px 10px rgba(22,163,74,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tile.slide-in {
+  animation: slideIn 0.12s ease;
+}
+
+@keyframes slideIn {
+  from { transform: scale(0.92); opacity: 0.7; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.btn-restart {
+  padding: 10px 38px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(74,144,226,0.38);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-restart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(74,144,226,0.48);
+}
+
+.btn-restart:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(74,144,226,0.3);
+}
+
+#winOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(247,247,243,0.88);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+#winOverlay.active {
+  display: flex;
+}
+
+.win-emoji {
+  font-size: clamp(3rem, 14vw, 5.5rem);
+  animation: bounceIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+  line-height: 1;
+}
+
+.win-title {
+  font-size: clamp(1.9rem, 8vw, 3.2rem);
+  font-weight: 800;
+  color: #166534;
+  animation: popIn 0.45s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.win-sub {
+  font-size: clamp(1rem, 3.5vw, 1.25rem);
+  color: #555;
+  animation: popIn 0.45s 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.win-play-again {
+  margin-top: 8px;
+  padding: 12px 46px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #16a34a 0%, #166534 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(22,163,74,0.42);
+  transition: transform 0.15s;
+  animation: popIn 0.45s 0.34s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.win-play-again:hover { transform: translateY(-2px); }
+
+.confetti-piece {
+  position: fixed;
+  top: -22px;
+  pointer-events: none;
+  z-index: 300;
+  animation-name: confettiFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes bounceIn {
+  from { opacity: 0; transform: scale(0.3) translateY(-15px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotateZ(0deg); opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateY(112vh) rotateZ(var(--confetti-spin, 540deg)); opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<svg class="landscape-bg" viewBox="0 0 1440 240" xmlns="http://www.w3.org/2000/svg"
+     preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <path d="M0,170 C150,110 320,185 500,148 C680,111 840,175 1020,148 C1200,121 1340,162 1440,140
+           L1440,240 L0,240 Z" fill="#dededa" opacity="0.55"/>
+  <path d="M0,195 C200,158 380,212 580,188 C780,164 940,206 1120,185 C1300,164 1400,198 1440,182
+           L1440,240 L0,240 Z" fill="#d5d5d0" opacity="0.7"/>
+  <path d="M0,218 C180,196 360,228 560,210 C760,192 940,224 1140,208 C1280,196 1390,216 1440,206
+           L1440,240 L0,240 Z" fill="#ccccc7" opacity="0.85"/>
+</svg>
+
+<div class="wrapper">
+  <h1 class="title">Sliding Puzzle</h1>
+  <div class="info-bar">
+    <span class="info-pill" id="movesDisplay">Moves: 0</span>
+  </div>
+  <div class="board" id="board"></div>
+  <button class="btn-restart" id="btnRestart">&#8635; Shuffle</button>
+</div>
+
+<div id="winOverlay" role="dialog" aria-modal="true" aria-label="You won">
+  <div class="win-emoji">&#127881;</div>
+  <div class="win-title">Solved!</div>
+  <div class="win-sub" id="winSub"></div>
+  <button class="win-play-again" id="btnPlayAgain">Play Again</button>
+</div>
+
+<script>
+var SIZE = 4;
+var TOTAL = SIZE * SIZE;
+
+var st = {
+  tiles: [],   // array of TOTAL values; 0 = empty
+  blank: 0,    // index of empty tile
+  moves: 0,
+  won: false
+};
+
+function isSolvable(tiles) {
+  var inv = 0;
+  for (var i = 0; i < tiles.length - 1; i++) {
+    for (var j = i + 1; j < tiles.length; j++) {
+      if (tiles[i] && tiles[j] && tiles[i] > tiles[j]) inv++;
+    }
+  }
+  var blankRow = Math.floor(tiles.indexOf(0) / SIZE);
+  var blankFromBottom = SIZE - blankRow;
+  if (SIZE % 2 === 1) {
+    return inv % 2 === 0;
+  } else {
+    return (inv + blankFromBottom) % 2 === 0;
+  }
+}
+
+function shuffle() {
+  var arr;
+  do {
+    arr = [];
+    for (var i = 1; i < TOTAL; i++) arr.push(i);
+    arr.push(0);
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+  } while (!isSolvable(arr) || isSolved(arr));
+  return arr;
+}
+
+function isSolved(tiles) {
+  for (var i = 0; i < TOTAL - 1; i++) {
+    if (tiles[i] !== i + 1) return false;
+  }
+  return tiles[TOTAL - 1] === 0;
+}
+
+function getNeighbours(idx) {
+  var row = Math.floor(idx / SIZE);
+  var col = idx % SIZE;
+  var n = [];
+  if (row > 0) n.push(idx - SIZE);
+  if (row < SIZE - 1) n.push(idx + SIZE);
+  if (col > 0) n.push(idx - 1);
+  if (col < SIZE - 1) n.push(idx + 1);
+  return n;
+}
+
+function initGame() {
+  st.tiles = shuffle();
+  st.blank = st.tiles.indexOf(0);
+  st.moves = 0;
+  st.won = false;
+  document.getElementById('winOverlay').classList.remove('active');
+  updateMoves();
+  render();
+}
+
+function handleTileClick(idx) {
+  if (st.won) return;
+  var neighbours = getNeighbours(st.blank);
+  if (neighbours.indexOf(idx) === -1) return;
+
+  st.tiles[st.blank] = st.tiles[idx];
+  st.tiles[idx] = 0;
+  st.blank = idx;
+  st.moves++;
+  updateMoves();
+  render();
+
+  if (isSolved(st.tiles)) {
+    st.won = true;
+    setTimeout(showWin, 380);
+  }
+}
+
+function render() {
+  var board = document.getElementById('board');
+  board.innerHTML = '';
+  var solved = isSolved(st.tiles);
+  for (var i = 0; i < TOTAL; i++) {
+    var val = st.tiles[i];
+    var el = document.createElement('div');
+    if (val === 0) {
+      el.className = 'tile empty';
+    } else {
+      el.className = 'tile' + (solved ? ' solved' : '');
+      el.textContent = val;
+      (function(idx) {
+        el.addEventListener('click', function() { handleTileClick(idx); });
+      }(i));
+    }
+    board.appendChild(el);
+  }
+}
+
+function updateMoves() {
+  document.getElementById('movesDisplay').textContent = 'Moves: ' + st.moves;
+}
+
+function showWin() {
+  document.getElementById('winSub').textContent = 'Solved in ' + st.moves + ' moves!';
+  document.getElementById('winOverlay').classList.add('active');
+  spawnConfetti();
+}
+
+var CONFETTI_COLORS = [
+  '#FF6B6B','#4ECDC4','#FFB800','#A29BFE',
+  '#FD79A8','#45B7D1','#6C5CE7','#00B894',
+  '#FF9F43','#54A0FF','#5F27CD','#01CBC6'
+];
+
+function spawnConfetti() {
+  for (var i = 0; i < 110; i++) {
+    (function(idx) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'confetti-piece';
+        var isCircle = Math.random() > 0.45;
+        var w = 7 + Math.random() * 9;
+        var h = isCircle ? w : w * (1.3 + Math.random() * 0.8);
+        var dur = 2.4 + Math.random() * 2.2;
+        var spin = Math.floor(Math.random() * 720 - 360) + 'deg';
+        var color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+        el.style.left = (Math.random() * 100) + 'vw';
+        el.style.width = w + 'px';
+        el.style.height = h + 'px';
+        el.style.borderRadius = isCircle ? '50%' : '2px';
+        el.style.background = color;
+        el.style.setProperty('--confetti-spin', spin);
+        el.style.animationDuration = dur + 's';
+        el.style.animationDelay = '0s';
+        document.body.appendChild(el);
+        setTimeout(function() {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, (dur + 0.3) * 1000);
+      }, idx * 25);
+    }(i));
+  }
+}
+
+document.getElementById('btnRestart').addEventListener('click', initGame);
+document.getElementById('btnPlayAgain').addEventListener('click', initGame);
+
+initGame();
+</script>
+</body>
+</html>
