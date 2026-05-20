@@ -1,0 +1,6 @@
+# ignore everything
+*
+# then allow specific paths
+!index.html
+!games/
+!games/**
