@@ -1,0 +1,10 @@
+{
+  "name": "Vantage",
+  "short_name": "Vantage",
+  "description": "Mental rotation puzzle — identify the shape from a different angle",
+  "start_url": "/games/vantage/",
+  "display": "standalone",
+  "background_color": "#0d0d1a",
+  "theme_color": "#0d0d1a",
+  "icons": []
+}
