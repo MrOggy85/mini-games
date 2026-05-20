@@ -37,6 +37,18 @@ body {
   width: 100%;
 }
 
+.back-link {
+  align-self: flex-start;
+  color: #888;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.back-link:hover {
+  color: #4a90e2;
+}
+
 .wrapper {
   position: relative;
   z-index: 1;
@@ -252,6 +264,7 @@ body {
 </svg>
 
 <div class="wrapper">
+  <a href="/" class="back-link">&larr; All Games</a>
   <h1 class="title">Sliding Puzzle</h1>
   <div class="info-bar">
     <span class="info-pill" id="movesDisplay">Moves: 0</span>
