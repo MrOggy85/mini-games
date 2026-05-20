@@ -9,6 +9,9 @@ const ASSETS = [
   '/games/vantage/',
   '/games/vantage/index.html',
   '/games/vantage/manifest.json',
+  '/games/sudoku/',
+  '/games/sudoku/index.html',
+  '/games/sudoku/manifest.json',
 ];
 
 self.addEventListener('install', (e) => {
