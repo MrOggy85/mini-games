@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v2';
+const CACHE_NAME = 'mini-games-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   '/games/memory/index.html',
   '/games/sliding-puzzle/',
   '/games/sliding-puzzle/index.html',
+  '/games/sliding-puzzle/favicon.svg',
   '/games/trace/',
   '/games/trace/index.html',
   '/games/trace/manifest.json',
