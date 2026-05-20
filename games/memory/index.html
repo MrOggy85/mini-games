@@ -3,29 +3,528 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>hello?</title>
+<title>Memory</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    font-family: 'Courier New', Courier, monospace;
-  }
-  h1 {
-    font-size: 6rem;
-    color: #4af;
-    text-shadow:
-      0 0 10px #4af,
-      0 0 20px #4af,
-      0 0 40px #06f,
-      0 0 80px #06f;
-  }
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: #f7f7f3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow-x: hidden;
+  padding: 20px 16px 40px;
+}
+
+/* ── Landscape background ── */
+.landscape-bg {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  pointer-events: none;
+  width: 100%;
+}
+
+/* ── Main wrapper ── */
+.wrapper {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 480px;
+}
+
+/* ── Title ── */
+.title {
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 800;
+  color: #3d3d3d;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.9);
+}
+
+/* ── Info bar ── */
+.info-bar {
+  display: flex;
+  gap: 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #5a5a5a;
+}
+
+.info-pill {
+  background: rgba(255,255,255,0.75);
+  padding: 5px 14px;
+  border-radius: 20px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.09);
+  letter-spacing: 0.03em;
+}
+
+/* ── Grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(6px, 2vw, 10px);
+  width: 100%;
+}
+
+/* ── Card ── */
+.card {
+  aspect-ratio: 1;
+  perspective: 700px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.card.shake {
+  animation: shake 0.48s ease;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.52s cubic-bezier(0.4, 0.0, 0.2, 1);
+  border-radius: 10px;
+}
+
+.card.flipped .card-inner,
+.card.matched .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Back face — red with yellow ? */
+.card-back {
+  background: linear-gradient(145deg, #e63946 0%, #c0121f 100%);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.18);
+  font-size: clamp(1.4rem, 5.5vw, 2.4rem);
+  font-weight: 900;
+  color: #FFD60A;
+  text-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Front face — white with geometric shape */
+.card-front {
+  background: #ffffff;
+  transform: rotateY(180deg);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.11), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.card-front svg {
+  width: 56%;
+  height: 56%;
+  display: block;
+}
+
+/* Matched state */
+.card.matched .card-front {
+  background: linear-gradient(145deg, #f0fdf4, #dcfce7);
+  box-shadow: 0 3px 12px rgba(34,197,94,0.22);
+}
+
+/* Hover on unflipped cards */
+.card:not(.flipped):not(.matched):hover .card-back {
+  filter: brightness(1.1);
+}
+
+/* ── Restart button ── */
+.btn-restart {
+  padding: 10px 38px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(74,144,226,0.38);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-restart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(74,144,226,0.48);
+}
+
+.btn-restart:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(74,144,226,0.3);
+}
+
+/* ── Win overlay ── */
+#winOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(247,247,243,0.88);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+#winOverlay.active {
+  display: flex;
+}
+
+.win-emoji {
+  font-size: clamp(3rem, 14vw, 5.5rem);
+  animation: bounceIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+  line-height: 1;
+}
+
+.win-title {
+  font-size: clamp(1.9rem, 8vw, 3.2rem);
+  font-weight: 800;
+  color: #166534;
+  animation: popIn 0.45s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.win-sub {
+  font-size: clamp(1rem, 3.5vw, 1.25rem);
+  color: #555;
+  animation: popIn 0.45s 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.win-play-again {
+  margin-top: 8px;
+  padding: 12px 46px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #16a34a 0%, #166534 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(22,163,74,0.42);
+  transition: transform 0.15s;
+  animation: popIn 0.45s 0.34s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.win-play-again:hover { transform: translateY(-2px); }
+
+/* ── Confetti ── */
+.confetti-piece {
+  position: fixed;
+  top: -22px;
+  pointer-events: none;
+  z-index: 300;
+  animation-name: confettiFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* ── Keyframes ── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-7px) rotate(-1deg); }
+  30%       { transform: translateX(7px) rotate(1deg); }
+  50%       { transform: translateX(-5px) rotate(-0.5deg); }
+  70%       { transform: translateX(5px) rotate(0.5deg); }
+  85%       { transform: translateX(-2px); }
+}
+
+@keyframes bounceIn {
+  from { opacity: 0; transform: scale(0.3) translateY(-15px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotateZ(0deg); opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateY(112vh) rotateZ(var(--confetti-spin, 540deg)); opacity: 0; }
+}
 </style>
 </head>
 <body>
-<h1>memory</h1>
+
+<!-- Subtle rolling landscape in the background -->
+<svg class="landscape-bg" viewBox="0 0 1440 240" xmlns="http://www.w3.org/2000/svg"
+     preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <!-- Distant hills -->
+  <path d="M0,170 C150,110 320,185 500,148 C680,111 840,175 1020,148 C1200,121 1340,162 1440,140
+           L1440,240 L0,240 Z" fill="#dededa" opacity="0.55"/>
+  <!-- Mid hills -->
+  <path d="M0,195 C200,158 380,212 580,188 C780,164 940,206 1120,185 C1300,164 1400,198 1440,182
+           L1440,240 L0,240 Z" fill="#d5d5d0" opacity="0.7"/>
+  <!-- Near hills -->
+  <path d="M0,218 C180,196 360,228 560,210 C760,192 940,224 1140,208 C1280,196 1390,216 1440,206
+           L1440,240 L0,240 Z" fill="#ccccc7" opacity="0.85"/>
+</svg>
+
+<div class="wrapper">
+  <h1 class="title">Memory</h1>
+  <div class="info-bar">
+    <span class="info-pill" id="movesDisplay">Moves: 0</span>
+    <span class="info-pill" id="pairsDisplay">Pairs: 0 / 8</span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <button class="btn-restart" id="btnRestart">&#8635; Restart</button>
+</div>
+
+<!-- Win overlay -->
+<div id="winOverlay" role="dialog" aria-modal="true" aria-label="You won">
+  <div class="win-emoji">&#127881;</div>
+  <div class="win-title">You won!</div>
+  <div class="win-sub" id="winSub">All 8 pairs matched!</div>
+  <button class="win-play-again" id="btnPlayAgain">Play Again</button>
+</div>
+
+<script>
+const SHAPES = [
+  {
+    id: 'circle',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<circle cx="50" cy="50" r="43" fill="#FF6B6B"/></svg>'
+  },
+  {
+    id: 'square',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<rect x="9" y="9" width="82" height="82" rx="12" fill="#4ECDC4"/></svg>'
+  },
+  {
+    id: 'triangle',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<polygon points="50,7 95,90 5,90" fill="#45B7D1"/></svg>'
+  },
+  {
+    id: 'star',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.4,86.4 50,68 23.6,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="#FFB800"/></svg>'
+  },
+  {
+    id: 'diamond',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<polygon points="50,5 95,50 50,95 5,50" fill="#A29BFE"/></svg>'
+  },
+  {
+    id: 'pentagon',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<polygon points="50,5 92.8,36.1 76.4,86.4 23.6,86.4 7.2,36.1" fill="#FD79A8"/></svg>'
+  },
+  {
+    id: 'hexagon',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<polygon points="50,5 89,27.5 89,72.5 50,95 11,72.5 11,27.5" fill="#6C5CE7"/></svg>'
+  },
+  {
+    id: 'heart',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
+         '<path d="M50,82 C8,57 8,22 28,14 C38,10 48,20 50,28 C52,20 62,10 72,14 C92,22 92,57 50,82Z" fill="#00B894"/></svg>'
+  }
+];
+
+// ── State ──
+var st = {
+  cards: [],
+  first: null,
+  second: null,
+  locked: false,
+  moves: 0,
+  matched: 0
+};
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function initGame() {
+  st.first = null;
+  st.second = null;
+  st.locked = false;
+  st.moves = 0;
+  st.matched = 0;
+  st.cards = [];
+
+  updateInfo();
+  document.getElementById('winOverlay').classList.remove('active');
+
+  var grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  var deck = shuffle(SHAPES.concat(SHAPES));
+
+  deck.forEach(function(shape, i) {
+    var card = { id: i, shapeId: shape.id, isFlipped: false, isMatched: false, el: null };
+
+    var el = document.createElement('div');
+    el.className = 'card';
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', 'Memory card');
+    el.innerHTML =
+      '<div class="card-inner">' +
+        '<div class="card-face card-back">?</div>' +
+        '<div class="card-face card-front">' + shape.svg + '</div>' +
+      '</div>';
+
+    (function(c) {
+      el.addEventListener('click', function() { handleCardClick(c); });
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCardClick(c);
+        }
+      });
+    }(card));
+
+    card.el = el;
+    st.cards.push(card);
+    grid.appendChild(el);
+  });
+}
+
+function handleCardClick(card) {
+  if (st.locked) return;
+  if (card.isFlipped || card.isMatched) return;
+
+  card.isFlipped = true;
+  card.el.classList.add('flipped');
+
+  if (!st.first) {
+    st.first = card;
+    return;
+  }
+
+  st.second = card;
+  st.locked = true;
+  st.moves++;
+  updateInfo();
+
+  if (st.first.shapeId === st.second.shapeId) {
+    var a = st.first, b = st.second;
+    setTimeout(function() {
+      a.el.classList.add('matched');
+      b.el.classList.add('matched');
+      a.isMatched = true;
+      b.isMatched = true;
+      st.matched++;
+      updateInfo();
+      resetTurn();
+      if (st.matched === 8) {
+        setTimeout(showWin, 500);
+      }
+    }, 340);
+  } else {
+    var a = st.first, b = st.second;
+    setTimeout(function() {
+      a.el.classList.add('shake');
+      b.el.classList.add('shake');
+      setTimeout(function() {
+        a.el.classList.remove('flipped', 'shake');
+        b.el.classList.remove('flipped', 'shake');
+        a.isFlipped = false;
+        b.isFlipped = false;
+        resetTurn();
+      }, 520);
+    }, 480);
+  }
+}
+
+function resetTurn() {
+  st.first = null;
+  st.second = null;
+  st.locked = false;
+}
+
+function updateInfo() {
+  document.getElementById('movesDisplay').textContent = 'Moves: ' + st.moves;
+  document.getElementById('pairsDisplay').textContent = 'Pairs: ' + st.matched + ' / 8';
+}
+
+function showWin() {
+  document.getElementById('winSub').textContent = 'Completed in ' + st.moves + ' moves!';
+  document.getElementById('winOverlay').classList.add('active');
+  spawnConfetti();
+}
+
+var CONFETTI_COLORS = [
+  '#FF6B6B','#4ECDC4','#FFB800','#A29BFE',
+  '#FD79A8','#45B7D1','#6C5CE7','#00B894',
+  '#FF9F43','#54A0FF','#5F27CD','#01CBC6'
+];
+
+function spawnConfetti() {
+  for (var i = 0; i < 110; i++) {
+    (function(idx) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'confetti-piece';
+        var isCircle = Math.random() > 0.45;
+        var w = 7 + Math.random() * 9;
+        var h = isCircle ? w : w * (1.3 + Math.random() * 0.8);
+        var dur = 2.4 + Math.random() * 2.2;
+        var delay = 0;
+        var spin = Math.floor(Math.random() * 720 - 360) + 'deg';
+        var color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+
+        el.style.left = (Math.random() * 100) + 'vw';
+        el.style.width = w + 'px';
+        el.style.height = h + 'px';
+        el.style.borderRadius = isCircle ? '50%' : '2px';
+        el.style.background = color;
+        el.style.setProperty('--confetti-spin', spin);
+        el.style.animationDuration = dur + 's';
+        el.style.animationDelay = delay + 's';
+
+        document.body.appendChild(el);
+        setTimeout(function() {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, (dur + 0.3) * 1000);
+      }, idx * 25);
+    }(i));
+  }
+}
+
+document.getElementById('btnRestart').addEventListener('click', initGame);
+document.getElementById('btnPlayAgain').addEventListener('click', initGame);
+
+initGame();
+</script>
 </body>
 </html>
