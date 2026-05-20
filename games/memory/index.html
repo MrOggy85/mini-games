@@ -310,6 +310,17 @@ body {
 
 <div class="wrapper">
   <a href="/" class="back-link">&larr; All Games</a>
+  <script>
+  (function(){
+    if (!window.matchMedia('(display-mode: standalone)').matches) return;
+    var fromPortal = false;
+    try { fromPortal = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch(e){}
+    if (fromPortal) sessionStorage.setItem('mini-games-portal', '1');
+    if (!fromPortal && sessionStorage.getItem('mini-games-portal') !== '1') {
+      document.querySelector('.back-link').style.display = 'none';
+    }
+  })();
+  </script>
   <h1 class="title">Memory</h1>
   <div class="info-bar">
     <span class="info-pill" id="movesDisplay">Moves: 0</span>
