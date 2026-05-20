@@ -1,0 +1,8 @@
+{
+  "name": "Memory",
+  "short_name": "Memory",
+  "start_url": "/games/memory/",
+  "display": "standalone",
+  "background_color": "#f7f7f3",
+  "theme_color": "#f7f7f3"
+}

@@ -2,5 +2,7 @@
 *
 # then allow specific paths
 !index.html
+!sw.js
+!manifest.json
 !games/
 !games/**

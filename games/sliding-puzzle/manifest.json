@@ -1,0 +1,8 @@
+{
+  "name": "Sliding Puzzle",
+  "short_name": "Sliding Puzzle",
+  "start_url": "/games/sliding-puzzle/",
+  "display": "standalone",
+  "background_color": "#f7f7f3",
+  "theme_color": "#f7f7f3"
+}

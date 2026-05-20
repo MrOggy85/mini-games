@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/memory/manifest.json">
 <title>Memory</title>
 <style>
 *, *::before, *::after {
@@ -33,6 +36,19 @@ body {
   z-index: 0;
   pointer-events: none;
   width: 100%;
+}
+
+/* ── Back link ── */
+.back-link {
+  align-self: flex-start;
+  color: #888;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.back-link:hover {
+  color: #4a90e2;
 }
 
 /* ── Main wrapper ── */
@@ -293,6 +309,7 @@ body {
 </svg>
 
 <div class="wrapper">
+  <a href="/" class="back-link">&larr; All Games</a>
   <h1 class="title">Memory</h1>
   <div class="info-bar">
     <span class="info-pill" id="movesDisplay">Moves: 0</span>
@@ -525,6 +542,11 @@ document.getElementById('btnRestart').addEventListener('click', initGame);
 document.getElementById('btnPlayAgain').addEventListener('click', initGame);
 
 initGame();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
 </script>
 </body>
 </html>
