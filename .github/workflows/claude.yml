@@ -36,3 +36,9 @@ jobs:
           additional_permissions: |
             actions: read
           claude_args: '--allowedTools "Bash(gh pr create:*),Bash(gh pr view:*),Bash(git push:*)"'
+          custom_instructions: |
+            After completing your changes:
+            1. Create a new branch with a descriptive name (e.g. feat/short-description or fix/short-description)
+            2. Commit and push your changes to that branch
+            3. Automatically create a PR using `gh pr create` — do not ask for confirmation
+            4. Link the PR back to the original issue
