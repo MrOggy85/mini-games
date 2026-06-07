@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/trace/manifest.json">
+<title>Trace</title>
+<style>
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #09091a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.back-link {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  color: #556;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 10;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #4af; }
+
+#top-bar {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0 6px;
+  flex-shrink: 0;
+}
+h1 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: 7px;
+  text-transform: uppercase;
+  color: #7ab8ff;
+  text-shadow: 0 0 28px rgba(80,160,255,0.45);
+}
+#level-label {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #334;
+}
+#hint-text {
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: #2a2a44;
+  letter-spacing: 1px;
+}
+
+#canvas-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+canvas {
+  touch-action: none;
+  cursor: crosshair;
+  display: block;
+}
+
+#btn-row {
+  display: flex;
+  gap: 14px;
+  padding: 10px 0 20px;
+  flex-shrink: 0;
+}
+.btn {
+  padding: 10px 30px;
+  border: 1px solid #232340;
+  border-radius: 8px;
+  background: #0f0f20;
+  color: #667;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.btn:active {
+  border-color: #4af;
+  color: #9df;
+  background: #101828;
+}
+
+#win-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,5,18,0.82);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+  z-index: 50;
+}
+#win-screen.show {
+  opacity: 1;
+  pointer-events: all;
+}
+#win-box {
+  background: #0d0d22;
+  border: 1px solid #253560;
+  border-radius: 18px;
+  padding: 44px 60px;
+  text-align: center;
+  box-shadow: 0 0 70px rgba(50,130,255,0.18);
+}
+.win-icon {
+  font-size: 3.2rem;
+  line-height: 1;
+  margin-bottom: 14px;
+  color: #44ff99;
+  text-shadow: 0 0 18px #44ff99;
+}
+#win-box h2 {
+  color: #aaccff;
+  font-size: 1.25rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 22px;
+}
+#next-btn {
+  padding: 12px 44px;
+  border: 1px solid #44aaff;
+  border-radius: 10px;
+  background: transparent;
+  color: #44aaff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+#next-btn:active {
+  background: rgba(68,170,255,0.1);
+  color: #88ccff;
+}
+
+/* ── Settings ── */
+#settingsBtn {
+  position: fixed; top: 12px; right: 14px; z-index: 200;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 50%; width: 40px; height: 40px; font-size: 19px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: #556; transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+#settingsBtn:hover { background: rgba(255,255,255,0.14); color: #99b; }
+#settingsPanel {
+  display: none; position: fixed; top: 58px; right: 14px; z-index: 199;
+  background: #131328; border: 1px solid #253050; border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5); padding: 16px 18px; min-width: 175px;
+}
+#settingsPanel.open { display: block; }
+.s-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.s-label { font-size: 0.88rem; font-weight: 600; color: #889; }
+.s-toggle {
+  position: relative; width: 44px; height: 24px; border-radius: 12px;
+  border: none; cursor: pointer; transition: background 0.2s;
+  flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.s-toggle .thumb {
+  position: absolute; top: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: left 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4); pointer-events: none;
+}
+</style>
+</head>
+<body>
+<a href="/" class="back-link">&#8592; All Games</a>
+
+<div id="top-bar">
+  <h1>Trace</h1>
+  <div id="level-label">Level <span id="lvl-num">1</span></div>
+  <div id="hint-text">Draw from S to E — fill every cell</div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="gc"></canvas>
+</div>
+
+<div id="btn-row">
+  <button class="btn" id="undo-btn">Undo</button>
+  <button class="btn" id="reset-btn">Reset</button>
+</div>
+
+<div id="win-screen">
+  <div id="win-box">
+    <div class="win-icon">&#10003;</div>
+    <h2>Path Complete!</h2>
+    <button id="next-btn">Next Level</button>
+  </div>
+</div>
+
+<script>
+// ── Grid size schedule ────────────────────────────────────────────────
+const SIZES = [
+  {R:3,C:3},{R:3,C:3},{R:3,C:3},
+  {R:3,C:4},{R:3,C:4},{R:3,C:4},
+  {R:4,C:4},{R:4,C:4},{R:4,C:4},{R:4,C:4},
+  {R:4,C:5},{R:4,C:5},{R:4,C:5},{R:4,C:5},
+  {R:5,C:5},{R:5,C:5},{R:5,C:5},{R:5,C:5},
+  {R:5,C:6},{R:5,C:6},{R:5,C:6},{R:5,C:6},
+  {R:6,C:6},{R:6,C:6},{R:6,C:6},
+];
+
+// ── State ─────────────────────────────────────────────────────────────
+let lv    = {R:0,C:0,start:[0,0],end:[0,0]};
+let path  = [];     // [[r,c], ...]
+let vis   = [];     // vis[r][c] = true if in path
+let drag  = false;
+let won   = false;
+let lvIdx = 0;
+let cs    = 0;      // cell size in px
+
+const canvas = document.getElementById('gc');
+const ctx    = canvas.getContext('2d');
+
+// ── Hamiltonian path generator (Warnsdorff + backtrack) ───────────────
+const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+
+function genLevel(R, C) {
+  const grid = Array.from({length:R}, () => Array(C).fill(false));
+  const r0   = Math.floor(Math.random() * R);
+  const c0   = Math.floor(Math.random() * C);
+  grid[r0][c0] = true;
+  const p = [[r0, c0]];
+  if (hamilDFS(grid, R, C, p)) {
+    return {R, C, start: p[0].slice(), end: p[p.length-1].slice()};
+  }
+  // Fallback: guaranteed snake path
+  const snake = [];
+  for (let r = 0; r < R; r++) {
+    if (r % 2 === 0) { for (let c = 0; c < C; c++) snake.push([r,c]); }
+    else             { for (let c = C-1; c >= 0; c--) snake.push([r,c]); }
+  }
+  return {R, C, start: snake[0], end: snake[snake.length-1]};
+}
+
+function hamilDFS(grid, R, C, p) {
+  if (p.length === R * C) return true;
+  const [r, c] = p[p.length-1];
+
+  // Collect valid neighbors; count their onward moves for Warnsdorff sort
+  const nb = [];
+  for (const [dr, dc] of DIRS) {
+    const nr = r+dr, nc = c+dc;
+    if (nr < 0 || nr >= R || nc < 0 || nc >= C || grid[nr][nc]) continue;
+    let fwd = 0;
+    for (const [dr2, dc2] of DIRS) {
+      const nr2 = nr+dr2, nc2 = nc+dc2;
+      if (nr2 >= 0 && nr2 < R && nc2 >= 0 && nc2 < C && !grid[nr2][nc2]) fwd++;
+    }
+    nb.push({nr, nc, fwd});
+  }
+  // Fewest onward moves first (Warnsdorff) with random tiebreak for variety
+  nb.sort((a,b) => a.fwd - b.fwd || (Math.random() < 0.5 ? -1 : 1));
+
+  for (const {nr, nc} of nb) {
+    grid[nr][nc] = true;
+    p.push([nr, nc]);
+    if (hamilDFS(grid, R, C, p)) return true;
+    p.pop();
+    grid[nr][nc] = false;
+  }
+  return false;
+}
+
+// ── Level initialisation ───────────────────────────────────────────────
+function startLevel(idx) {
+  lvIdx = idx;
+  document.getElementById('lvl-num').textContent = idx + 1;
+  const sz = SIZES[Math.min(idx, SIZES.length - 1)] || {R:6, C:6};
+  lv  = genLevel(sz.R, sz.C);
+  won = false;
+  document.getElementById('win-screen').classList.remove('show');
+  resetPath();
+  resize();
+  if (!rafId) loop();
+}
+
+function resetPath() {
+  path = [lv.start.slice()];
+  vis  = Array.from({length:lv.R}, () => Array(lv.C).fill(false));
+  vis[lv.start[0]][lv.start[1]] = true;
+  drag = false;
+}
+
+// ── Canvas sizing ──────────────────────────────────────────────────────
+function resize() {
+  const wrap = document.getElementById('canvas-wrap');
+  const aw = wrap.clientWidth  - 24;
+  const ah = wrap.clientHeight - 24;
+  cs = Math.min(Math.floor(aw / lv.C), Math.floor(ah / lv.R), 112);
+  canvas.width  = cs * lv.C;
+  canvas.height = cs * lv.R;
+}
+window.addEventListener('resize', () => { resize(); });
+
+// ── Drawing helpers ────────────────────────────────────────────────────
+const PAD      = 0.11;  // fraction of cs for cell inset
+const CLR_PATH = '#44aaff';
+const CLR_S    = '#44ffaa';
+const CLR_E    = '#ff8844';
+
+const midX = col => col * cs + cs / 2;
+const midY = row => row * cs + cs / 2;
+
+function rRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x,   y+h, r);
+  ctx.arcTo(x,   y+h, x,   y,   r);
+  ctx.arcTo(x,   y,   x+w, y,   r);
+  ctx.closePath();
+}
+
+function drawGrid() {
+  for (let r = 0; r < lv.R; r++) {
+    for (let c = 0; c < lv.C; c++) {
+      const x = c*cs + cs*PAD;
+      const y = r*cs + cs*PAD;
+      const s = cs * (1 - PAD*2);
+      const rd = s * 0.2;
+      ctx.fillStyle   = vis[r][c] ? '#131326' : '#0f0f20';
+      rRect(x, y, s, s, rd);
+      ctx.fill();
+      ctx.strokeStyle = vis[r][c] ? '#1c1c38' : '#161628';
+      ctx.lineWidth   = 1;
+      rRect(x, y, s, s, rd);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPathLine() {
+  if (path.length < 2) return;
+  ctx.save();
+  ctx.lineCap    = 'round';
+  ctx.lineJoin   = 'round';
+
+  // Glow pass
+  ctx.shadowBlur   = 22;
+  ctx.shadowColor  = CLR_PATH;
+  ctx.strokeStyle  = CLR_PATH + '44';
+  ctx.lineWidth    = cs * 0.42;
+  strokePath();
+
+  // Main line
+  ctx.shadowBlur   = 8;
+  ctx.strokeStyle  = CLR_PATH;
+  ctx.lineWidth    = cs * 0.24;
+  strokePath();
+
+  ctx.restore();
+}
+
+function strokePath() {
+  ctx.beginPath();
+  ctx.moveTo(midX(path[0][1]), midY(path[0][0]));
+  for (let i = 1; i < path.length; i++) {
+    ctx.lineTo(midX(path[i][1]), midY(path[i][0]));
+  }
+  ctx.stroke();
+}
+
+function drawMarker([r, c], clr, lbl) {
+  const x = midX(c), y = midY(r), sz = cs * 0.3;
+  ctx.save();
+  ctx.shadowBlur  = 20;
+  ctx.shadowColor = clr;
+
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle   = clr;
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI*2); ctx.fill();
+
+  ctx.globalAlpha = 0.85;
+  ctx.strokeStyle = clr;
+  ctx.lineWidth   = 2;
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI*2); ctx.stroke();
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle   = clr;
+  ctx.font        = `bold ${Math.max(10, Math.round(cs * 0.2))}px monospace`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline= 'middle';
+  ctx.fillText(lbl, x, y);
+  ctx.restore();
+}
+
+function drawHeadPulse() {
+  if (!path.length) return;
+  const [hr, hc] = path[path.length-1];
+  if (hr === lv.end[0] && hc === lv.end[1]) return; // already showing end marker
+  const t   = Date.now() / 700;
+  const amp = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);
+  ctx.save();
+  ctx.globalAlpha  = 0.2 + 0.35 * amp;
+  ctx.strokeStyle  = CLR_PATH;
+  ctx.shadowBlur   = 22;
+  ctx.shadowColor  = CLR_PATH;
+  ctx.lineWidth    = 2;
+  ctx.beginPath();
+  ctx.arc(midX(hc), midY(hr), cs * 0.3 * (1 + 0.18 * amp), 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  if (!cs) return;
+  ctx.fillStyle = '#09091a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawGrid();
+  drawPathLine();
+  drawMarker(lv.start, CLR_S, 'S');
+  drawMarker(lv.end,   CLR_E, 'E');
+  drawHeadPulse();
+}
+
+let rafId = 0;
+function loop() {
+  draw();
+  rafId = requestAnimationFrame(loop);
+}
+
+// ── Game logic ────────────────────────────────────────────────────────
+function isAdj(a, b) {
+  return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]) === 1;
+}
+
+function tryExtend(r, c) {
+  if (won) return;
+  const cur  = path[path.length-1];
+  const prev = path.length > 1 ? path[path.length-2] : null;
+  if (r === cur[0] && c === cur[1]) return;
+
+  // Drag-back undo
+  if (prev && r === prev[0] && c === prev[1]) {
+    vis[cur[0]][cur[1]] = false;
+    path.pop();
+    return;
+  }
+  // Forward extension
+  if (isAdj(cur, [r,c]) && !vis[r][c]) {
+    path.push([r,c]);
+    vis[r][c] = true;
+    checkWin();
+  }
+}
+
+function undoStep() {
+  if (won || path.length <= 1) return;
+  const last = path.pop();
+  vis[last[0]][last[1]] = false;
+}
+
+function checkWin() {
+  if (path.length !== lv.R * lv.C) return;
+  const [er, ec] = path[path.length-1];
+  if (er !== lv.end[0] || ec !== lv.end[1]) return;
+  won = true;
+  setTimeout(() => document.getElementById('win-screen').classList.add('show'), 500);
+}
+
+// ── Input handling ────────────────────────────────────────────────────
+function cellAt(px, py) {
+  const rect = canvas.getBoundingClientRect();
+  const col  = Math.floor((px - rect.left)  / cs);
+  const row  = Math.floor((py - rect.top)   / cs);
+  if (row >= 0 && row < lv.R && col >= 0 && col < lv.C) return [row, col];
+  return null;
+}
+
+function onDown(px, py) {
+  if (won) return;
+  const cell = cellAt(px, py);
+  if (!cell) return;
+  const [r, c] = cell;
+  const [er, ec] = path[path.length-1];
+  if (r === er && c === ec) {
+    drag = true;
+  } else if (r === lv.start[0] && c === lv.start[1]) {
+    resetPath();
+    drag = true;
+  }
+}
+
+function onMove(px, py) {
+  if (!drag || won) return;
+  const cell = cellAt(px, py);
+  if (cell) tryExtend(cell[0], cell[1]);
+}
+
+function onUp() { drag = false; }
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  onDown(e.touches[0].clientX, e.touches[0].clientY);
+}, {passive: false});
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  onMove(e.touches[0].clientX, e.touches[0].clientY);
+}, {passive: false});
+
+canvas.addEventListener('touchend',   e => { e.preventDefault(); onUp(); }, {passive: false});
+canvas.addEventListener('mousedown',  e => onDown(e.clientX, e.clientY));
+canvas.addEventListener('mousemove',  e => onMove(e.clientX, e.clientY));
+window.addEventListener('mouseup',    onUp);
+
+document.getElementById('undo-btn') .addEventListener('click', undoStep);
+document.getElementById('reset-btn').addEventListener('click', () => { if (!won) resetPath(); });
+document.getElementById('next-btn') .addEventListener('click', () => startLevel(lvIdx + 1));
+
+// ── Boot ──────────────────────────────────────────────────────────────
+startLevel(0);
+
+// ── Settings & Music ──────────────────────────────────────────
+var _musicOn = localStorage.getItem('trace-music') !== 'false';
+var _actx = null, _mActive = false, _mNodes = [], _mTimers = [];
+
+function _getCtx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  return _actx;
+}
+function _playTone(freq, dur, vol) {
+  if (!_mActive || !_actx) return;
+  var osc = _actx.createOscillator(), g = _actx.createGain();
+  osc.connect(g); g.connect(_actx.destination);
+  osc.type = 'sine'; osc.frequency.value = freq;
+  var t = _actx.currentTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.15);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.start(t); osc.stop(t + dur);
+  _mNodes.push(osc);
+  osc.onended = function() { var i = _mNodes.indexOf(osc); if (i > -1) _mNodes.splice(i, 1); };
+}
+function _startDrone() {
+  if (!_actx || !_mActive) return;
+  var osc = _actx.createOscillator(), g = _actx.createGain();
+  var lfo = _actx.createOscillator(), lg = _actx.createGain();
+  lfo.frequency.value = 0.22; lg.gain.value = 0.018;
+  lfo.connect(lg); lg.connect(g.gain);
+  osc.type = 'triangle'; osc.frequency.value = 73.42; // D2 — dark, mysterious
+  osc.connect(g); g.connect(_actx.destination);
+  g.gain.setValueAtTime(0.07, _actx.currentTime);
+  osc.start(); lfo.start();
+  _mNodes.push(osc, lfo);
+}
+// A natural minor fragments
+var _SCALE = [110, 123.47, 130.81, 146.83, 164.81, 196.00, 220, 246.94, 261.63];
+function _musicLoop() {
+  if (!_mActive) return;
+  _playTone(_SCALE[Math.floor(Math.random() * _SCALE.length)], 4.0, 0.038);
+  var t = setTimeout(_musicLoop, 2200 + Math.floor(Math.random() * 3200));
+  _mTimers.push(t);
+}
+function _startMusic() {
+  if (_mActive || !_musicOn) return;
+  var ctx = _getCtx();
+  _mActive = true;
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(function() { if (_mActive) { _startDrone(); _musicLoop(); } });
+  } else {
+    _startDrone(); _musicLoop();
+  }
+}
+function _stopMusic() {
+  _mActive = false;
+  _mTimers.forEach(function(t) { clearTimeout(t); }); _mTimers = [];
+  _mNodes.forEach(function(n) { try { n.stop(0); } catch(e) {} }); _mNodes = [];
+}
+function _updateToggle() {
+  var btn = document.getElementById('musicToggle'); if (!btn) return;
+  btn.style.background = _musicOn ? '#44aaff' : '#333';
+  var th = btn.querySelector('.thumb'); if (th) th.style.left = _musicOn ? '22px' : '2px';
+}
+var _audioReady = false;
+function _onFirstTouch() {
+  if (_audioReady) return; _audioReady = true;
+  var ctx = _getCtx();
+  var buf = ctx.createBuffer(1, 1, 22050);
+  var src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(0);
+  ctx.resume().then(function() { if (_musicOn && !_mActive) _startMusic(); });
+}
+document.addEventListener('click', _onFirstTouch, { once: true });
+document.addEventListener('touchstart', _onFirstTouch, { once: true });
+function toggleSettings() { document.getElementById('settingsPanel').classList.toggle('open'); }
+function toggleMusic() {
+  _musicOn = !_musicOn;
+  localStorage.setItem('trace-music', _musicOn);
+  _musicOn ? _startMusic() : _stopMusic();
+  _updateToggle();
+}
+document.addEventListener('click', function(e) {
+  var p = document.getElementById('settingsPanel'), b = document.getElementById('settingsBtn');
+  if (p && p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target))
+    p.classList.remove('open');
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+</script>
+<button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
+<div id="settingsPanel">
+  <div class="s-row">
+    <span class="s-label">Music</span>
+    <button id="musicToggle" class="s-toggle" onclick="toggleMusic()"><div class="thumb"></div></button>
+  </div>
+</div>
+<script>_updateToggle();</script>
+</body>
+</html>

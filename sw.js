@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v2';
+const CACHE_NAME = 'mini-games-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -12,6 +12,16 @@ const ASSETS = [
   '/games/glide/',
   '/games/glide/index.html',
   '/games/glide/manifest.json',
+  '/games/sliding-puzzle/favicon.svg',
+  '/games/trace/',
+  '/games/trace/index.html',
+  '/games/trace/manifest.json',
+  '/games/vantage/',
+  '/games/vantage/index.html',
+  '/games/vantage/manifest.json',
+  '/games/sudoku/',
+  '/games/sudoku/index.html',
+  '/games/sudoku/manifest.json',
 ];
 
 self.addEventListener('install', (e) => {

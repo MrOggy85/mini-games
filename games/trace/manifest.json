@@ -1,0 +1,8 @@
+{
+  "name": "Trace",
+  "short_name": "Trace",
+  "start_url": "/games/trace/",
+  "display": "standalone",
+  "background_color": "#09091a",
+  "theme_color": "#09091a"
+}

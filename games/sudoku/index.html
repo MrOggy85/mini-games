@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/sudoku/manifest.json">
+<title>Sudoku</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  background: #f7f7f3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 16px 36px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #888;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+  margin-bottom: 6px;
+}
+.back-link:hover { color: #4a90e2; }
+
+h1 {
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin-bottom: 10px;
+  letter-spacing: -0.5px;
+}
+
+.difficulty {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.diff-btn {
+  padding: 8px 18px;
+  border: 2px solid #ddd;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 40px;
+}
+.diff-btn.active {
+  border-color: #3d5af1;
+  background: #3d5af1;
+  color: #fff;
+}
+
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  width: min(90vw, 450px);
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.mistakes {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #e04040;
+}
+.timer {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #555;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  width: min(90vw, 450px);
+  height: min(90vw, 450px);
+  border: 2.5px solid #1a1a2e;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.95rem, 4.2vw, 1.55rem);
+  font-weight: 700;
+  cursor: pointer;
+  background: #fff;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.08s;
+  position: relative;
+  overflow: hidden;
+}
+.cell.highlight  { background: #edf0fc; }
+.cell.same-val   { background: #d6dcf9; }
+.cell.selected   { background: #b8c6f7 !important; }
+.cell.given      { color: #1a1a2e; }
+.cell.user-ok    { color: #3d5af1; }
+.cell.error      { color: #e04040 !important; }
+
+/* Pencil notes grid inside a cell */
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  padding: 1px;
+}
+.note-grid span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.25rem, 1.3vw, 0.52rem);
+  color: #3d5af1;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Controls row */
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  width: min(90vw, 450px);
+  justify-content: center;
+}
+.ctrl-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 14px;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #555;
+  min-width: 60px;
+  min-height: 52px;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s;
+}
+.ctrl-btn .icon { font-size: 1.25rem; line-height: 1; }
+.ctrl-btn.active {
+  border-color: #3d5af1;
+  background: #3d5af1;
+  color: #fff;
+}
+.ctrl-btn:active { transform: scale(0.94); }
+
+/* Number pad — 3×3 layout */
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: min(54vw, 270px);
+  margin-bottom: 16px;
+}
+.num-btn {
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  font-size: clamp(1.2rem, 5vw, 1.7rem);
+  font-weight: 700;
+  color: #1a1a2e;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.12s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.09);
+  min-height: 54px;
+}
+.num-btn:active {
+  transform: scale(0.91);
+  background: #3d5af1;
+  color: #fff;
+}
+.num-btn.exhausted { color: #bbb; pointer-events: none; }
+
+/* New game button */
+.new-game-btn {
+  padding: 14px 44px;
+  background: #3d5af1;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s;
+  box-shadow: 0 4px 16px rgba(61,90,241,0.28);
+  min-height: 52px;
+}
+.new-game-btn:active { transform: scale(0.96); }
+
+/* Win overlay */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.overlay.show { display: flex; }
+.overlay-box {
+  background: #fff;
+  border-radius: 24px;
+  padding: 36px 32px;
+  text-align: center;
+  max-width: 310px;
+  width: 88%;
+  animation: popIn 0.28s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popIn {
+  from { transform: scale(0.65); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.overlay-box h2 { font-size: 1.9rem; color: #1a1a2e; margin-bottom: 6px; }
+.overlay-box p  { color: #666; margin-bottom: 22px; font-size: 0.95rem; line-height: 1.5; }
+.overlay-box button {
+  padding: 13px 40px;
+  background: #3d5af1;
+  color: #fff;
+  border: none;
+  border-radius: 22px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Loading spinner */
+.loading {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(247,247,243,0.88);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #3d5af1;
+}
+.loading.show { display: flex; }
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid #d0d9fd;
+  border-top-color: #3d5af1;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Settings ── */
+#settingsBtn {
+  position: fixed; top: 12px; right: 14px; z-index: 200;
+  background: rgba(255,255,255,0.75); border: none; border-radius: 50%;
+  width: 40px; height: 40px; font-size: 19px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #777; box-shadow: 0 1px 6px rgba(0,0,0,0.13);
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+#settingsBtn:hover { background: rgba(255,255,255,0.95); color: #444; }
+#settingsPanel {
+  display: none; position: fixed; top: 58px; right: 14px; z-index: 199;
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18); padding: 16px 18px; min-width: 175px;
+}
+#settingsPanel.open { display: block; }
+.s-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.s-label { font-size: 0.88rem; font-weight: 600; color: #444; }
+.s-toggle {
+  position: relative; width: 44px; height: 24px; border-radius: 12px;
+  border: none; cursor: pointer; transition: background 0.2s;
+  flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.s-toggle .thumb {
+  position: absolute; top: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: left 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25); pointer-events: none;
+}
+</style>
+</head>
+<body>
+<a href="/" class="back-link">&larr; All Games</a>
+<script>
+(function(){
+  if (!window.matchMedia('(display-mode: standalone)').matches) return;
+  var fromPortal = false;
+  try { fromPortal = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch(e){}
+  if (fromPortal) sessionStorage.setItem('mini-games-portal', '1');
+  if (!fromPortal && sessionStorage.getItem('mini-games-portal') !== '1') {
+    document.querySelector('.back-link').style.display = 'none';
+  }
+})();
+</script>
+<h1>Sudoku</h1>
+
+<div class="difficulty">
+  <button class="diff-btn" data-diff="easy">Easy</button>
+  <button class="diff-btn active" data-diff="medium">Medium</button>
+  <button class="diff-btn" data-diff="hard">Hard</button>
+</div>
+
+<div class="status-bar">
+  <div class="mistakes" id="mistakes">❌ 0</div>
+  <div class="timer" id="timer">0:00</div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="controls">
+  <button class="ctrl-btn" id="undoBtn">
+    <span class="icon">↩</span>
+    <span>Undo</span>
+  </button>
+  <button class="ctrl-btn" id="eraseBtn">
+    <span class="icon">✕</span>
+    <span>Erase</span>
+  </button>
+  <button class="ctrl-btn" id="notesBtn">
+    <span class="icon">✏️</span>
+    <span>Notes</span>
+  </button>
+  <button class="ctrl-btn" id="hintBtn">
+    <span class="icon">💡</span>
+    <span>Hint</span>
+  </button>
+</div>
+
+<div class="numpad" id="numpad"></div>
+<button class="new-game-btn" id="newGameBtn">New Game</button>
+
+<div class="overlay" id="winOverlay">
+  <div class="overlay-box">
+    <h2>🎉 Solved!</h2>
+    <p id="winMsg"></p>
+    <button onclick="startNewGame()">Play Again</button>
+  </div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  Generating puzzle…
+</div>
+
+<script>
+// ─── ENGINE ───────────────────────────────────────────────
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function isValid(board, r, c, n) {
+  for (let i = 0; i < 9; i++) {
+    if (board[r][i] === n) return false;
+    if (board[i][c] === n) return false;
+  }
+  const br = Math.floor(r / 3) * 3;
+  const bc = Math.floor(c / 3) * 3;
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      if (board[br + i][bc + j] === n) return false;
+  return true;
+}
+
+function findEmpty(board) {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] === 0) return [r, c];
+  return null;
+}
+
+function generateSolution() {
+  const board = Array.from({ length: 9 }, () => new Array(9).fill(0));
+  (function fill() {
+    const pos = findEmpty(board);
+    if (!pos) return true;
+    const [r, c] = pos;
+    for (const n of shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9])) {
+      if (isValid(board, r, c, n)) {
+        board[r][c] = n;
+        if (fill()) return true;
+        board[r][c] = 0;
+      }
+    }
+    return false;
+  })();
+  return board;
+}
+
+// Count distinct solutions, stop early once `limit` is reached.
+function countSolutions(board, limit) {
+  let count = 0;
+  const b = board.map(r => r.slice());
+  (function solve() {
+    if (count >= limit) return;
+    const pos = findEmpty(b);
+    if (!pos) { count++; return; }
+    const [r, c] = pos;
+    for (let n = 1; n <= 9 && count < limit; n++) {
+      if (isValid(b, r, c, n)) {
+        b[r][c] = n;
+        solve();
+        b[r][c] = 0;
+      }
+    }
+  })();
+  return count;
+}
+
+// Difficulty → number of given clues left in the puzzle.
+const CLUES = { easy: 40, medium: 32, hard: 26 };
+
+function createPuzzle(solution, difficulty) {
+  const clues = CLUES[difficulty];
+  const puzzle = solution.map(r => r.slice());
+  const cells = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      cells.push([r, c]);
+  shuffle(cells);
+
+  let removed = 0;
+  const target = 81 - clues;
+
+  for (const [r, c] of cells) {
+    if (removed >= target) break;
+    const val = puzzle[r][c];
+    puzzle[r][c] = 0;
+    if (countSolutions(puzzle, 2) === 1) {
+      removed++;
+    } else {
+      puzzle[r][c] = val; // restore: removal breaks uniqueness
+    }
+  }
+  return puzzle;
+}
+
+// ─── GAME STATE ───────────────────────────────────────────
+
+let solution = null;
+let given   = null; // boolean 9×9 — is this cell a preset clue?
+let board   = null; // current player board (0 = empty)
+let notes   = null; // 9×9 of Sets (pencil marks)
+let sel     = null; // [r, c] or null
+let notesMode  = false;
+let mistakeCnt = 0;
+let timerSec   = 0;
+let timerID    = null;
+let done       = false;
+let difficulty = 'medium';
+let history    = []; // undo stack: {r, c, val, notes}
+
+// ─── TIMER ────────────────────────────────────────────────
+
+function startTimer() {
+  clearInterval(timerID);
+  timerSec = 0;
+  renderTimer();
+  timerID = setInterval(() => { if (!done) { timerSec++; renderTimer(); } }, 1000);
+}
+
+function renderTimer() {
+  const m = Math.floor(timerSec / 60);
+  const s = timerSec % 60;
+  document.getElementById('timer').textContent = m + ':' + String(s).padStart(2, '0');
+}
+
+// ─── GRID BUILD ───────────────────────────────────────────
+
+const THIN  = '1px solid #d4d8e8';
+const THICK = '2.5px solid #1a1a2e';
+
+function buildGrid() {
+  const el = document.getElementById('grid');
+  el.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.style.borderRight  = (c === 2 || c === 5) ? THICK : (c < 8 ? THIN : 'none');
+      cell.style.borderBottom = (r === 2 || r === 5) ? THICK : (r < 8 ? THIN : 'none');
+      cell.style.borderLeft   = 'none';
+      cell.style.borderTop    = 'none';
+      cell.addEventListener('click', () => selectCell(r, c));
+      el.appendChild(cell);
+    }
+  }
+}
+
+// ─── RENDERING ────────────────────────────────────────────
+
+function renderAll() {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      renderCell(r, c);
+}
+
+function renderCell(r, c) {
+  const cell = document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  if (!cell) return;
+  cell.innerHTML = '';
+
+  // Background highlight
+  let bg = '';
+  if (sel) {
+    const [sr, sc] = sel;
+    if (r === sr && c === sc) {
+      bg = 'selected';
+    } else {
+      const sameBox = Math.floor(r / 3) === Math.floor(sr / 3) &&
+                      Math.floor(c / 3) === Math.floor(sc / 3);
+      const selVal  = board[sr][sc];
+      if (selVal !== 0 && board[r][c] === selVal) bg = 'same-val';
+      else if (r === sr || c === sc || sameBox)   bg = 'highlight';
+    }
+  }
+  cell.className = 'cell' + (bg ? ' ' + bg : '');
+  // Re-apply borders via inline style (className reset cleared nothing, but just in case)
+
+  const val = board[r][c];
+  if (val !== 0) {
+    cell.textContent = val;
+    if (given[r][c]) {
+      cell.classList.add('given');
+    } else if (val === solution[r][c]) {
+      cell.classList.add('user-ok');
+    } else {
+      cell.classList.add('error');
+    }
+  } else if (notes[r][c].size > 0) {
+    const ng = document.createElement('div');
+    ng.className = 'note-grid';
+    for (let n = 1; n <= 9; n++) {
+      const sp = document.createElement('span');
+      sp.textContent = notes[r][c].has(n) ? n : '';
+      ng.appendChild(sp);
+    }
+    cell.appendChild(ng);
+  }
+}
+
+function selectCell(r, c) {
+  sel = [r, c];
+  renderAll();
+}
+
+// ─── INPUT ────────────────────────────────────────────────
+
+function inputNumber(n) {
+  if (!sel || done) return;
+  const [r, c] = sel;
+  if (given[r][c]) return;
+
+  if (notesMode) {
+    history.push({ r, c, val: board[r][c], notes: new Set(notes[r][c]) });
+    if (board[r][c] === 0) {
+      notes[r][c].has(n) ? notes[r][c].delete(n) : notes[r][c].add(n);
+    }
+    renderCell(r, c);
+    return;
+  }
+
+  // Don't overwrite a correctly placed number
+  if (board[r][c] === solution[r][c] && board[r][c] !== 0) return;
+
+  history.push({ r, c, val: board[r][c], notes: new Set(notes[r][c]) });
+  board[r][c] = n;
+  notes[r][c].clear();
+
+  if (n !== solution[r][c]) {
+    mistakeCnt++;
+    document.getElementById('mistakes').textContent = '❌ ' + mistakeCnt;
+  } else {
+    clearNotesForNumber(r, c, n);
+  }
+
+  renderAll();
+  refreshNumpad();
+  if (checkWin()) finishGame();
+}
+
+function clearNotesForNumber(r, c, n) {
+  for (let i = 0; i < 9; i++) {
+    notes[r][i].delete(n);
+    notes[i][c].delete(n);
+  }
+  const br = Math.floor(r / 3) * 3;
+  const bc = Math.floor(c / 3) * 3;
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++)
+      notes[br + i][bc + j].delete(n);
+}
+
+function eraseCell() {
+  if (!sel || done) return;
+  const [r, c] = sel;
+  if (given[r][c]) return;
+  if (board[r][c] === 0 && notes[r][c].size === 0) return;
+
+  history.push({ r, c, val: board[r][c], notes: new Set(notes[r][c]) });
+  board[r][c] = 0;
+  notes[r][c].clear();
+  renderAll();
+  refreshNumpad();
+}
+
+function undo() {
+  if (!history.length) return;
+  const prev = history.pop();
+  board[prev.r][prev.c] = prev.val;
+  notes[prev.r][prev.c] = prev.notes;
+  renderAll();
+  refreshNumpad();
+}
+
+function hint() {
+  if (!sel || done) return;
+  const [r, c] = sel;
+  if (given[r][c]) return;
+  if (board[r][c] === solution[r][c] && board[r][c] !== 0) return;
+
+  history.push({ r, c, val: board[r][c], notes: new Set(notes[r][c]) });
+  board[r][c] = solution[r][c];
+  given[r][c]  = true; // treat hint as a clue so it cannot be erased
+  notes[r][c].clear();
+  clearNotesForNumber(r, c, solution[r][c]);
+
+  renderAll();
+  refreshNumpad();
+  if (checkWin()) finishGame();
+}
+
+// ─── NUMPAD ───────────────────────────────────────────────
+
+function buildNumpad() {
+  const pad = document.getElementById('numpad');
+  pad.innerHTML = '';
+  for (let n = 1; n <= 9; n++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.textContent = n;
+    btn.dataset.n = n;
+    btn.addEventListener('click', () => inputNumber(n));
+    pad.appendChild(btn);
+  }
+}
+
+function refreshNumpad() {
+  for (let n = 1; n <= 9; n++) {
+    let placed = 0;
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (board[r][c] === n && board[r][c] === solution[r][c]) placed++;
+    document.querySelector(`.num-btn[data-n="${n}"]`)
+            ?.classList.toggle('exhausted', placed === 9);
+  }
+}
+
+// ─── WIN ──────────────────────────────────────────────────
+
+function checkWin() {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] !== solution[r][c]) return false;
+  return true;
+}
+
+function finishGame() {
+  done = true;
+  clearInterval(timerID);
+  const m = Math.floor(timerSec / 60);
+  const s = timerSec % 60;
+  const diffLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  document.getElementById('winMsg').textContent =
+    `${diffLabel} · Time: ${m}:${String(s).padStart(2, '0')} · Mistakes: ${mistakeCnt}`;
+  setTimeout(() => document.getElementById('winOverlay').classList.add('show'), 400);
+}
+
+// ─── NEW GAME ─────────────────────────────────────────────
+
+function startNewGame() {
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('loading').classList.add('show');
+
+  // Yield to browser so loading overlay paints before the heavy computation.
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      solution = generateSolution();
+      const puzzle = createPuzzle(solution, difficulty);
+
+      board  = puzzle.map(r => r.slice());
+      given  = puzzle.map(r => r.map(v => v !== 0));
+      notes  = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+      sel    = null;
+      done   = false;
+      notesMode  = false;
+      mistakeCnt = 0;
+      history    = [];
+
+      document.getElementById('mistakes').textContent = '❌ 0';
+      document.getElementById('notesBtn').classList.remove('active');
+      document.getElementById('loading').classList.remove('show');
+
+      buildGrid();
+      buildNumpad();
+      renderAll();
+      refreshNumpad();
+      startTimer();
+    }, 0);
+  });
+}
+
+// ─── NOTES TOGGLE ─────────────────────────────────────────
+
+function toggleNotes() {
+  notesMode = !notesMode;
+  document.getElementById('notesBtn').classList.toggle('active', notesMode);
+}
+
+// ─── KEYBOARD ─────────────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  if (done) return;
+  if (e.key >= '1' && e.key <= '9') {
+    inputNumber(+e.key);
+  } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+    eraseCell();
+  } else if (e.key === 'ArrowUp'    && sel && sel[0] > 0) selectCell(sel[0] - 1, sel[1]);
+  else if   (e.key === 'ArrowDown'  && sel && sel[0] < 8) selectCell(sel[0] + 1, sel[1]);
+  else if   (e.key === 'ArrowLeft'  && sel && sel[1] > 0) selectCell(sel[0],     sel[1] - 1);
+  else if   (e.key === 'ArrowRight' && sel && sel[1] < 8) selectCell(sel[0],     sel[1] + 1);
+  else if   ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); }
+  else if   (e.key === 'n' || e.key === 'N') toggleNotes();
+});
+
+// ─── INIT ─────────────────────────────────────────────────
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty = btn.dataset.diff;
+    startNewGame();
+  });
+});
+
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('eraseBtn').addEventListener('click', eraseCell);
+document.getElementById('notesBtn').addEventListener('click', toggleNotes);
+document.getElementById('hintBtn').addEventListener('click', hint);
+document.getElementById('newGameBtn').addEventListener('click', startNewGame);
+
+startNewGame();
+
+// ── Settings & Music ──────────────────────────────────────────
+var _musicOn = localStorage.getItem('sudoku-music') !== 'false';
+var _actx = null, _mActive = false, _mNodes = [], _mTimers = [];
+
+function _getCtx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  return _actx;
+}
+function _playTone(freq, dur, vol) {
+  if (!_mActive || !_actx) return;
+  var osc = _actx.createOscillator(), g = _actx.createGain();
+  osc.connect(g); g.connect(_actx.destination);
+  osc.type = 'sine'; osc.frequency.value = freq;
+  var t = _actx.currentTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.1);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.start(t); osc.stop(t + dur);
+  _mNodes.push(osc);
+  osc.onended = function() { var i = _mNodes.indexOf(osc); if (i > -1) _mNodes.splice(i, 1); };
+}
+// C minor pentatonic — contemplative, focusing
+var _SCALE = [130.81, 155.56, 195.99, 233.08, 261.63, 311.13, 392.00, 466.16, 523.25];
+function _musicLoop() {
+  if (!_mActive) return;
+  _playTone(_SCALE[Math.floor(Math.random() * _SCALE.length)], 3.0, 0.055);
+  if (Math.random() > 0.65) {
+    var t1 = setTimeout(function() {
+      if (_mActive) _playTone(_SCALE[Math.floor(Math.random() * _SCALE.length)], 2.5, 0.03);
+    }, 200 + Math.floor(Math.random() * 400));
+    _mTimers.push(t1);
+  }
+  var t2 = setTimeout(_musicLoop, 1500 + Math.floor(Math.random() * 2000));
+  _mTimers.push(t2);
+}
+function _startMusic() {
+  if (_mActive || !_musicOn) return;
+  var ctx = _getCtx();
+  _mActive = true;
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(function() { if (_mActive) _musicLoop(); });
+  } else {
+    _musicLoop();
+  }
+}
+function _stopMusic() {
+  _mActive = false;
+  _mTimers.forEach(function(t) { clearTimeout(t); }); _mTimers = [];
+  _mNodes.forEach(function(n) { try { n.stop(0); } catch(e) {} }); _mNodes = [];
+}
+function _updateToggle() {
+  var btn = document.getElementById('musicToggle'); if (!btn) return;
+  btn.style.background = _musicOn ? '#3d5af1' : '#ccc';
+  var th = btn.querySelector('.thumb'); if (th) th.style.left = _musicOn ? '22px' : '2px';
+}
+var _audioReady = false;
+function _onFirstTouch() {
+  if (_audioReady) return; _audioReady = true;
+  var ctx = _getCtx();
+  var buf = ctx.createBuffer(1, 1, 22050);
+  var src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(0);
+  ctx.resume().then(function() { if (_musicOn && !_mActive) _startMusic(); });
+}
+document.addEventListener('click', _onFirstTouch, { once: true });
+document.addEventListener('touchstart', _onFirstTouch, { once: true });
+function toggleSettings() { document.getElementById('settingsPanel').classList.toggle('open'); }
+function toggleMusic() {
+  _musicOn = !_musicOn;
+  localStorage.setItem('sudoku-music', _musicOn);
+  _musicOn ? _startMusic() : _stopMusic();
+  _updateToggle();
+}
+document.addEventListener('click', function(e) {
+  var p = document.getElementById('settingsPanel'), b = document.getElementById('settingsBtn');
+  if (p && p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target))
+    p.classList.remove('open');
+});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+<button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
+<div id="settingsPanel">
+  <div class="s-row">
+    <span class="s-label">Music</span>
+    <button id="musicToggle" class="s-toggle" onclick="toggleMusic()"><div class="thumb"></div></button>
+  </div>
+</div>
+<script>_updateToggle();</script>
+</body>
+</html>
