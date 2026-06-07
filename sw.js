@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v4';
+const CACHE_NAME = 'mini-games-v5';
 const ASSETS = [
   '/',
   '/index.html',
@@ -44,6 +44,21 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+  // Network-first for HTML navigation requests so users always get the latest version.
+  // Falls back to cache when offline.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  // Cache-first for all other assets.
   e.respondWith(
     caches.match(e.request).then((cached) => cached || fetch(e.request))
   );
