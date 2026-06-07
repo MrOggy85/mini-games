@@ -622,8 +622,12 @@ function _musicLoop() {
 function _startMusic() {
   if (_mActive || !_musicOn) return;
   var ctx = _getCtx();
-  if (ctx.state === 'suspended') ctx.resume();
-  _mActive = true; _musicLoop();
+  _mActive = true;
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(function() { if (_mActive) _musicLoop(); });
+  } else {
+    _musicLoop();
+  }
 }
 function _stopMusic() {
   _mActive = false;
@@ -637,7 +641,11 @@ function _updateToggle() {
 }
 var _audioReady = false;
 function _onFirstTouch() {
-  if (_audioReady) return; _audioReady = true; if (_musicOn) _startMusic();
+  if (_audioReady) return; _audioReady = true;
+  var ctx = _getCtx();
+  var buf = ctx.createBuffer(1, 1, 22050);
+  var src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(0);
+  ctx.resume().then(function() { if (_musicOn && !_mActive) _startMusic(); });
 }
 document.addEventListener('click', _onFirstTouch, { once: true });
 document.addEventListener('touchstart', _onFirstTouch, { once: true });
@@ -653,7 +661,6 @@ document.addEventListener('click', function(e) {
   if (p && p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target))
     p.classList.remove('open');
 });
-_updateToggle();
 </script>
 <button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
 <div id="settingsPanel">
@@ -666,6 +673,7 @@ _updateToggle();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
+_updateToggle();
 </script>
 </body>
 </html>
