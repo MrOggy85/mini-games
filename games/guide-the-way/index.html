@@ -667,7 +667,7 @@ const HAND_LEVELS = [
       [0,1,0,0,0,0],
       [0,0,0,1,0,1],
       [1,0,1,0,0,0],
-      [0,0,0,0,1,0],
+      [0,0,0,0,0,0],
     ],
     start: [0,0],
     goal: [5,4],
@@ -741,6 +741,7 @@ function generateLevel(levelNum) {
     if (useIce) {
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
+          if ((r === 0 && c === 0) || (r === size-1 && c === size-1)) continue;
           if (grid[r][c] === T.EMPTY && rng() < 0.08) {
             grid[r][c] = T.ICE;
           }
@@ -774,6 +775,7 @@ function generateLevel(levelNum) {
       const dirs = [T.ARROW_U, T.ARROW_D, T.ARROW_L, T.ARROW_R];
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
+          if ((r === 0 && c === 0) || (r === size-1 && c === size-1)) continue;
           if (grid[r][c] === T.EMPTY && rng() < 0.05) {
             grid[r][c] = dirs[Math.floor(rng() * 4)];
           }
@@ -921,7 +923,15 @@ function drawTile(r, c) {
   const cr = 6;
   ctx.roundRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3, cr);
 
-  if (tile === T.WALL) {
+  if (isGoal) {
+    ctx.fillStyle = COLORS.goal;
+    ctx.fill();
+    ctx.fillStyle = '#555';
+    ctx.font = `${CELL * 0.45}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🏁', x + CELL/2, y + CELL/2);
+  } else if (tile === T.WALL) {
     ctx.fillStyle = COLORS.wall;
     ctx.fill();
     // Brick-like highlight
@@ -962,14 +972,6 @@ function drawTile(r, c) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(arrows[tile - T.ARROW_U], x + CELL/2, y + CELL/2);
-  } else if (isGoal) {
-    ctx.fillStyle = COLORS.goal;
-    ctx.fill();
-    ctx.fillStyle = '#555';
-    ctx.font = `${CELL * 0.45}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🏁', x + CELL/2, y + CELL/2);
   } else {
     ctx.fillStyle = COLORS.empty;
     ctx.fill();
@@ -1265,6 +1267,16 @@ document.getElementById('btnClear').addEventListener('click', () => {
 // ─── Run sequence ─────────────────────────────────────────────────────────────
 const DIRS = { U:[-1,0], D:[1,0], L:[0,-1], R:[0,1] };
 
+function moveRobotAnimTo(tx, ty) {
+  const t = Math.min(robotAnim.t, 1);
+  const ease = 1 - Math.pow(1 - t, 3);
+  robotAnim.x = robotAnim.x + (robotAnim.targetX - robotAnim.x) * ease;
+  robotAnim.y = robotAnim.y + (robotAnim.targetY - robotAnim.y) * ease;
+  robotAnim.targetX = tx;
+  robotAnim.targetY = ty;
+  robotAnim.t = 0;
+}
+
 async function sleep(ms) {
   return new Promise(res => setTimeout(res, ms));
 }
@@ -1338,9 +1350,7 @@ async function runSequence() {
       for (const [sr, sc] of slidePositions) {
         robotPos = [sr, sc];
         const { x: tx, y: ty } = cellCenter(sr, sc);
-        robotAnim.targetX = tx;
-        robotAnim.targetY = ty;
-        robotAnim.t = 0;
+        moveRobotAnimTo(tx, ty);
         replayTrail.push([sr, sc]);
         if (grid[sr][sc] === T.KEY) robotHasKey = true;
         await sleep(120);
@@ -1351,9 +1361,7 @@ async function runSequence() {
       robotPos = [nr, nc];
       if (grid[nr][nc] === T.KEY) robotHasKey = true;
       const { x: tx, y: ty } = cellCenter(nr, nc);
-      robotAnim.targetX = tx;
-      robotAnim.targetY = ty;
-      robotAnim.t = 0;
+      moveRobotAnimTo(tx, ty);
       replayTrail.push([nr, nc]);
       sfxStep();
       await sleep(220);
@@ -1371,9 +1379,7 @@ async function runSequence() {
           robotPos = [fr, fc];
           if (grid[fr][fc] === T.KEY) robotHasKey = true;
           const { x: tx, y: ty } = cellCenter(fr, fc);
-          robotAnim.targetX = tx;
-          robotAnim.targetY = ty;
-          robotAnim.t = 0;
+          moveRobotAnimTo(tx, ty);
           replayTrail.push([fr, fc]);
           sfxStep();
           await sleep(220);
@@ -1407,9 +1413,7 @@ async function runSequence() {
     replayTrail = [];
     rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
     const { x, y } = cellCenter(robotPos[0], robotPos[1]);
-    robotAnim.targetX = x;
-    robotAnim.targetY = y;
-    robotAnim.t = 0;
+    moveRobotAnimTo(x, y);
     commands = [];
     updateCommandStrip();
     document.getElementById('btnRun').disabled = false;
