@@ -496,6 +496,7 @@ canvas#gameCanvas {
         <span class="toggle-slider"></span>
       </label>
     </div>
+    <div id="audioWarning" style="display:none;font-size:0.8rem;color:#888;line-height:1.3;padding:2px 0 6px;">Music unavailable in this browser.</div>
     <div class="settings-row">
       <label>Sound FX</label>
       <label class="toggle">
@@ -509,10 +510,20 @@ canvas#gameCanvas {
 
 <script>
 // ─── Audio ───────────────────────────────────────────────────────────────────
-const AC = new (window.AudioContext || window.webkitAudioContext)();
+let AC = null;
+try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+
+function showAudioWarning() {
+  const el = document.getElementById('audioWarning');
+  if (el) el.style.display = 'block';
+  const btn = document.getElementById('musicToggle');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'default'; }
+}
+
+if (!AC) showAudioWarning();
 
 function playTone(freq, type, dur, vol=0.15, delay=0) {
-  if (!sfxOn) return;
+  if (!sfxOn || !AC) return;
   const o = AC.createOscillator();
   const g = AC.createGain();
   o.connect(g); g.connect(AC.destination);
@@ -549,7 +560,7 @@ let musicOn = true;
 let sfxOn = true;
 
 function startMusic() {
-  if (!musicOn) return;
+  if (!musicOn || !AC) return;
   stopMusic();
   musicGain = AC.createGain();
   musicGain.gain.value = 0.04;
@@ -585,10 +596,22 @@ function stopMusic() {
 
 // Resume audio context on first touch
 document.addEventListener('touchstart', () => {
-  if (AC.state === 'suspended') AC.resume().then(() => { if (musicOn) startMusic(); });
+  if (!AC) return;
+  if (AC.state === 'suspended') {
+    AC.resume().then(() => {
+      if (AC.state !== 'running') { showAudioWarning(); return; }
+      if (musicOn) startMusic();
+    }).catch(() => showAudioWarning());
+  }
 }, { once: true });
 document.addEventListener('click', () => {
-  if (AC.state === 'suspended') AC.resume().then(() => { if (musicOn) startMusic(); });
+  if (!AC) return;
+  if (AC.state === 'suspended') {
+    AC.resume().then(() => {
+      if (AC.state !== 'running') { showAudioWarning(); return; }
+      if (musicOn) startMusic();
+    }).catch(() => showAudioWarning());
+  }
 }, { once: true });
 
 // ─── Stars ───────────────────────────────────────────────────────────────────
@@ -1470,7 +1493,7 @@ window.addEventListener('resize', () => {
 
 // Start music after user interaction
 setTimeout(() => {
-  if (AC.state === 'running' && musicOn) startMusic();
+  if (AC && AC.state === 'running' && musicOn) startMusic();
 }, 500);
 </script>
 </body>
