@@ -91,10 +91,10 @@ body {
   grid-template-columns: repeat(4, 1fr);
   gap: 5px;
   width: 100%;
-  background: #050a20;
+  background: #c8c8c8;
   border-radius: 14px;
   padding: 8px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.5);
 }
 
 .tile {
@@ -104,10 +104,10 @@ body {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
-  background-color: #0a1030;
+  background-color: #d8d8d8;
   background-repeat: no-repeat;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
 }
 
 .tile:hover {
@@ -120,9 +120,9 @@ body {
 }
 
 .tile.empty {
-  background-color: rgba(5, 10, 32, 0.6) !important;
+  background-color: rgba(180, 180, 180, 0.8) !important;
   background-image: none !important;
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.18);
   cursor: default;
   pointer-events: none;
 }
@@ -324,150 +324,135 @@ var TOTAL = SIZE * SIZE;
 
 var SOLAR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">'
   + '<defs>'
-  +   '<radialGradient id="sbg" cx="42%" cy="45%" r="70%">'
-  +     '<stop offset="0%" stop-color="#1a1a6e"/>'
-  +     '<stop offset="100%" stop-color="#020210"/>'
+  // Bright diagonal background: orange-red → yellow → cyan → violet
+  +   '<linearGradient id="sbg" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">'
+  +     '<stop offset="0%" stop-color="#FF4500"/>'
+  +     '<stop offset="28%" stop-color="#FFD700"/>'
+  +     '<stop offset="62%" stop-color="#00E5FF"/>'
+  +     '<stop offset="100%" stop-color="#9C27B0"/>'
+  +   '</linearGradient>'
+  // Horizontal overlay adds left-right contrast (pink left, blue right)
+  +   '<linearGradient id="shg" x1="0" y1="0" x2="1" y2="0" gradientUnits="objectBoundingBox">'
+  +     '<stop offset="0%" stop-color="#FF1744" stop-opacity="0.22"/>'
+  +     '<stop offset="50%" stop-color="#FFFF00" stop-opacity="0.04"/>'
+  +     '<stop offset="100%" stop-color="#2979FF" stop-opacity="0.22"/>'
+  +   '</linearGradient>'
+  +   '<radialGradient id="ssun" cx="45%" cy="40%" r="60%">'
+  +     '<stop offset="0%" stop-color="#FFFFFF"/>'
+  +     '<stop offset="18%" stop-color="#FFF9C4"/>'
+  +     '<stop offset="55%" stop-color="#FFD600"/>'
+  +     '<stop offset="100%" stop-color="#FF6D00"/>'
   +   '</radialGradient>'
-  +   '<radialGradient id="ssun" cx="38%" cy="35%" r="62%">'
-  +     '<stop offset="0%" stop-color="#fffde7"/>'
-  +     '<stop offset="35%" stop-color="#ffd600"/>'
-  +     '<stop offset="80%" stop-color="#fb8c00"/>'
-  +     '<stop offset="100%" stop-color="#e65100"/>'
+  +   '<radialGradient id="sunhalo" cx="50%" cy="50%" r="50%">'
+  +     '<stop offset="0%" stop-color="#FFD600" stop-opacity="0.65"/>'
+  +     '<stop offset="100%" stop-color="#FFD600" stop-opacity="0"/>'
   +   '</radialGradient>'
-  +   '<radialGradient id="searth" cx="35%" cy="30%" r="65%">'
-  +     '<stop offset="0%" stop-color="#80deea"/>'
-  +     '<stop offset="100%" stop-color="#0d47a1"/>'
+  +   '<radialGradient id="searth" cx="30%" cy="30%" r="70%">'
+  +     '<stop offset="0%" stop-color="#40C4FF"/>'
+  +     '<stop offset="58%" stop-color="#0D47A1"/>'
+  +     '<stop offset="100%" stop-color="#01579B"/>'
   +   '</radialGradient>'
   +   '<radialGradient id="sjup" cx="38%" cy="33%" r="62%">'
-  +     '<stop offset="0%" stop-color="#ffe0b2"/>'
-  +     '<stop offset="50%" stop-color="#ff8f00"/>'
-  +     '<stop offset="100%" stop-color="#bf360c"/>'
+  +     '<stop offset="0%" stop-color="#FFE0B2"/>'
+  +     '<stop offset="50%" stop-color="#FF9800"/>'
+  +     '<stop offset="100%" stop-color="#E65100"/>'
   +   '</radialGradient>'
   +   '<radialGradient id="ssat" cx="38%" cy="33%" r="62%">'
-  +     '<stop offset="0%" stop-color="#fffde7"/>'
-  +     '<stop offset="100%" stop-color="#f9a825"/>'
+  +     '<stop offset="0%" stop-color="#FFF9C4"/>'
+  +     '<stop offset="60%" stop-color="#FFC107"/>'
+  +     '<stop offset="100%" stop-color="#FF8F00"/>'
+  +   '</radialGradient>'
+  +   '<radialGradient id="smars" cx="38%" cy="33%" r="62%">'
+  +     '<stop offset="0%" stop-color="#FF8A65"/>'
+  +     '<stop offset="100%" stop-color="#BF360C"/>'
   +   '</radialGradient>'
   +   '<radialGradient id="snep" cx="38%" cy="33%" r="62%">'
-  +     '<stop offset="0%" stop-color="#7986cb"/>'
-  +     '<stop offset="100%" stop-color="#1a237e"/>'
+  +     '<stop offset="0%" stop-color="#90CAF9"/>'
+  +     '<stop offset="100%" stop-color="#1A237E"/>'
   +   '</radialGradient>'
   + '</defs>'
-  // Space background
+  // Bright gradient background
   + '<rect width="400" height="400" fill="url(#sbg)"/>'
-  // Nebula blobs for rich lower-right and lower-left areas
-  + '<ellipse cx="345" cy="335" rx="72" ry="58" fill="#1a0a4a" opacity="0.55"/>'
-  + '<ellipse cx="355" cy="348" rx="46" ry="36" fill="#2d1070" opacity="0.38"/>'
-  + '<ellipse cx="48" cy="335" rx="60" ry="46" fill="#0a2050" opacity="0.38"/>'
-  // Stars — spread across all 16 tile quadrants
-  + '<circle cx="12" cy="10" r="1.2" fill="white" opacity="0.85"/>'
-  + '<circle cx="44" cy="30" r="0.8" fill="white" opacity="0.6"/>'
-  + '<circle cx="87" cy="8" r="1.5" fill="#ffffe0" opacity="0.9"/>'
-  + '<circle cx="130" cy="22" r="1" fill="white" opacity="0.7"/>'
-  + '<circle cx="165" cy="9" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="210" cy="17" r="1.3" fill="white" opacity="0.8"/>'
-  + '<circle cx="250" cy="35" r="0.9" fill="#ddeeff" opacity="0.7"/>'
-  + '<circle cx="284" cy="12" r="1.1" fill="white" opacity="0.6"/>'
-  + '<circle cx="320" cy="28" r="0.8" fill="white" opacity="0.7"/>'
-  + '<circle cx="370" cy="14" r="1.4" fill="white" opacity="0.9"/>'
-  + '<circle cx="390" cy="40" r="0.7" fill="white" opacity="0.5"/>'
-  + '<circle cx="22" cy="54" r="0.9" fill="white" opacity="0.6"/>'
-  + '<circle cx="95" cy="50" r="1.2" fill="#ffffe0" opacity="0.7"/>'
-  + '<circle cx="155" cy="60" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="194" cy="48" r="1" fill="white" opacity="0.6"/>'
-  + '<circle cx="240" cy="58" r="1.3" fill="white" opacity="0.8"/>'
-  + '<circle cx="305" cy="55" r="0.9" fill="#ddeeff" opacity="0.6"/>'
-  + '<circle cx="350" cy="45" r="1.1" fill="white" opacity="0.7"/>'
-  + '<circle cx="380" cy="70" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="10" cy="110" r="1.3" fill="white" opacity="0.7"/>'
-  + '<circle cx="48" cy="130" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="92" cy="118" r="1.1" fill="#ffffe0" opacity="0.6"/>'
-  + '<circle cx="200" cy="105" r="0.9" fill="white" opacity="0.7"/>'
-  + '<circle cx="245" cy="122" r="1.2" fill="white" opacity="0.6"/>'
-  + '<circle cx="275" cy="108" r="0.7" fill="white" opacity="0.5"/>'
-  + '<circle cx="356" cy="115" r="1.3" fill="white" opacity="0.8"/>'
-  + '<circle cx="390" cy="105" r="0.9" fill="#ddeeff" opacity="0.6"/>'
-  + '<circle cx="18" cy="165" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="58" cy="180" r="1.1" fill="white" opacity="0.6"/>'
-  + '<circle cx="100" cy="158" r="0.9" fill="white" opacity="0.7"/>'
-  + '<circle cx="340" cy="155" r="1.2" fill="white" opacity="0.7"/>'
-  + '<circle cx="385" cy="172" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="12" cy="218" r="1.3" fill="#ffffe0" opacity="0.7"/>'
-  + '<circle cx="52" cy="240" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="98" cy="228" r="1.1" fill="white" opacity="0.6"/>'
-  + '<circle cx="345" cy="210" r="0.9" fill="white" opacity="0.6"/>'
-  + '<circle cx="382" cy="235" r="1.4" fill="white" opacity="0.8"/>'
-  + '<circle cx="158" cy="270" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="210" cy="288" r="1" fill="white" opacity="0.7"/>'
-  + '<circle cx="285" cy="278" r="1.3" fill="white" opacity="0.6"/>'
-  + '<circle cx="330" cy="265" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="377" cy="280" r="1.1" fill="#ddeeff" opacity="0.7"/>'
-  + '<circle cx="15" cy="320" r="1.2" fill="white" opacity="0.7"/>'
-  + '<circle cx="55" cy="340" r="0.9" fill="white" opacity="0.6"/>'
-  + '<circle cx="95" cy="325" r="1.4" fill="#ffffe0" opacity="0.8"/>'
-  + '<circle cx="136" cy="357" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="200" cy="342" r="1.1" fill="white" opacity="0.7"/>'
-  + '<circle cx="255" cy="327" r="0.9" fill="white" opacity="0.6"/>'
-  + '<circle cx="376" cy="330" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="25" cy="387" r="1" fill="white" opacity="0.6"/>'
-  + '<circle cx="75" cy="395" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="120" cy="390" r="1.2" fill="white" opacity="0.7"/>'
-  + '<circle cx="195" cy="380" r="0.9" fill="#ddeeff" opacity="0.6"/>'
-  + '<circle cx="270" cy="390" r="1.1" fill="white" opacity="0.7"/>'
-  + '<circle cx="320" cy="385" r="0.8" fill="white" opacity="0.5"/>'
-  + '<circle cx="366" cy="395" r="1.3" fill="white" opacity="0.8"/>'
-  // Sun glow rings
-  + '<circle cx="170" cy="185" r="65" fill="#fb8c00" opacity="0.05"/>'
-  + '<circle cx="170" cy="185" r="53" fill="#ffc107" opacity="0.09"/>'
-  // Orbit circles
-  + '<circle cx="170" cy="185" r="58" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="0.8"/>'
-  + '<circle cx="170" cy="185" r="86" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="0.8"/>'
-  + '<circle cx="170" cy="185" r="120" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="0.8"/>'
-  + '<circle cx="170" cy="185" r="160" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>'
-  + '<circle cx="170" cy="185" r="208" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.7"/>'
-  + '<circle cx="170" cy="185" r="258" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.7"/>'
-  // Sun
-  + '<circle cx="170" cy="185" r="42" fill="url(#ssun)"/>'
-  + '<circle cx="160" cy="175" r="14" fill="#fffde7" opacity="0.16"/>'
-  // Mercury (gray) — orbit r≈58, top-right direction → tile (2,1)
-  + '<circle cx="218" cy="142" r="5" fill="#9e9e9e"/>'
-  + '<circle cx="217" cy="141" r="2" fill="#bdbdbd" opacity="0.5"/>'
-  // Venus (pale yellow, cloudy) — upper area → tile (2,0)/(2,1)
-  + '<circle cx="256" cy="100" r="9" fill="#f5deb3"/>'
-  + '<circle cx="254" cy="98" r="4" fill="#ffe9b0" opacity="0.4"/>'
-  + '<circle cx="256" cy="100" r="9" fill="none" stroke="#ffd28a" stroke-width="1.5" opacity="0.35"/>'
-  // Earth — right side → tile (3,1)
-  + '<circle cx="308" cy="183" r="11" fill="url(#searth)"/>'
-  + '<ellipse cx="306" cy="181" rx="6" ry="4" fill="#4caf50" opacity="0.88"/>'
-  + '<ellipse cx="311" cy="186" rx="3" ry="2" fill="#4caf50" opacity="0.6"/>'
-  // Moon
-  + '<circle cx="324" cy="171" r="4" fill="#bdbdbd"/>'
-  + '<circle cx="322" cy="169" r="1.5" fill="#e8e8e8" opacity="0.6"/>'
-  // Mars (red) — lower area → tile (1,3)
-  + '<circle cx="193" cy="352" r="7" fill="#ef5350"/>'
-  + '<circle cx="191" cy="350" r="3" fill="#e57373" opacity="0.4"/>'
-  // Jupiter (large, with bands + red spot) → tile (0,2)/(0,3)
-  + '<circle cx="52" cy="264" r="25" fill="url(#sjup)"/>'
-  + '<ellipse cx="52" cy="257" rx="24" ry="2" fill="#8d3a0e" opacity="0.4"/>'
-  + '<ellipse cx="52" cy="263" rx="24" ry="1.5" fill="#6d2a0e" opacity="0.3"/>'
-  + '<ellipse cx="52" cy="269" rx="24" ry="2" fill="#8d3a0e" opacity="0.38"/>'
-  + '<ellipse cx="52" cy="275" rx="23" ry="1.5" fill="#6d2a0e" opacity="0.3"/>'
-  + '<ellipse cx="41" cy="261" rx="6" ry="3.8" fill="#b71c1c" opacity="0.68"/>'
-  // Saturn (with rings) — top-left → tile (0,0)
-  + '<ellipse cx="72" cy="72" rx="48" ry="9" fill="none" stroke="#f9a825" stroke-width="5" opacity="0.5"/>'
-  + '<ellipse cx="72" cy="72" rx="38" ry="7" fill="none" stroke="#ffe082" stroke-width="3" opacity="0.35"/>'
-  + '<circle cx="72" cy="72" r="18" fill="url(#ssat)"/>'
-  + '<circle cx="68" cy="68" r="7" fill="#fffde7" opacity="0.22"/>'
-  // Uranus (teal, tilted ring) — top-right → tile (3,0)
-  + '<circle cx="353" cy="57" r="13" fill="#80deea"/>'
-  + '<circle cx="351" cy="55" r="5" fill="#b2ebf2" opacity="0.45"/>'
-  + '<ellipse cx="353" cy="57" rx="19" ry="6" fill="none" stroke="#4dd0e1" stroke-width="2" opacity="0.42" transform="rotate(-32,353,57)"/>'
-  // Neptune (deep blue) — bottom-right → tile (3,3)
-  + '<circle cx="337" cy="343" r="12" fill="url(#snep)"/>'
-  + '<circle cx="335" cy="341" r="5" fill="#7986cb" opacity="0.45"/>'
-  // Comet with tail — upper-right area → tile (3,1)
-  + '<circle cx="370" cy="148" r="3.5" fill="white" opacity="0.92"/>'
-  + '<line x1="370" y1="148" x2="394" y2="132" stroke="rgba(255,255,255,0.55)" stroke-width="1.8"/>'
-  + '<line x1="370" y1="148" x2="396" y2="140" stroke="rgba(255,255,255,0.28)" stroke-width="1.2"/>'
+  // Horizontal overlay for left-right position cue
+  + '<rect width="400" height="400" fill="url(#shg)"/>'
+  // Sun glow (large, luminous)
+  + '<circle cx="160" cy="192" r="92" fill="url(#sunhalo)"/>'
+  // Orbit rings (dashed, visible on bright bg)
+  + '<circle cx="160" cy="192" r="72" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-dasharray="5 7"/>'
+  + '<circle cx="160" cy="192" r="112" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="1.2" stroke-dasharray="5 7"/>'
+  + '<circle cx="160" cy="192" r="156" fill="none" stroke="rgba(255,255,255,0.32)" stroke-width="1.2" stroke-dasharray="5 7"/>'
+  + '<circle cx="160" cy="192" r="206" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-dasharray="5 7"/>'
+  + '<circle cx="160" cy="192" r="260" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1" stroke-dasharray="5 7"/>'
+  // Saturn (top-left, tile 0,0)
+  + '<ellipse cx="66" cy="66" rx="58" ry="11" fill="none" stroke="#FFD54F" stroke-width="9" opacity="0.95"/>'
+  + '<ellipse cx="66" cy="66" rx="46" ry="8" fill="none" stroke="#FFF9C4" stroke-width="4.5" opacity="0.78"/>'
+  + '<circle cx="66" cy="66" r="25" fill="url(#ssat)"/>'
+  + '<circle cx="61" cy="61" r="10" fill="#FFF9C4" opacity="0.4"/>'
+  // Venus (bright white-yellow, top center, tile 1-2,0)
+  + '<circle cx="210" cy="48" r="18" fill="#FFF59D"/>'
+  + '<circle cx="207" cy="45" r="8" fill="#FFFFFF" opacity="0.55"/>'
+  + '<circle cx="210" cy="48" r="18" fill="none" stroke="#FFE082" stroke-width="2.5" opacity="0.7"/>'
+  // Mercury (small gray, upper right, tile 2,0)
+  + '<circle cx="302" cy="78" r="9" fill="#BDBDBD"/>'
+  + '<circle cx="300" cy="76" r="4" fill="#E0E0E0" opacity="0.65"/>'
+  // Uranus (teal with tilted ring, top-right, tile 3,0)
+  + '<circle cx="365" cy="55" r="19" fill="#80DEEA"/>'
+  + '<circle cx="363" cy="53" r="8" fill="#B2EBF2" opacity="0.52"/>'
+  + '<ellipse cx="365" cy="55" rx="28" ry="8" fill="none" stroke="#26C6DA" stroke-width="3.5" opacity="0.8" transform="rotate(-28,365,55)"/>'
+  // Sun (center, tiles 1,1 to 2,2)
+  + '<circle cx="160" cy="192" r="54" fill="url(#ssun)"/>'
+  + '<circle cx="150" cy="180" r="20" fill="#FFF9C4" opacity="0.28"/>'
+  // Earth (right side, tiles 3,1-2)
+  + '<circle cx="344" cy="192" r="22" fill="url(#searth)"/>'
+  + '<ellipse cx="340" cy="187" rx="11" ry="8" fill="#43A047" opacity="0.95"/>'
+  + '<ellipse cx="347" cy="197" rx="7" ry="5" fill="#43A047" opacity="0.82"/>'
+  + '<ellipse cx="339" cy="199" rx="4" ry="6" fill="#43A047" opacity="0.75"/>'
+  // Moon (near Earth)
+  + '<circle cx="372" cy="170" r="9" fill="#E0E0E0"/>'
+  + '<circle cx="370" cy="168" r="3.5" fill="#F5F5F5" opacity="0.75"/>'
+  // Mars (bright red, bottom-center, tile 2,3)
+  + '<circle cx="210" cy="352" r="16" fill="url(#smars)"/>'
+  + '<circle cx="207" cy="349" r="7" fill="#FF7043" opacity="0.58"/>'
+  + '<ellipse cx="210" cy="340" rx="6" ry="3" fill="white" opacity="0.78"/>'
+  // Jupiter (large orange, lower-left, tiles 0,2-3)
+  + '<circle cx="60" cy="295" r="40" fill="url(#sjup)"/>'
+  + '<ellipse cx="60" cy="280" rx="39" ry="3.8" fill="#5D4037" opacity="0.58"/>'
+  + '<ellipse cx="60" cy="290" rx="39" ry="3.2" fill="#D84315" opacity="0.52"/>'
+  + '<ellipse cx="60" cy="300" rx="39" ry="3.8" fill="#5D4037" opacity="0.58"/>'
+  + '<ellipse cx="60" cy="310" rx="39" ry="3" fill="#D84315" opacity="0.48"/>'
+  + '<ellipse cx="43" cy="285" rx="11" ry="7" fill="#C62828" opacity="0.88"/>'
+  // Uranus-teal small accent (tile 2,3 area — bottom center-right)
+  // Neptune (vivid blue-purple, bottom-right, tile 3,3)
+  + '<circle cx="342" cy="352" r="20" fill="url(#snep)"/>'
+  + '<circle cx="339" cy="349" r="8" fill="#90CAF9" opacity="0.58"/>'
+  + '<ellipse cx="342" cy="352" rx="30" ry="7" fill="none" stroke="#5C6BC0" stroke-width="2.8" opacity="0.7"/>'
+  // Comet (upper-right, tile 3,0-1)
+  + '<circle cx="385" cy="135" r="5" fill="white" opacity="0.96"/>'
+  + '<line x1="385" y1="135" x2="400" y2="112" stroke="rgba(255,255,255,0.75)" stroke-width="3"/>'
+  + '<line x1="385" y1="135" x2="400" y2="124" stroke="rgba(255,255,255,0.45)" stroke-width="1.8"/>'
+  // Stars — bright white, visible on colorful background
+  + '<circle cx="14" cy="14" r="2.2" fill="white"/>'
+  + '<circle cx="112" cy="22" r="1.8" fill="white" opacity="0.92"/>'
+  + '<circle cx="288" cy="16" r="2.2" fill="white"/>'
+  + '<circle cx="392" cy="28" r="2" fill="white" opacity="0.95"/>'
+  + '<circle cx="36" cy="148" r="2" fill="white" opacity="0.9"/>'
+  + '<circle cx="148" cy="132" r="1.7" fill="white" opacity="0.85"/>'
+  + '<circle cx="302" cy="142" r="2.2" fill="white"/>'
+  + '<circle cx="392" cy="172" r="1.8" fill="white" opacity="0.88"/>'
+  + '<circle cx="14" cy="255" r="2" fill="white" opacity="0.9"/>'
+  + '<circle cx="135" cy="248" r="1.7" fill="white" opacity="0.85"/>'
+  + '<circle cx="295" cy="255" r="2.2" fill="white"/>'
+  + '<circle cx="394" cy="245" r="1.8" fill="white" opacity="0.9"/>'
+  + '<circle cx="16" cy="382" r="2" fill="white" opacity="0.9"/>'
+  + '<circle cx="135" cy="390" r="2.2" fill="white"/>'
+  + '<circle cx="268" cy="382" r="1.7" fill="white" opacity="0.85"/>'
+  + '<circle cx="392" cy="388" r="2" fill="white" opacity="0.92"/>'
+  + '<circle cx="172" cy="46" r="1.8" fill="white" opacity="0.85"/>'
+  + '<circle cx="78" cy="385" r="1.8" fill="white" opacity="0.88"/>'
+  + '<circle cx="318" cy="388" r="2" fill="white" opacity="0.9"/>'
+  + '<circle cx="395" cy="52" r="1.6" fill="white" opacity="0.82"/>'
+  + '<circle cx="175" cy="280" r="1.8" fill="white" opacity="0.82"/>'
+  + '<circle cx="255" cy="330" r="1.6" fill="white" opacity="0.8"/>'
   + '</svg>';
 
 var IMG_URL = 'data:image/svg+xml,' + encodeURIComponent(SOLAR_SVG);
