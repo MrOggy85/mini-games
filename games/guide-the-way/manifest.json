@@ -1,0 +1,8 @@
+{
+  "name": "Guide the Way",
+  "short_name": "Guide",
+  "start_url": "/games/guide-the-way/",
+  "display": "standalone",
+  "background_color": "#e8eaf0",
+  "theme_color": "#5b8dee"
+}
