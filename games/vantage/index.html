@@ -320,7 +320,7 @@
     <div id="target-wrap">
       <canvas id="target-canvas" width="200" height="200"></canvas>
     </div>
-    <div id="hint-row">The arrangement below is rotated — find which matches</div>
+    <div id="hint-row">The candidates are viewed from a different angle — find which matches</div>
   </div>
 
   <div id="candidates-section">
@@ -557,27 +557,6 @@ function generateShape(n, level) {
   return positions;
 }
 
-// ── Connectivity check ─────────────────────────────────────────────────────────
-
-function isConnected(cubes) {
-  if (cubes.length <= 1) return true;
-  const set = new Set(cubes.map(posKey));
-  const visited = new Set([posKey(cubes[0])]);
-  const queue = [cubes[0]];
-  const DIRS6 = [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[0,-1,0]];
-  while (queue.length) {
-    const c = queue.shift();
-    for (const d of DIRS6) {
-      const k = posKey({ x: c.x+d[0], y: c.y+d[1], z: c.z+d[2] });
-      if (set.has(k) && !visited.has(k)) {
-        visited.add(k);
-        queue.push(cubes.find(o => posKey(o) === k));
-      }
-    }
-  }
-  return visited.size === cubes.length;
-}
-
 // ── Puzzle generation ──────────────────────────────────────────────────────────
 
 const TARGET_RY = -Math.PI / 4;
@@ -593,81 +572,62 @@ function generatePuzzle(level) {
   const correct = shape.map((p, i) => ({ ...p, color: colors[i] }));
 
   const decoys = [];
-  const usedKeys = new Set();
-  const correctKey = JSON.stringify(correct.map(c => posKey(c)+','+c.color).sort());
+  // Track used color arrangements (positions are identical across all candidates).
+  // Color-only decoys are view-invariant: wrong colors stay wrong at any angle,
+  // so there is always exactly one visually correct answer.
+  const usedColorKeys = new Set([colors.join(',')]);
 
   let attempts = 0;
   while (decoys.length < k-1 && attempts < 200) {
     attempts++;
-    const d = makeDecoy(correct, shape, level);
+    const d = makeDecoy(correct);
     if (!d) continue;
-    const dk = JSON.stringify(d.map(c => posKey(c)+','+c.color).sort());
-    if (dk !== correctKey && !usedKeys.has(dk)) {
-      usedKeys.add(dk);
+    const dk = d.map(c => c.color).join(',');
+    if (!usedColorKeys.has(dk)) {
+      usedColorKeys.add(dk);
       decoys.push(d);
     }
   }
 
-  // Fallback decoys: just cycle colors
-  while (decoys.length < k-1) {
-    const fb = correct.map((c, i) => ({ ...c, color: PALETTE[(colors.indexOf(c.color) + i + 1) % PALETTE.length] }));
-    decoys.push(fb);
+  // Fallback: shift every cube's color by increasing palette offsets
+  let offset = 1;
+  while (decoys.length < k-1 && offset <= PALETTE.length) {
+    const fb = correct.map(c => ({ ...c, color: PALETTE[(PALETTE.indexOf(c.color) + offset) % PALETTE.length] }));
+    const dk = fb.map(c => c.color).join(',');
+    if (!usedColorKeys.has(dk)) {
+      usedColorKeys.add(dk);
+      decoys.push(fb);
+    }
+    offset++;
   }
 
   const candidates = shuffle([correct, ...decoys]);
   return { correct, candidates, correctIdx: candidates.indexOf(correct) };
 }
 
-function makeDecoy(correct, shape, level) {
+// Decoys use the same cube positions as the correct answer but with shuffled
+// colors. Because colors are view-invariant, a color-only decoy can never
+// accidentally become a valid answer when the viewing angle changes.
+function makeDecoy(correct) {
   const copy = correct.map(c => ({ ...c }));
 
   if (copy.length === 1) {
-    // Single cube: just pick a different color
-    const other = PALETTE.filter(c => c !== copy[0].color);
+    const other = PALETTE.filter(col => col !== copy[0].color);
     copy[0].color = other[Math.floor(Math.random() * other.length)];
     return copy;
   }
 
-  const usePosition = Math.random() < 0.45 && copy.length >= 2;
-
-  if (usePosition) {
-    // Move one non-essential cube to a different adjacent-to-remaining position
-    const movable = copy.filter(c => {
-      const rest = copy.filter(o => o !== c);
-      return rest.length <= 1 || isConnected(rest);
-    });
-    if (!movable.length) return swapColors(copy);
-
-    const toMove = movable[Math.floor(Math.random() * movable.length)];
-    const remaining = copy.filter(c => c !== toMove);
-    const usedPos = new Set(copy.map(posKey));
-
-    const DIRS6 = [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[0,-1,0]];
-    const candidates = [];
-    for (const r of remaining) {
-      for (const d of DIRS6) {
-        const np = { x: r.x+d[0], y: r.y+d[1], z: r.z+d[2] };
-        if (!usedPos.has(posKey(np))) candidates.push(np);
-      }
+  const origColors = copy.map(c => c.color);
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const newColors = shuffle([...origColors]);
+    if (newColors.some((col, i) => col !== origColors[i])) {
+      return copy.map((c, i) => ({ ...c, color: newColors[i] }));
     }
-    if (!candidates.length) return swapColors(copy);
-
-    const newPos = candidates[Math.floor(Math.random() * candidates.length)];
-    const idx = copy.indexOf(toMove);
-    copy[idx] = { ...newPos, color: toMove.color };
-    return copy;
   }
-
-  return swapColors(copy);
-}
-
-function swapColors(copy) {
-  const c = copy.map(x => ({ ...x }));
-  const i = Math.floor(Math.random() * c.length);
-  let j = Math.floor(Math.random() * (c.length - 1));
-  if (j >= i) j++;
-  [c[i].color, c[j].color] = [c[j].color, c[i].color];
-  return c;
+  // Last-resort: swap first two colors
+  const result = copy.map(c => ({ ...c }));
+  [result[0].color, result[1].color] = [result[1].color, result[0].color];
+  return result;
 }
 
 // ── Game state ──────────────────────────────────────────────────────────────────
