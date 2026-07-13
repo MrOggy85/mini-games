@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v6';
+const CACHE_NAME = 'mini-games-v7';
 const ASSETS = [
   '/',
   '/index.html',
@@ -25,6 +25,9 @@ const ASSETS = [
   '/games/guide-the-way/',
   '/games/guide-the-way/index.html',
   '/games/guide-the-way/manifest.json',
+  '/games/sequence/',
+  '/games/sequence/index.html',
+  '/games/sequence/manifest.json',
 ];
 
 self.addEventListener('install', (e) => {

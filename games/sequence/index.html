@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/sequence/manifest.json">
+<title>Sequence</title>
+<style>
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #f4f0ff 0%, #ede7fb 55%, #e4dbf7 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+  padding: 20px 16px 40px;
+}
+
+/* ── Back link ── */
+.back-link {
+  align-self: flex-start;
+  color: #888;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #4a90e2; }
+
+/* ── Main wrapper ── */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 460px;
+}
+
+.title {
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 800;
+  color: #3d2d5c;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.info-bar {
+  display: flex;
+  gap: 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #5a5a5a;
+}
+
+.info-pill {
+  background: rgba(255,255,255,0.75);
+  padding: 5px 14px;
+  border-radius: 20px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.09);
+  letter-spacing: 0.03em;
+}
+
+.feedback-msg {
+  min-height: 1.3em;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #c0392b;
+  text-align: center;
+}
+.feedback-msg.ok { color: #27ae60; }
+
+/* ── Stage (sequence playback area) ── */
+.stage {
+  width: 100%;
+  max-width: 260px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.55);
+  border: 2px dashed rgba(155,120,220,0.35);
+}
+
+.stage.filled {
+  border-style: solid;
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 4px 20px rgba(90,60,150,0.15);
+}
+
+.stage-item {
+  width: 62%;
+  height: 62%;
+  animation: popIn 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.stage-placeholder {
+  color: #a898c8;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0 20px;
+}
+
+/* ── Pre-start controls ── */
+.pre-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 12px 26px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: translateY(0) scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.btn-secondary {
+  background: rgba(255,255,255,0.85);
+  color: #6a4ba0;
+  box-shadow: 0 2px 8px rgba(90,60,150,0.15);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #8e6fe6 0%, #6a4ba0 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(106,75,160,0.4);
+}
+
+/* ── Options grid ── */
+.grid {
+  display: grid;
+  gap: clamp(8px, 2.5vw, 14px);
+  width: 100%;
+}
+
+.option-btn {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 3px 12px rgba(90,60,150,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 12%;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+}
+.option-btn:active { transform: scale(0.94); }
+
+.option-btn.correct {
+  animation: flashGreen 0.5s ease;
+}
+.option-btn.wrong {
+  animation: shake 0.48s ease, flashRed 0.5s ease;
+}
+
+.tile-color, .tile-shape, .tile-text, .tile-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tile-color {
+  border-radius: 10px;
+}
+.tile-shape svg { width: 80%; height: 80%; }
+.tile-text {
+  font-size: clamp(1.6rem, 8vw, 2.6rem);
+  font-weight: 900;
+  color: #4a3a70;
+}
+.tile-icon {
+  font-size: clamp(1.8rem, 9vw, 2.8rem);
+}
+
+/* ── Success overlay ── */
+#successOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(244,240,255,0.92);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+#successOverlay.active { display: flex; }
+
+.success-emoji {
+  font-size: clamp(3rem, 14vw, 5.5rem);
+  animation: bounceIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.success-title {
+  font-size: clamp(1.9rem, 8vw, 3rem);
+  font-weight: 800;
+  color: #4a2f7a;
+  animation: popIn 0.45s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.success-sub {
+  font-size: 1rem;
+  color: #6a5a8a;
+  animation: popIn 0.45s 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes bounceIn {
+  from { opacity: 0; transform: scale(0.3) translateY(-15px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-7px) rotate(-1deg); }
+  30%       { transform: translateX(7px) rotate(1deg); }
+  50%       { transform: translateX(-5px) rotate(-0.5deg); }
+  70%       { transform: translateX(5px) rotate(0.5deg); }
+  85%       { transform: translateX(-2px); }
+}
+@keyframes flashGreen {
+  0%, 100% { box-shadow: 0 3px 12px rgba(90,60,150,0.15); }
+  40% { box-shadow: 0 0 0 4px rgba(39,174,96,0.55); }
+}
+@keyframes flashRed {
+  0%, 100% { box-shadow: 0 3px 12px rgba(90,60,150,0.15); }
+  40% { box-shadow: 0 0 0 4px rgba(192,57,43,0.55); }
+}
+
+/* ── Settings ── */
+#settingsBtn {
+  position: fixed; top: 12px; right: 14px; z-index: 200;
+  background: rgba(255,255,255,0.75); border: none; border-radius: 50%;
+  width: 40px; height: 40px; font-size: 19px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #777; box-shadow: 0 1px 6px rgba(0,0,0,0.13);
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+#settingsBtn:hover { background: rgba(255,255,255,0.95); color: #444; }
+#settingsPanel {
+  display: none; position: fixed; top: 58px; right: 14px; z-index: 199;
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18); padding: 16px 18px; min-width: 175px;
+}
+#settingsPanel.open { display: block; }
+.s-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.s-label { font-size: 0.88rem; font-weight: 600; color: #444; }
+.s-toggle {
+  position: relative; width: 44px; height: 24px; border-radius: 12px;
+  border: none; cursor: pointer; transition: background 0.2s;
+  flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.s-toggle .thumb {
+  position: absolute; top: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: left 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25); pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <a href="/" class="back-link">&larr; All Games</a>
+  <script>
+  (function(){
+    if (!window.matchMedia('(display-mode: standalone)').matches) return;
+    var fromPortal = false;
+    try { fromPortal = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch(e){}
+    if (fromPortal) sessionStorage.setItem('mini-games-portal', '1');
+    if (!fromPortal && sessionStorage.getItem('mini-games-portal') !== '1') {
+      document.querySelector('.back-link').style.display = 'none';
+    }
+  })();
+  </script>
+  <h1 class="title">Sequence</h1>
+  <div class="info-bar">
+    <span class="info-pill" id="levelDisplay">Level 1</span>
+    <span class="info-pill" id="attemptsDisplay">Attempts: 3 / 3</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="stage-placeholder" id="stagePlaceholder">Watch the sequence&hellip;</div>
+  </div>
+
+  <div class="feedback-msg" id="feedbackMsg"></div>
+
+  <div class="pre-controls" id="preControls">
+    <button class="btn btn-secondary" id="btnReplay" disabled>&#8635; Replay</button>
+    <button class="btn btn-primary" id="btnStart" disabled>Start</button>
+  </div>
+
+  <div class="grid" id="grid" style="display:none;"></div>
+</div>
+
+<!-- Success overlay -->
+<div id="successOverlay" role="dialog" aria-modal="true" aria-label="Level complete">
+  <div class="success-emoji">&#127881;</div>
+  <div class="success-title">Level Complete!</div>
+  <div class="success-sub" id="successSub">Great memory!</div>
+  <button class="btn btn-primary" id="btnContinue">Continue</button>
+</div>
+
+<script>
+// ── Item pools ──
+var COLORS_POOL = [
+  { id: 'red',    label: 'Red',    hex: '#e74c3c' },
+  { id: 'blue',   label: 'Blue',   hex: '#3498db' },
+  { id: 'green',  label: 'Green',  hex: '#2ecc71' },
+  { id: 'yellow', label: 'Yellow', hex: '#f1c40f' },
+  { id: 'purple', label: 'Purple', hex: '#9b59b6' },
+  { id: 'orange', label: 'Orange', hex: '#e67e22' }
+];
+
+var SHAPES_POOL = [
+  { id: 'circle', label: 'Circle',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="43" fill="#6a4ba0"/></svg>' },
+  { id: 'square', label: 'Square',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="82" height="82" rx="12" fill="#6a4ba0"/></svg>' },
+  { id: 'triangle', label: 'Triangle',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,7 95,90 5,90" fill="#6a4ba0"/></svg>' },
+  { id: 'star', label: 'Star',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,5 60.6,35.4 92.8,36.1 67.1,55.6 76.4,86.4 50,68 23.6,86.4 32.9,55.6 7.2,36.1 39.4,35.4" fill="#6a4ba0"/></svg>' },
+  { id: 'diamond', label: 'Diamond',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,5 95,50 50,95 5,50" fill="#6a4ba0"/></svg>' },
+  { id: 'hexagon', label: 'Hexagon',
+    svg: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,5 89,27.5 89,72.5 50,95 11,72.5 11,27.5" fill="#6a4ba0"/></svg>' }
+];
+
+var NUMBERS_POOL = [1,2,3,4,5,6,7,8,9].map(function(n) {
+  return { id: 'n' + n, label: String(n) };
+});
+
+var LETTERS_POOL = ['A','B','C','D','E','F','G','H','I','J'].map(function(l) {
+  return { id: 'l' + l, label: l };
+});
+
+var ICONS_POOL = [
+  { id: 'star',      label: '⭐' },
+  { id: 'heart',      label: '❤️' },
+  { id: 'moon',      label: '🌙' },
+  { id: 'sun',       label: '☀️' },
+  { id: 'cloud',     label: '☁️' },
+  { id: 'bolt',      label: '⚡' },
+  { id: 'clover',    label: '🍀' },
+  { id: 'fire',      label: '🔥' }
+];
+
+var ITEM_TYPES = {
+  colors:  { pool: COLORS_POOL },
+  shapes:  { pool: SHAPES_POOL },
+  numbers: { pool: NUMBERS_POOL },
+  letters: { pool: LETTERS_POOL },
+  icons:   { pool: ICONS_POOL }
+};
+
+var SCALE = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+
+function itemView(typeKey, item) {
+  if (typeKey === 'colors') return '<div class="tile-color" style="background:' + item.hex + '"></div>';
+  if (typeKey === 'shapes') return '<div class="tile-shape">' + item.svg + '</div>';
+  if (typeKey === 'icons') return '<div class="tile-icon">' + item.label + '</div>';
+  return '<div class="tile-text">' + item.label + '</div>';
+}
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function buildConfig(typeKey, pool, seqIds, optionIds) {
+  var byId = {};
+  pool.forEach(function(it) { byId[it.id] = it; });
+  return {
+    itemTypeKey: typeKey,
+    sequence: seqIds.map(function(id) { return byId[id]; }),
+    options: optionIds.map(function(id) { return byId[id]; })
+  };
+}
+
+function getLevelConfig(level) {
+  if (level === 1) {
+    return buildConfig('colors', COLORS_POOL,
+      ['red', 'blue', 'red', 'red'],
+      ['red', 'blue', 'green', 'yellow']);
+  }
+  if (level === 2) {
+    return buildConfig('shapes', SHAPES_POOL,
+      ['circle', 'square', 'triangle', 'circle'],
+      ['circle', 'square', 'triangle', 'star']);
+  }
+
+  var tier = Math.floor((level - 1) / 5);
+  var typeKeys = Object.keys(ITEM_TYPES);
+  var typeKey = typeKeys[Math.floor(Math.random() * typeKeys.length)];
+  var pool = ITEM_TYPES[typeKey].pool;
+  var numOptions = Math.min(4 + tier, 6, pool.length);
+  var seqLen = 4 + tier;
+
+  var options = shuffle(pool).slice(0, numOptions);
+  var sequence = [];
+  for (var i = 0; i < seqLen; i++) {
+    sequence.push(options[Math.floor(Math.random() * options.length)]);
+  }
+  return { itemTypeKey: typeKey, sequence: sequence, options: options };
+}
+
+// ── State ──
+var st = {
+  level: 1,
+  attemptsLeft: 3,
+  itemTypeKey: 'colors',
+  sequence: [],
+  options: [],
+  playerIndex: 0,
+  phase: 'idle',
+  playToken: 0
+};
+
+var stageEl = document.getElementById('stage');
+var stagePlaceholder = document.getElementById('stagePlaceholder');
+var gridEl = document.getElementById('grid');
+var preControlsEl = document.getElementById('preControls');
+var btnReplay = document.getElementById('btnReplay');
+var btnStart = document.getElementById('btnStart');
+var feedbackEl = document.getElementById('feedbackMsg');
+var levelDisplay = document.getElementById('levelDisplay');
+var attemptsDisplay = document.getElementById('attemptsDisplay');
+var successOverlay = document.getElementById('successOverlay');
+
+function updateInfo() {
+  levelDisplay.textContent = 'Level ' + st.level;
+  attemptsDisplay.textContent = 'Attempts: ' + st.attemptsLeft + ' / 3';
+}
+
+function setFeedback(msg, isOk) {
+  feedbackEl.textContent = msg || '';
+  feedbackEl.classList.toggle('ok', !!isOk);
+}
+
+function startLevel(level) {
+  st.level = level;
+  var config = getLevelConfig(level);
+  st.itemTypeKey = config.itemTypeKey;
+  st.sequence = config.sequence;
+  st.options = config.options;
+  st.attemptsLeft = 3;
+  st.playerIndex = 0;
+  updateInfo();
+  setFeedback('');
+  successOverlay.classList.remove('active');
+  gridEl.style.display = 'none';
+  gridEl.innerHTML = '';
+  preControlsEl.style.display = 'flex';
+  runIntro();
+}
+
+function restartAttempt() {
+  st.playerIndex = 0;
+  gridEl.style.display = 'none';
+  preControlsEl.style.display = 'flex';
+  updateInfo();
+  runIntro();
+}
+
+function runIntro() {
+  btnReplay.disabled = true;
+  btnStart.disabled = true;
+  playSequence();
+}
+
+function clearStage() {
+  stageEl.classList.remove('filled');
+  stageEl.innerHTML = '<div class="stage-placeholder" id="stagePlaceholder">Watch the sequence&hellip;</div>';
+}
+
+function showStageItem(item) {
+  stageEl.classList.add('filled');
+  stageEl.innerHTML = '<div class="stage-item">' + itemView(st.itemTypeKey, item) + '</div>';
+}
+
+function playSequence() {
+  st.phase = 'presenting';
+  btnReplay.disabled = true;
+  btnStart.disabled = true;
+  st.playToken++;
+  var token = st.playToken;
+  var seq = st.sequence;
+  var i = 0;
+
+  function step() {
+    if (token !== st.playToken) return;
+    if (i >= seq.length) {
+      clearStage();
+      st.phase = 'ready';
+      btnReplay.disabled = false;
+      btnStart.disabled = false;
+      return;
+    }
+    var item = seq[i];
+    showStageItem(item);
+    playTone(indexTone(item));
+    i++;
+    setTimeout(step, 750);
+  }
+
+  clearStage();
+  setTimeout(step, 300);
+}
+
+function indexTone(item) {
+  var idx = st.options.indexOf(item);
+  if (idx < 0) idx = 0;
+  return SCALE[idx % SCALE.length];
+}
+
+function buildGrid() {
+  gridEl.innerHTML = '';
+  var count = st.options.length;
+  var cols = count <= 4 ? 2 : (count <= 6 ? 3 : 4);
+  gridEl.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+
+  shuffle(st.options).forEach(function(item) {
+    var btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.setAttribute('aria-label', item.label);
+    btn.innerHTML = itemView(st.itemTypeKey, item);
+    btn.addEventListener('click', function() { onOptionClick(item, btn); });
+    gridEl.appendChild(btn);
+  });
+}
+
+function onOptionClick(item, btnEl) {
+  if (st.phase !== 'input') return;
+
+  var expected = st.sequence[st.playerIndex];
+  playTone(indexTone(item));
+
+  if (item.id === expected.id) {
+    btnEl.classList.add('correct');
+    setTimeout(function() { btnEl.classList.remove('correct'); }, 500);
+    st.playerIndex++;
+    if (st.playerIndex >= st.sequence.length) {
+      levelSuccess();
+    }
+    return;
+  }
+
+  st.phase = 'locked';
+  btnEl.classList.add('wrong');
+  st.attemptsLeft--;
+  if (st.attemptsLeft <= 0) {
+    st.attemptsLeft = 3;
+    setFeedback('Out of attempts — fresh start!', false);
+  } else {
+    setFeedback('Incorrect — try again. (' + st.attemptsLeft + ' attempt' + (st.attemptsLeft === 1 ? '' : 's') + ' left)', false);
+  }
+  updateInfo();
+  setTimeout(function() {
+    restartAttempt();
+  }, 900);
+}
+
+btnReplay.addEventListener('click', function() {
+  if (st.phase === 'ready') playSequence();
+});
+
+btnStart.addEventListener('click', function() {
+  if (st.phase !== 'ready') return;
+  st.phase = 'input';
+  st.playerIndex = 0;
+  setFeedback('');
+  preControlsEl.style.display = 'none';
+  clearStage();
+  stageEl.classList.remove('filled');
+  stageEl.innerHTML = '<div class="stage-placeholder">Recreate the sequence below</div>';
+  gridEl.style.display = 'grid';
+  buildGrid();
+});
+
+function levelSuccess() {
+  st.phase = 'success';
+  document.getElementById('successSub').textContent = 'Level ' + st.level + ' complete!';
+  successOverlay.classList.add('active');
+  spawnConfetti();
+}
+
+document.getElementById('btnContinue').addEventListener('click', function() {
+  startLevel(st.level + 1);
+});
+
+// ── Confetti ──
+var CONFETTI_COLORS = ['#8e6fe6','#6a4ba0','#e74c3c','#3498db','#2ecc71','#f1c40f'];
+function spawnConfetti() {
+  for (var i = 0; i < 60; i++) {
+    (function(idx) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.style.position = 'fixed';
+        el.style.top = '-22px';
+        el.style.zIndex = '300';
+        el.style.pointerEvents = 'none';
+        var isCircle = Math.random() > 0.45;
+        var w = 7 + Math.random() * 9;
+        var h = isCircle ? w : w * (1.3 + Math.random() * 0.8);
+        var dur = 2.2 + Math.random() * 2;
+        var spin = Math.floor(Math.random() * 720 - 360) + 'deg';
+        var color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+        el.style.left = (Math.random() * 100) + 'vw';
+        el.style.width = w + 'px';
+        el.style.height = h + 'px';
+        el.style.borderRadius = isCircle ? '50%' : '2px';
+        el.style.background = color;
+        el.style.animation = 'confettiFall ' + dur + 's linear forwards';
+        el.style.setProperty('--confetti-spin', spin);
+        document.body.appendChild(el);
+        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + 0.3) * 1000);
+      }, idx * 25);
+    }(i));
+  }
+}
+var confettiStyle = document.createElement('style');
+confettiStyle.textContent = '@keyframes confettiFall { 0% { transform: translateY(0) rotateZ(0deg); opacity: 1; } 88% { opacity: 1; } 100% { transform: translateY(112vh) rotateZ(var(--confetti-spin, 540deg)); opacity: 0; } }';
+document.head.appendChild(confettiStyle);
+
+// ── Sound ──
+var _soundOn = localStorage.getItem('sequence-sound') !== 'false';
+var _actx = null;
+
+function _getCtx() {
+  if (!_actx) {
+    try { _actx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { return null; }
+  }
+  return _actx;
+}
+
+function playTone(freq) {
+  if (!_soundOn) return;
+  var ctx = _getCtx();
+  if (!ctx) return;
+  var osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.connect(g); g.connect(ctx.destination);
+  osc.type = 'sine'; osc.frequency.value = freq;
+  var t = ctx.currentTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.18, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  osc.start(t); osc.stop(t + 0.34);
+}
+
+function _updateToggle() {
+  var btn = document.getElementById('soundToggle'); if (!btn) return;
+  btn.style.background = _soundOn ? '#6a4ba0' : '#ccc';
+  var th = btn.querySelector('.thumb'); if (th) th.style.left = _soundOn ? '22px' : '2px';
+}
+
+function toggleSound() {
+  _soundOn = !_soundOn;
+  localStorage.setItem('sequence-sound', _soundOn);
+  _updateToggle();
+}
+
+function toggleSettings() { document.getElementById('settingsPanel').classList.toggle('open'); }
+
+document.addEventListener('click', function(e) {
+  var p = document.getElementById('settingsPanel'), b = document.getElementById('settingsBtn');
+  if (p && p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target)) {
+    p.classList.remove('open');
+  }
+});
+
+var _audioReady = false;
+function _onFirstTouch() {
+  if (_audioReady) return; _audioReady = true;
+  var ctx = _getCtx();
+  if (!ctx) return;
+  ctx.resume().catch(function() {});
+}
+document.addEventListener('click', _onFirstTouch, { once: true });
+document.addEventListener('touchstart', _onFirstTouch, { once: true });
+
+startLevel(1);
+_updateToggle();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+<button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
+<div id="settingsPanel">
+  <div class="s-row">
+    <span class="s-label">Sound</span>
+    <button id="soundToggle" class="s-toggle" onclick="toggleSound()"><div class="thumb"></div></button>
+  </div>
+</div>
+</body>
+</html>
