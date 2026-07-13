@@ -1,0 +1,8 @@
+{
+  "name": "Sequence",
+  "short_name": "Sequence",
+  "start_url": "/games/sequence/",
+  "display": "standalone",
+  "background_color": "#f4f0ff",
+  "theme_color": "#f4f0ff"
+}
