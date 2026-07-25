@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v7';
+const CACHE_NAME = 'mini-games-v8';
 const ASSETS = [
   '/',
   '/index.html',
@@ -28,6 +28,9 @@ const ASSETS = [
   '/games/sequence/',
   '/games/sequence/index.html',
   '/games/sequence/manifest.json',
+  '/games/warehouse-keeper/',
+  '/games/warehouse-keeper/index.html',
+  '/games/warehouse-keeper/manifest.json',
 ];
 
 self.addEventListener('install', (e) => {

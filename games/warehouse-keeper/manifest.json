@@ -1,0 +1,8 @@
+{
+  "name": "Warehouse Keeper",
+  "short_name": "Warehouse",
+  "start_url": "/games/warehouse-keeper/",
+  "display": "standalone",
+  "background_color": "#fff3e0",
+  "theme_color": "#fff3e0"
+}
