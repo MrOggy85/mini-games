@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/games/warehouse-keeper/manifest.json">
@@ -25,6 +25,7 @@ body {
   overflow-x: hidden;
   padding: 16px 14px 32px;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* ── Back link ── */
@@ -170,6 +171,7 @@ body {
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   min-height: 44px;
 }
 .btn:active { transform: scale(0.96); }
@@ -206,6 +208,7 @@ body {
   justify-content: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: transform 0.1s, background 0.1s;
 }
 .dpad-btn:active {
@@ -360,21 +363,29 @@ body {
 // ── Level data (standard Sokoban text format) ──
 // # wall, space floor, @ player, $ box, . goal, * box on goal, + player on goal
 var LEVELS = [
+// 1: quick warm-up push
 "#####\n#@$.#\n#####",
 
-"#######\n#  .  #\n#  $  #\n#  @  #\n#     #\n#######",
+// 2: box must be walked around — pushed down into the corridor, then in from the side
+"#########\n#   #   #\n#   #   #\n# @ # $ #\n#   #   #\n#   .   #\n#########",
 
-"########\n#      #\n# @$   #\n#      #\n#   .  #\n#      #\n########",
+// 3: two boxes, two rooms joined by a single corridor
+"#########\n#   #   #\n# $ #   #\n#@  # $ #\n# . #   #\n#   .   #\n#########",
 
-"########\n#  . . #\n#  $ $ #\n#   @  #\n#      #\n########",
+// 4: side-niche corridor — push each box off the main lane to clear the way
+"#####\n#   #\n# $.#\n#   #\n# $.#\n#   #\n# @ #\n#####",
 
-"###########\n#  .  .  .#\n#  $  $  $#\n#    @    #\n###########",
+// 5: three boxes sharing the two rooms
+"#########\n#   #   #\n# $ #  $#\n#@  # $ #\n# . #  .#\n#   .   #\n#########",
 
-"##########\n#   .    #\n#   $    #\n#   @    #\n#  $    .#\n##########",
+// 6: longer side-niche corridor
+"#####\n#   #\n# $.#\n#   #\n# $.#\n#   #\n# $.#\n#   #\n# @ #\n#####",
 
-"###########\n#  .  .   #\n#  $  $   #\n#    @    #\n#      $  #\n#      .  #\n###########",
+// 7: four boxes — mind the single corridor between the rooms
+"#########\n#   #   #\n# $$#  $#\n#@  # $ #\n# ..#  .#\n#   .   #\n#########",
 
-"##############\n#  .  .  .   #\n#  $  $  $   #\n#    @       #\n#          $ #\n#          . #\n##############"
+// 8: five boxes — plan the order before you seal the passage
+"#########\n#   #   #\n# $$#$ $#\n#@  # $ #\n# ..#. .#\n#   .   #\n#########"
 ];
 
 var LEVEL_COUNT = LEVELS.length;
