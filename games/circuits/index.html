@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/circuits/manifest.json">
+<title>Circuits</title>
+<style>
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #262b52 0%, #1b1e3a 55%, #12142b 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  padding: 16px 14px 32px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ── Back link ── */
+.back-link {
+  align-self: flex-start;
+  color: #7d84b0;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #4ecbff; }
+
+/* ── Main wrapper ── */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 460px;
+}
+
+.title {
+  font-size: clamp(1.5rem, 6vw, 2.2rem);
+  font-weight: 800;
+  color: #ffd93d;
+  letter-spacing: 0.03em;
+  margin-top: 4px;
+  text-shadow: 0 0 18px rgba(255,217,61,0.35);
+}
+
+.info-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cfd3f0;
+}
+
+.info-pill {
+  background: rgba(255,255,255,0.08);
+  padding: 5px 13px;
+  border-radius: 20px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.25);
+  letter-spacing: 0.02em;
+}
+
+.feedback-msg {
+  min-height: 1.3em;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffd93d;
+  text-align: center;
+}
+
+/* ── Board ── */
+.board-outer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.board-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);
+  background: #0f1128;
+}
+
+.tile-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  gap: 2px;
+  padding: 2px;
+}
+
+.cell {
+  position: relative;
+  border-radius: 6px;
+}
+.cell.void {
+  background: transparent;
+}
+.cell.wire, .cell.battery, .cell.bulb {
+  background: #1c2044;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+.cell.wire {
+  cursor: pointer;
+}
+.cell.wire:active {
+  background: #262b58;
+}
+
+.stub-wrap {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.16s ease;
+  will-change: transform;
+}
+.stub-wrap svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.stub-wrap path, .stub-wrap line {
+  fill: none;
+  stroke: #3a3f6e;
+  stroke-width: 11;
+  stroke-linecap: round;
+  transition: stroke 0.18s ease;
+}
+.cell.energized .stub-wrap path,
+.cell.energized .stub-wrap line {
+  stroke: #ffd93d;
+  filter: drop-shadow(0 0 5px rgba(255,217,61,0.85));
+}
+
+.cell-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46%;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+  filter: grayscale(0.6) brightness(0.75);
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+.cell.energized .cell-icon {
+  filter: none;
+  transform: scale(1.08);
+}
+.cell.bulb.energized .cell-icon {
+  filter: drop-shadow(0 0 9px rgba(255,217,61,0.95));
+}
+
+/* ── Controls ── */
+.controls-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  padding: 10px 20px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+.btn-secondary {
+  background: rgba(255,255,255,0.08);
+  color: #cfd3f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #ffd93d 0%, #ffb037 100%);
+  color: #241a00;
+  box-shadow: 0 4px 16px rgba(255,180,55,0.4);
+}
+
+/* ── Success / complete overlay ── */
+#winOverlay, #completeOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(18,20,43,0.94);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  text-align: center;
+  padding: 20px;
+}
+#winOverlay.active, #completeOverlay.active { display: flex; }
+
+.win-emoji {
+  font-size: clamp(3rem, 14vw, 5.5rem);
+  animation: bounceIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-title {
+  font-size: clamp(1.7rem, 7vw, 2.6rem);
+  font-weight: 800;
+  color: #ffd93d;
+  animation: popIn 0.45s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-sub {
+  font-size: 1rem;
+  color: #cfd3f0;
+  animation: popIn 0.45s 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes bounceIn {
+  from { opacity: 0; transform: scale(0.3) translateY(-15px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Settings ── */
+#settingsBtn {
+  position: fixed; top: 12px; right: 14px; z-index: 200;
+  background: rgba(255,255,255,0.08); border: none; border-radius: 50%;
+  width: 40px; height: 40px; font-size: 19px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #cfd3f0; box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+#settingsBtn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+#settingsPanel {
+  display: none; position: fixed; top: 58px; right: 14px; z-index: 199;
+  background: #1c2044; border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4); padding: 16px 18px; min-width: 175px;
+}
+#settingsPanel.open { display: block; }
+.s-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.s-label { font-size: 0.88rem; font-weight: 600; color: #cfd3f0; }
+.s-toggle {
+  position: relative; width: 44px; height: 24px; border-radius: 12px;
+  border: none; cursor: pointer; transition: background 0.2s;
+  flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+}
+.s-toggle .thumb {
+  position: absolute; top: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: left 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25); pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <a href="/" class="back-link">&larr; All Games</a>
+  <script>
+  (function(){
+    if (!window.matchMedia('(display-mode: standalone)').matches) return;
+    var fromPortal = false;
+    try { fromPortal = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch(e){}
+    if (fromPortal) sessionStorage.setItem('mini-games-portal', '1');
+    if (!fromPortal && sessionStorage.getItem('mini-games-portal') !== '1') {
+      document.querySelector('.back-link').style.display = 'none';
+    }
+  })();
+  </script>
+
+  <h1 class="title">Circuits</h1>
+
+  <div class="info-bar">
+    <span class="info-pill" id="levelDisplay">Level 1 / 8</span>
+    <span class="info-pill" id="bulbsDisplay">Bulbs: 0 / 0</span>
+  </div>
+
+  <div class="feedback-msg" id="feedbackMsg">Tap the wires to rotate them and light every bulb.</div>
+
+  <div class="board-outer">
+    <div class="board-wrap" id="boardWrap">
+      <div class="tile-grid" id="tileGrid"></div>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <button class="btn btn-secondary" id="btnPrevLevel">&larr; Level</button>
+    <button class="btn btn-secondary" id="btnRestart">Restart</button>
+    <button class="btn btn-secondary" id="btnNextLevel">Level &rarr;</button>
+  </div>
+</div>
+
+<!-- Level-complete overlay -->
+<div id="winOverlay" role="dialog" aria-modal="true" aria-label="Level complete">
+  <div class="win-emoji">&#128161;</div>
+  <div class="win-title">Circuit Complete!</div>
+  <div class="win-sub" id="winSub"></div>
+  <button class="btn btn-primary" id="btnContinue">Continue</button>
+</div>
+
+<!-- All-levels-complete overlay -->
+<div id="completeOverlay" role="dialog" aria-modal="true" aria-label="All levels complete">
+  <div class="win-emoji">&#9889;</div>
+  <div class="win-title">Fully Wired!</div>
+  <div class="win-sub">You lit up every circuit. Great work, electrician!</div>
+  <button class="btn btn-primary" id="btnReplayAll">Play Again</button>
+</div>
+
+<script>
+// ── Direction constants: 0=N, 1=E, 2=S, 3=W ──
+var DXY = { 0: [0, -1], 1: [1, 0], 2: [0, 1], 3: [-1, 0] };
+// Base connection sets (at rotation 0) for each rotatable wire type.
+var BASE_CONN = { I: [0, 2], C: [0, 1], T: [0, 1, 3] };
+
+// ── Level data (hand-authored). Each cell is a 2-char token: type + rotation. ──
+// ".." = empty/no piece.  I = straight wire, C = corner wire, T = tee wire (3-way).
+// B<dir> = battery (fixed, always powered), L<dir> = bulb (fixed, lights up when powered).
+// I/C/T tiles start scrambled and the player rotates them (tap) to complete the circuit.
+var LEVELS = [
+// 1: one wire to rotate
+[
+  ["B1", "I0", "L3"]
+],
+// 2: a single corner turn
+[
+  ["B1", "C0"],
+  ["..", "L0"]
+],
+// 3: zig-zag with a corner, a straight, and a corner
+[
+  ["C0", "I0", "C0"],
+  ["B0", "..", "L0"]
+],
+// 4: a tee splits power to two bulbs
+[
+  ["L2", "..", "L2"],
+  ["C2", "T0", "C1"],
+  ["..", "B0", ".."]
+],
+// 5: a longer bridge with two straights
+[
+  ["C0", "I0", "I0", "C0"],
+  ["B0", "..", "..", "L0"]
+],
+// 6: tee split with an extra straight run
+[
+  ["L2", "..", "L2"],
+  ["C2", "T0", "C1"],
+  ["..", "I1", ".."],
+  ["..", "B0", ".."]
+],
+// 7: a five-turn staircase
+[
+  ["..", "..", "..", "L2"],
+  ["..", "..", "C3", "C1"],
+  ["..", "C3", "C1", ".."],
+  ["B1", "C1", "..", ".."]
+],
+// 8: two bulbs fed through a central tee
+[
+  ["L2", "..", "..", "..", "L2"],
+  ["C2", "I0", "T0", "I0", "C1"],
+  ["..", "..", "B0", "..", ".."]
+]
+];
+
+var LEVEL_COUNT = LEVELS.length;
+var STORAGE_KEY = 'circuits-progress';
+var SOUND_KEY = 'circuits-sound';
+
+function parseLevel(rows) {
+  var height = rows.length;
+  var width = rows[0].length;
+  var grid = [];
+  for (var y = 0; y < height; y++) {
+    var row = [];
+    for (var x = 0; x < width; x++) {
+      var tok = rows[y][x];
+      if (tok === '..') {
+        row.push(null);
+      } else {
+        row.push({ type: tok[0], rot: parseInt(tok[1], 10), fixed: tok[0] === 'B' || tok[0] === 'L' });
+      }
+    }
+    grid.push(row);
+  }
+  return { width: width, height: height, grid: grid };
+}
+
+function connectionsOf(cell) {
+  if (!cell) return [];
+  if (cell.fixed) return [cell.rot];
+  return BASE_CONN[cell.type].map(function (d) { return (d + cell.rot) % 4; });
+}
+
+function energizedSet(lvl) {
+  var w = lvl.width, h = lvl.height, grid = lvl.grid;
+  function has(x, y) { return x >= 0 && y >= 0 && x < w && y < h && grid[y][x]; }
+  var energized = {};
+  var queue = [];
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var c = grid[y][x];
+      if (c && c.type === 'B') { energized[x + ',' + y] = true; queue.push([x, y]); }
+    }
+  }
+  while (queue.length) {
+    var cur = queue.shift();
+    var cx = cur[0], cy = cur[1];
+    var conns = connectionsOf(grid[cy][cx]);
+    for (var i = 0; i < conns.length; i++) {
+      var d = conns[i];
+      var nx = cx + DXY[d][0], ny = cy + DXY[d][1];
+      if (!has(nx, ny)) continue;
+      var back = (d + 2) % 4;
+      var nconns = connectionsOf(grid[ny][nx]);
+      if (nconns.indexOf(back) === -1) continue;
+      var key = nx + ',' + ny;
+      if (!energized[key]) { energized[key] = true; queue.push([nx, ny]); }
+    }
+  }
+  return energized;
+}
+
+// ── State ──
+var st = {
+  levelIndex: 0,
+  furthest: 0,
+  lvl: null,
+  locked: false,
+  cellEls: null
+};
+
+var tileGridEl = document.getElementById('tileGrid');
+var boardWrapEl = document.getElementById('boardWrap');
+var levelDisplay = document.getElementById('levelDisplay');
+var bulbsDisplay = document.getElementById('bulbsDisplay');
+var feedbackEl = document.getElementById('feedbackMsg');
+var winOverlay = document.getElementById('winOverlay');
+var completeOverlay = document.getElementById('completeOverlay');
+var btnPrevLevel = document.getElementById('btnPrevLevel');
+var btnNextLevel = document.getElementById('btnNextLevel');
+var btnRestart = document.getElementById('btnRestart');
+
+function loadProgress() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { furthest: 0, current: 0 };
+    var parsed = JSON.parse(raw);
+    return {
+      furthest: Math.min(Math.max(parsed.furthest | 0, 0), LEVEL_COUNT - 1),
+      current: Math.min(Math.max(parsed.current | 0, 0), LEVEL_COUNT - 1)
+    };
+  } catch (e) {
+    return { furthest: 0, current: 0 };
+  }
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ furthest: st.furthest, current: st.levelIndex }));
+  } catch (e) {}
+}
+
+var STUB_PATH = {
+  I: '<line x1="50" y1="0" x2="50" y2="100"/>',
+  C: '<path d="M50,0 L50,50 L100,50"/>',
+  T: '<path d="M0,50 L100,50 M50,0 L50,50"/>',
+  B: '<line x1="50" y1="50" x2="50" y2="0"/>',
+  L: '<line x1="50" y1="50" x2="50" y2="0"/>'
+};
+var ICON = { B: '\u{1F50B}', L: '\u{1F4A1}' };
+
+function loadLevel(idx) {
+  idx = Math.min(Math.max(idx, 0), LEVEL_COUNT - 1);
+  st.levelIndex = idx;
+  st.lvl = parseLevel(LEVELS[idx]);
+  st.locked = false;
+  setFeedback('Tap the wires to rotate them and light every bulb.');
+  winOverlay.classList.remove('active');
+  completeOverlay.classList.remove('active');
+  buildBoardDOM();
+  updateCircuit();
+  updateInfo();
+  saveProgress();
+}
+
+function buildBoardDOM() {
+  var lvl = st.lvl;
+  tileGridEl.innerHTML = '';
+  tileGridEl.style.gridTemplateColumns = 'repeat(' + lvl.width + ', 1fr)';
+  tileGridEl.style.gridTemplateRows = 'repeat(' + lvl.height + ', 1fr)';
+  boardWrapEl.style.aspectRatio = lvl.width + ' / ' + lvl.height;
+  boardWrapEl.style.width = Math.min(420, lvl.width * 92) + 'px';
+  boardWrapEl.style.maxWidth = '96vw';
+
+  st.cellEls = {};
+  for (var y = 0; y < lvl.height; y++) {
+    for (var x = 0; x < lvl.width; x++) {
+      var cell = lvl.grid[y][x];
+      var div = document.createElement('div');
+      if (!cell) {
+        div.className = 'cell void';
+        tileGridEl.appendChild(div);
+        continue;
+      }
+      var kind = cell.type === 'B' ? 'battery' : (cell.type === 'L' ? 'bulb' : 'wire');
+      div.className = 'cell ' + kind;
+      var stubWrap = document.createElement('div');
+      stubWrap.className = 'stub-wrap';
+      stubWrap.innerHTML = '<svg viewBox="0 0 100 100">' + STUB_PATH[cell.type] + '</svg>';
+      stubWrap.style.transform = 'rotate(' + (cell.rot * 90) + 'deg)';
+      div.appendChild(stubWrap);
+      if (kind === 'battery' || kind === 'bulb') {
+        var iconEl = document.createElement('div');
+        iconEl.className = 'cell-icon';
+        iconEl.textContent = ICON[cell.type];
+        div.appendChild(iconEl);
+      }
+      if (kind === 'wire') {
+        (function (px, py) {
+          div.addEventListener('click', function () { rotateCell(px, py); });
+        })(x, y);
+      }
+      tileGridEl.appendChild(div);
+      st.cellEls[x + ',' + y] = { root: div, stubWrap: stubWrap };
+    }
+  }
+}
+
+function rotateCell(x, y) {
+  if (st.locked) return;
+  var cell = st.lvl.grid[y][x];
+  if (!cell || cell.fixed) return;
+  cell.rot = (cell.rot + 1) % 4;
+  var els = st.cellEls[x + ',' + y];
+  els.stubWrap.style.transform = 'rotate(' + (cell.rot * 90) + 'deg)';
+  playTone(260, 0.04);
+  updateCircuit();
+  checkWin();
+}
+
+function updateCircuit() {
+  var lvl = st.lvl;
+  var energized = energizedSet(lvl);
+  var lit = 0, total = 0;
+  for (var y = 0; y < lvl.height; y++) {
+    for (var x = 0; x < lvl.width; x++) {
+      var cell = lvl.grid[y][x];
+      if (!cell) continue;
+      var els = st.cellEls[x + ',' + y];
+      var on = !!energized[x + ',' + y];
+      els.root.classList.toggle('energized', on);
+      if (cell.type === 'L') {
+        total++;
+        if (on) lit++;
+      }
+    }
+  }
+  bulbsDisplay.textContent = 'Bulbs: ' + lit + ' / ' + total;
+  return { lit: lit, total: total };
+}
+
+function updateInfo() {
+  levelDisplay.textContent = 'Level ' + (st.levelIndex + 1) + ' / ' + LEVEL_COUNT;
+  btnPrevLevel.disabled = st.levelIndex <= 0;
+  btnNextLevel.disabled = st.levelIndex >= st.furthest;
+}
+
+function setFeedback(msg) {
+  feedbackEl.textContent = msg || '';
+}
+
+function restart() {
+  loadLevel(st.levelIndex);
+}
+
+function checkWin() {
+  var counts = updateCircuit();
+  if (counts.total === 0 || counts.lit < counts.total) return;
+  st.locked = true;
+  if (st.levelIndex >= st.furthest) {
+    st.furthest = Math.min(st.levelIndex + 1, LEVEL_COUNT - 1);
+  }
+  saveProgress();
+  // Brief pause so the player sees the fully-lit circuit before the overlay covers it.
+  setTimeout(function () {
+    playWinJingle();
+    document.getElementById('winSub').textContent = 'All bulbs lit on level ' + (st.levelIndex + 1) + '!';
+    winOverlay.classList.add('active');
+  }, 600);
+}
+
+document.getElementById('btnContinue').addEventListener('click', function () {
+  winOverlay.classList.remove('active');
+  if (st.levelIndex + 1 >= LEVEL_COUNT) {
+    completeOverlay.classList.add('active');
+  } else {
+    loadLevel(st.levelIndex + 1);
+  }
+});
+
+document.getElementById('btnReplayAll').addEventListener('click', function () {
+  completeOverlay.classList.remove('active');
+  loadLevel(0);
+});
+
+btnRestart.addEventListener('click', restart);
+btnPrevLevel.addEventListener('click', function () { loadLevel(st.levelIndex - 1); });
+btnNextLevel.addEventListener('click', function () { loadLevel(st.levelIndex + 1); });
+
+// ── Sound ──
+var _soundOn = localStorage.getItem(SOUND_KEY) !== 'false';
+var _actx = null;
+function _getCtx() {
+  if (!_actx) {
+    try { _actx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { return null; }
+  }
+  return _actx;
+}
+function playTone(freq, gain) {
+  if (!_soundOn) return;
+  var ctx = _getCtx();
+  if (!ctx) return;
+  var osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.connect(g); g.connect(ctx.destination);
+  osc.type = 'sine'; osc.frequency.value = freq;
+  var t = ctx.currentTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(gain, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  osc.start(t); osc.stop(t + 0.22);
+}
+function playWinJingle() {
+  if (!_soundOn) return;
+  [523.25, 659.25, 783.99, 1046.5].forEach(function (freq, i) {
+    setTimeout(function () { playTone(freq, 0.14); }, i * 110);
+  });
+}
+function _updateToggle() {
+  var btn = document.getElementById('soundToggle'); if (!btn) return;
+  btn.style.background = _soundOn ? '#ffb037' : '#444';
+  var th = btn.querySelector('.thumb'); if (th) th.style.left = _soundOn ? '22px' : '2px';
+}
+function toggleSound() {
+  _soundOn = !_soundOn;
+  localStorage.setItem(SOUND_KEY, _soundOn);
+  _updateToggle();
+}
+function toggleSettings() { document.getElementById('settingsPanel').classList.toggle('open'); }
+document.addEventListener('click', function (e) {
+  var p = document.getElementById('settingsPanel'), b = document.getElementById('settingsBtn');
+  if (p && p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target)) {
+    p.classList.remove('open');
+  }
+});
+var _audioReady = false;
+function _onFirstTouch() {
+  if (_audioReady) return; _audioReady = true;
+  var ctx = _getCtx();
+  if (!ctx) return;
+  ctx.resume().catch(function () {});
+}
+document.addEventListener('click', _onFirstTouch, { once: true });
+document.addEventListener('touchstart', _onFirstTouch, { once: true });
+
+// ── Init ──
+var progress = loadProgress();
+st.furthest = progress.furthest;
+loadLevel(progress.current);
+_updateToggle();
+
+window.addEventListener('resize', function () {
+  if (st.lvl) buildBoardDOM(), updateCircuit();
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+<button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
+<div id="settingsPanel">
+  <div class="s-row">
+    <span class="s-label">Sound</span>
+    <button id="soundToggle" class="s-toggle" onclick="toggleSound()"><div class="thumb"></div></button>
+  </div>
+</div>
+</body>
+</html>
