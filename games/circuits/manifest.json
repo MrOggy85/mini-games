@@ -1,0 +1,8 @@
+{
+  "name": "Circuits",
+  "short_name": "Circuits",
+  "start_url": "/games/circuits/",
+  "display": "standalone",
+  "background_color": "#12142b",
+  "theme_color": "#12142b"
+}
