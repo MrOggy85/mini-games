@@ -20,6 +20,14 @@ Every game page must include:
 
 Games are designed for **iPad and iPhone**. All UI must be touch-friendly with appropriately sized tap targets.
 
+## Color & Contrast
+
+Games use dark, near-black backgrounds, but must still be playable outdoors or on a dimmed screen.
+
+- Don't pick two colors that are both very dark and close in lightness (e.g. a background of `#09091a` next to a board/tile color of `#0f0f20`) — on a dimmed tablet screen these read as identical.
+- Board/tile surfaces, borders, and label text need a real lightness jump from the background — aim for a contrast ratio of at least 3:1 (check with a contrast calculator), not just a "looks fine on a bright monitor" difference.
+- Bright accent colors (path lines, markers, highlights) are usually fine as-is since they already contrast strongly against dark backgrounds — the recurring mistake is dark-gray-on-black neutrals blending together.
+
 ## PWA / Offline Support
 
 The site must work as a PWA ("Add to Home Screen") and function fully offline. Each game can be independently added to the home screen.

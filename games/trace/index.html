@@ -58,12 +58,12 @@ h1 {
   font-size: 0.72rem;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: #334;
+  color: #667;
 }
 #hint-text {
   margin-top: 3px;
   font-size: 0.68rem;
-  color: #2a2a44;
+  color: #556;
   letter-spacing: 1px;
 }
 
@@ -328,6 +328,12 @@ const PAD      = 0.11;  // fraction of cs for cell inset
 const CLR_PATH = '#44aaff';
 const CLR_S    = '#44ffaa';
 const CLR_E    = '#ff8844';
+// Board cells need to read clearly against the near-black background even on
+// a dimmed tablet screen, so these sit far lighter than the old near-black grays.
+const CLR_CELL_EMPTY    = '#6a6a90';
+const CLR_CELL_VISITED  = '#9494b8';
+const CLR_BORDER_EMPTY  = '#48486a';
+const CLR_BORDER_VISITED = '#b0b0d4';
 
 const midX = col => col * cs + cs / 2;
 const midY = row => row * cs + cs / 2;
@@ -349,10 +355,10 @@ function drawGrid() {
       const y = r*cs + cs*PAD;
       const s = cs * (1 - PAD*2);
       const rd = s * 0.2;
-      ctx.fillStyle   = vis[r][c] ? '#131326' : '#0f0f20';
+      ctx.fillStyle   = vis[r][c] ? CLR_CELL_VISITED : CLR_CELL_EMPTY;
       rRect(x, y, s, s, rd);
       ctx.fill();
-      ctx.strokeStyle = vis[r][c] ? '#1c1c38' : '#161628';
+      ctx.strokeStyle = vis[r][c] ? CLR_BORDER_VISITED : CLR_BORDER_EMPTY;
       ctx.lineWidth   = 1;
       rRect(x, y, s, s, rd);
       ctx.stroke();
