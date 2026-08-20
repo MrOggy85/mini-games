@@ -325,15 +325,18 @@ window.addEventListener('resize', () => { resize(); });
 
 // ── Drawing helpers ────────────────────────────────────────────────────
 const PAD      = 0.11;  // fraction of cs for cell inset
-const CLR_PATH = '#44aaff';
-const CLR_S    = '#44ffaa';
-const CLR_E    = '#ff8844';
-// Board cells need to read clearly against the near-black background even on
-// a dimmed tablet screen, so these sit far lighter than the old near-black grays.
-const CLR_CELL_EMPTY    = '#6a6a90';
-const CLR_CELL_VISITED  = '#9494b8';
-const CLR_BORDER_EMPTY  = '#48486a';
-const CLR_BORDER_VISITED = '#b0b0d4';
+// The board fills sit in a dim, muted band (WCAG luminance ~0.12-0.16) that
+// still clears 3:1 against the near-black background, leaving enough
+// headroom for the path/marker colors below to clear 3:1 against the fills
+// too (the start cell, and most of the drawn path, render as CLR_CELL_VISITED,
+// so that fill's brightness is the binding constraint on every accent color).
+const CLR_CELL_EMPTY     = '#5c5c88';
+const CLR_CELL_VISITED   = '#6a6a9e';
+const CLR_BORDER_EMPTY   = '#484872';
+const CLR_BORDER_VISITED = '#9494d0';
+const CLR_PATH = '#8adfff';
+const CLR_S    = '#5dffb0';
+const CLR_E    = '#ffcb8c';
 
 const midX = col => col * cs + cs / 2;
 const midY = row => row * cs + cs / 2;
