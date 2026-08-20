@@ -616,9 +616,12 @@ function checkWin() {
     st.furthest = Math.min(st.levelIndex + 1, LEVEL_COUNT - 1);
   }
   saveProgress();
-  playWinJingle();
-  document.getElementById('winSub').textContent = 'All bulbs lit on level ' + (st.levelIndex + 1) + '!';
-  winOverlay.classList.add('active');
+  // Brief pause so the player sees the fully-lit circuit before the overlay covers it.
+  setTimeout(function () {
+    playWinJingle();
+    document.getElementById('winSub').textContent = 'All bulbs lit on level ' + (st.levelIndex + 1) + '!';
+    winOverlay.classList.add('active');
+  }, 600);
 }
 
 document.getElementById('btnContinue').addEventListener('click', function () {
