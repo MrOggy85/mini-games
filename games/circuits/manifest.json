@@ -4,5 +4,8 @@
   "start_url": "/games/circuits/",
   "display": "standalone",
   "background_color": "#12142b",
-  "theme_color": "#12142b"
+  "theme_color": "#12142b",
+  "icons": [
+    { "src": "/games/circuits/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }
