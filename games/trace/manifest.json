@@ -4,5 +4,8 @@
   "start_url": "/games/trace/",
   "display": "standalone",
   "background_color": "#09091a",
-  "theme_color": "#09091a"
+  "theme_color": "#09091a",
+  "icons": [
+    { "src": "/games/trace/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }
