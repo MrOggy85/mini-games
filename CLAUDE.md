@@ -49,3 +49,16 @@ The site must work as a PWA ("Add to Home Screen") and function fully offline. E
 ## Portal Page
 
 The root `index.html` is the portal/index that links to all games. When a new game is added, its link must be added here.
+
+## Juice Toolkit
+
+`/templates/juice.js` is a small, dependency-free set of "game feel" helpers (spring easing, squash & stretch, screen shake, particle burst). It is **not loaded by any game** — it exists purely as a copy-paste source, consistent with the self-contained-single-file rule above. `.assetsignore` excludes `/templates/` from deployment.
+
+When a game would benefit from more tactile/alive feedback (a piece landing, an invalid move, a piece being cleared), open `/templates/juice.js`, copy only the function(s) needed, and paste them directly into that game's `<script>` block rather than reaching for an external animation/physics library.
+
+- `juiceSquash(el, opts)` — squash & stretch scale pulse, e.g. for "landed" or "placed correctly" feedback
+- `juiceShake(el, opts)` — brief shake, e.g. for an invalid move or collision
+- `juiceBurst(x, y, colors, opts)` — small particle burst at a viewport position, e.g. for a piece being cleared/collected
+- `juiceSpring(from, to, onUpdate, opts)` — damped-spring value animation for anything driven by a changing target (e.g. drag-to-target, follow)
+
+All four use only the Web Animations API and `requestAnimationFrame` — no build step, no external assets. See `games/glide/index.html` for a working example (squash on a landed block, shake on a stuck block, burst when a block exits the board).
