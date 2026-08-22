@@ -130,15 +130,6 @@ h1 {
   50% { box-shadow: 0 0 0 6px rgba(255,255,0,0.35), 0 3px 12px var(--glow); }
 }
 
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20% { transform: translateX(-5px); }
-  40% { transform: translateX(5px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(3px); }
-}
-.block.shake { animation: shake 0.3s ease; }
-
 .btns {
   display: flex;
   gap: 10px;
@@ -289,6 +280,65 @@ h1 {
 
 <script>
 'use strict';
+
+// ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ─────────────
+
+function juiceSquash(el, opts) {
+  opts = opts || {};
+  var sx = opts.sx != null ? opts.sx : 1.25;
+  var sy = opts.sy != null ? opts.sy : 0.8;
+  var duration = opts.duration || 220;
+  var base = opts.base ? opts.base + ' ' : '';
+  el.animate([
+    { transform: base + 'scale(1,1)' },
+    { transform: base + 'scale(' + sx + ',' + sy + ')', offset: 0.35 },
+    { transform: base + 'scale(' + (2 - sx) + ',' + (2 - sy) + ')', offset: 0.6 },
+    { transform: base + 'scale(1,1)' }
+  ], { duration: duration, easing: 'ease-out' });
+}
+
+function juiceShake(el, opts) {
+  opts = opts || {};
+  var mag = opts.magnitude || 6;
+  var duration = opts.duration || 300;
+  el.animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(-' + mag + 'px)' },
+    { transform: 'translateX(' + mag + 'px)' },
+    { transform: 'translateX(-' + (mag * 0.7) + 'px)' },
+    { transform: 'translateX(' + (mag * 0.5) + 'px)' },
+    { transform: 'translateX(0)' }
+  ], { duration: duration, easing: 'ease-in-out' });
+}
+
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 4 + Math.random() * 4;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function(particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.3)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function() {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
 
 var G = 7;
 var DIRS = [
@@ -557,7 +607,7 @@ function doTap(id) {
 
   if (!exits && r === b.r && c === b.c) {
     var el = document.getElementById('b'+id);
-    if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    if (el) juiceShake(el, {magnitude: 6, duration: 300});
     playSound('stuck');
     updateHUD();
     if (game.taps >= game.maxTaps) {
@@ -575,6 +625,7 @@ function doTap(id) {
   var el = document.getElementById('b'+id);
   if (!el) { finishTap(id, idx, r, c, exits); return; }
 
+  var col = COLORS[b.ci];
   var from = blockXY(b.r, b.c);
   var ar = exits ? r + dir.dr : r;
   var ac = exits ? c + dir.dc : c;
@@ -585,7 +636,20 @@ function doTap(id) {
   el.style.transform  = 'translate('+dx+'px,'+dy+'px)';
   if (exits) el.style.opacity = '0';
 
-  setTimeout(function() { finishTap(id, idx, r, c, exits); }, 280);
+  setTimeout(function() {
+    if (exits) {
+      var rect = el.getBoundingClientRect();
+      juiceBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, [col.a, col.b]);
+      finishTap(id, idx, r, c, exits);
+    } else {
+      // finishTap re-renders the block at its landed position first, so the
+      // squash below targets the fresh element instead of one about to be
+      // removed from the DOM (renderBlocks would otherwise cancel it unseen).
+      finishTap(id, idx, r, c, exits);
+      var landedEl = document.getElementById('b' + id);
+      if (landedEl) juiceSquash(landedEl, {sx: 1.18, sy: 0.85, duration: 200});
+    }
+  }, 280);
 }
 
 function finishTap(id, idx, r, c, exits) {
