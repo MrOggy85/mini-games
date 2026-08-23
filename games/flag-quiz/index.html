@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/flag-quiz/manifest.json">
+<title>Flag Quiz</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0d0d1a;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  overflow-x: hidden;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #9a9ab0;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 14px 16px 0;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #4a9eff; }
+
+#game-wrap {
+  width: 100%;
+  max-width: 460px;
+  padding: 10px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-top: 6px;
+}
+
+#status-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#lives {
+  font-size: 22px;
+  letter-spacing: 3px;
+}
+.heart-lost { opacity: 0.28; }
+
+#score {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #9a9ab0;
+  text-transform: uppercase;
+}
+#score span { color: #e0e0e0; font-size: 16px; }
+
+#flag-card {
+  width: 100%;
+  aspect-ratio: 5 / 3;
+  max-height: 220px;
+  border-radius: 20px;
+  background: #1c2044;
+  border: 1px solid #3a3f6e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: min(28vw, 130px);
+  line-height: 1;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+#answers {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.answer-btn {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid #3a3f6e;
+  background: #1c2044;
+  color: #e0e0e0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  min-height: 56px;
+}
+.answer-btn:active {
+  transform: scale(0.98);
+}
+.answer-btn.correct {
+  background: #1e5a3a;
+  border-color: #34c759;
+  color: #baffce;
+}
+.answer-btn.wrong {
+  background: #5a1e28;
+  border-color: #ff4757;
+  color: #ffc2c8;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 6, 14, 0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+#overlay.show { display: flex; }
+
+.overlay-card {
+  background: #1c2044;
+  border: 1px solid #3a3f6e;
+  border-radius: 20px;
+  padding: 32px 28px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+}
+.overlay-card h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ff8a94;
+  margin-bottom: 10px;
+}
+.overlay-card p {
+  color: #c0c0d0;
+  font-size: 1rem;
+  margin-bottom: 22px;
+}
+.overlay-card p span {
+  color: #e0e0e0;
+  font-weight: 700;
+}
+
+#play-again {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: none;
+  background: #4a9eff;
+  color: #06060e;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 52px;
+}
+#play-again:active { transform: scale(0.98); }
+</style>
+</head>
+<body>
+
+<a href="/" class="back-link">&larr; All Games</a>
+
+<div id="game-wrap">
+  <h1>Flag Quiz</h1>
+
+  <div id="status-row">
+    <div id="lives"></div>
+    <div id="score">SCORE <span id="score-value">0</span></div>
+  </div>
+
+  <div id="flag-card"></div>
+
+  <div id="answers"></div>
+</div>
+
+<div id="overlay">
+  <div class="overlay-card">
+    <h2>Game Over</h2>
+    <p>You correctly identified <span id="final-score">0</span> flag<span id="final-plural">s</span>.</p>
+    <button id="play-again">Play Again</button>
+  </div>
+</div>
+
+<script>
+// Squash & stretch pulse, and shake — copied from /templates/juice.js.
+function juiceSquash(el, opts) {
+  opts = opts || {};
+  var sx = opts.sx != null ? opts.sx : 1.15;
+  var sy = opts.sy != null ? opts.sy : 0.9;
+  var duration = opts.duration || 220;
+  el.animate([
+    { transform: 'scale(1,1)' },
+    { transform: 'scale(' + sx + ',' + sy + ')', offset: 0.35 },
+    { transform: 'scale(' + (2 - sx) + ',' + (2 - sy) + ')', offset: 0.6 },
+    { transform: 'scale(1,1)' }
+  ], { duration: duration, easing: 'ease-out' });
+}
+function juiceShake(el, opts) {
+  opts = opts || {};
+  var mag = opts.magnitude || 6;
+  var duration = opts.duration || 300;
+  el.animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(-' + mag + 'px)' },
+    { transform: 'translateX(' + mag + 'px)' },
+    { transform: 'translateX(-' + (mag * 0.7) + 'px)' },
+    { transform: 'translateX(' + (mag * 0.5) + 'px)' },
+    { transform: 'translateX(0)' }
+  ], { duration: duration, easing: 'ease-in-out' });
+}
+
+var COUNTRIES = [
+  ['US', 'United States'], ['GB', 'United Kingdom'], ['FR', 'France'], ['DE', 'Germany'],
+  ['IT', 'Italy'], ['ES', 'Spain'], ['PT', 'Portugal'], ['NL', 'Netherlands'],
+  ['BE', 'Belgium'], ['CH', 'Switzerland'], ['AT', 'Austria'], ['SE', 'Sweden'],
+  ['NO', 'Norway'], ['DK', 'Denmark'], ['FI', 'Finland'], ['IS', 'Iceland'],
+  ['IE', 'Ireland'], ['PL', 'Poland'], ['CZ', 'Czechia'], ['GR', 'Greece'],
+  ['TR', 'Turkey'], ['RU', 'Russia'], ['UA', 'Ukraine'], ['RO', 'Romania'],
+  ['HU', 'Hungary'], ['BG', 'Bulgaria'], ['HR', 'Croatia'], ['RS', 'Serbia'],
+  ['SK', 'Slovakia'], ['SI', 'Slovenia'], ['EE', 'Estonia'], ['LV', 'Latvia'],
+  ['LT', 'Lithuania'], ['CY', 'Cyprus'], ['MT', 'Malta'], ['LU', 'Luxembourg'],
+  ['CN', 'China'], ['JP', 'Japan'], ['KR', 'South Korea'], ['IN', 'India'],
+  ['PK', 'Pakistan'], ['BD', 'Bangladesh'], ['ID', 'Indonesia'], ['TH', 'Thailand'],
+  ['VN', 'Vietnam'], ['PH', 'Philippines'], ['MY', 'Malaysia'], ['SG', 'Singapore'],
+  ['AU', 'Australia'], ['NZ', 'New Zealand'], ['CA', 'Canada'], ['MX', 'Mexico'],
+  ['BR', 'Brazil'], ['AR', 'Argentina'], ['CL', 'Chile'], ['CO', 'Colombia'],
+  ['PE', 'Peru'], ['VE', 'Venezuela'], ['UY', 'Uruguay'], ['PY', 'Paraguay'],
+  ['BO', 'Bolivia'], ['EC', 'Ecuador'], ['CR', 'Costa Rica'], ['PA', 'Panama'],
+  ['CU', 'Cuba'], ['JM', 'Jamaica'], ['EG', 'Egypt'], ['ZA', 'South Africa'],
+  ['NG', 'Nigeria'], ['KE', 'Kenya'], ['MA', 'Morocco'], ['DZ', 'Algeria'],
+  ['GH', 'Ghana'], ['ET', 'Ethiopia'], ['TZ', 'Tanzania'], ['SA', 'Saudi Arabia'],
+  ['AE', 'United Arab Emirates'], ['IL', 'Israel'], ['IR', 'Iran'], ['IQ', 'Iraq'],
+  ['JO', 'Jordan'], ['LB', 'Lebanon']
+];
+
+function flagEmoji(code) {
+  var chars = [];
+  for (var i = 0; i < code.length; i++) {
+    chars.push(0x1F1E6 + (code.charCodeAt(i) - 65));
+  }
+  return String.fromCodePoint.apply(null, chars);
+}
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+var livesEl = document.getElementById('lives');
+var scoreValueEl = document.getElementById('score-value');
+var flagCard = document.getElementById('flag-card');
+var answersEl = document.getElementById('answers');
+var overlay = document.getElementById('overlay');
+var finalScoreEl = document.getElementById('final-score');
+var finalPluralEl = document.getElementById('final-plural');
+var playAgainBtn = document.getElementById('play-again');
+
+var MAX_LIVES = 5;
+var lives = MAX_LIVES;
+var score = 0;
+var deck = [];
+var current = null;
+var locked = false;
+
+function refillDeck() {
+  deck = shuffle(COUNTRIES);
+}
+
+function renderLives() {
+  var s = '';
+  for (var i = 0; i < MAX_LIVES; i++) {
+    s += i < lives ? '❤️' : '<span class="heart-lost">❤️</span>';
+  }
+  livesEl.innerHTML = s;
+}
+
+function renderScore() {
+  scoreValueEl.textContent = score;
+}
+
+function pickWrongAnswers(correctCode) {
+  var pool = COUNTRIES.filter(function(c) { return c[0] !== correctCode; });
+  return shuffle(pool).slice(0, 2);
+}
+
+function showNextFlag() {
+  if (deck.length === 0) refillDeck();
+  current = deck.pop();
+
+  flagCard.textContent = flagEmoji(current[0]);
+
+  var wrong = pickWrongAnswers(current[0]);
+  var options = shuffle([current].concat(wrong));
+
+  answersEl.innerHTML = '';
+  options.forEach(function(opt) {
+    var btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = opt[1];
+    btn.dataset.code = opt[0];
+    btn.addEventListener('click', function() { selectAnswer(opt, btn); });
+    answersEl.appendChild(btn);
+  });
+
+  locked = false;
+}
+
+function selectAnswer(opt, btnEl) {
+  if (locked) return;
+  locked = true;
+
+  var buttons = answersEl.querySelectorAll('.answer-btn');
+  buttons.forEach(function(b) { b.disabled = true; });
+
+  if (opt[0] === current[0]) {
+    btnEl.classList.add('correct');
+    juiceSquash(btnEl);
+    score++;
+    renderScore();
+    setTimeout(showNextFlag, 550);
+  } else {
+    btnEl.classList.add('wrong');
+    juiceShake(btnEl);
+    buttons.forEach(function(b) {
+      if (b.dataset.code === current[0]) b.classList.add('correct');
+    });
+    lives--;
+    renderLives();
+    if (lives <= 0) {
+      setTimeout(showGameOver, 1200);
+    } else {
+      setTimeout(showNextFlag, 1400);
+    }
+  }
+}
+
+function showGameOver() {
+  finalScoreEl.textContent = score;
+  finalPluralEl.textContent = score === 1 ? '' : 's';
+  overlay.classList.add('show');
+}
+
+function startGame() {
+  lives = MAX_LIVES;
+  score = 0;
+  renderLives();
+  renderScore();
+  refillDeck();
+  overlay.classList.remove('show');
+  showNextFlag();
+}
+
+playAgainBtn.addEventListener('click', startGame);
+
+startGame();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+</body>
+</html>
