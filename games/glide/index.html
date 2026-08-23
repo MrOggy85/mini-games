@@ -117,6 +117,13 @@ h1 {
   -webkit-tap-highlight-color: transparent;
   font-weight: 700;
   transition: box-shadow 0.15s;
+  color: #fff;
+  text-shadow:
+    -1.5px -1.5px 0 #000,
+    1.5px -1.5px 0 #000,
+    -1.5px 1.5px 0 #000,
+    1.5px 1.5px 0 #000,
+    0 0 3px rgba(0,0,0,0.6);
 }
 
 .block.hint {
@@ -347,13 +354,15 @@ var DIRS = [
   {dr: 1, dc: 0, sym:'↓'},
   {dr: 0, dc:-1, sym:'←'}
 ];
+// Okabe-Ito colorblind-safe palette (distinguishable under protanopia,
+// deuteranopia and tritanopia), tinted/shaded for the block gradients.
 var COLORS = [
-  {a:'#4af', b:'#06f', glow:'rgba(0,120,255,.45)'},
-  {a:'#f4a', b:'#c06', glow:'rgba(200,0,100,.45)'},
-  {a:'#4fa', b:'#0b6', glow:'rgba(0,180,80,.45)'},
-  {a:'#fa4', b:'#c60', glow:'rgba(220,100,0,.45)'},
-  {a:'#a4f', b:'#60c', glow:'rgba(100,0,220,.45)'},
-  {a:'#4ff', b:'#09b', glow:'rgba(0,170,200,.45)'}
+  {a:'#ffb733', b:'#cc7a00', glow:'rgba(230,159,0,.45)'},   // orange
+  {a:'#7ec8f3', b:'#2d8fc4', glow:'rgba(86,180,233,.45)'},  // sky blue
+  {a:'#33c79a', b:'#007a56', glow:'rgba(0,158,115,.45)'},   // bluish green
+  {a:'#3d94d6', b:'#00517d', glow:'rgba(0,114,178,.45)'},   // blue
+  {a:'#ff8a4d', b:'#a84500', glow:'rgba(213,94,0,.45)'},    // vermillion
+  {a:'#e0a0c4', b:'#a84e76', glow:'rgba(204,121,167,.45)'}  // reddish purple
 ];
 
 var PAD = 8, GAP = 4;
@@ -817,7 +826,7 @@ document.getElementById('btnNext').addEventListener('click', function() {
 document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 
 computeCS();
-initLevel(1);
+initLevel(20);
 </script>
 <script>
 if ('serviceWorker' in navigator) {
