@@ -1,0 +1,10 @@
+{
+  "name": "Flag Quiz",
+  "short_name": "Flag Quiz",
+  "description": "Guess the country from its flag before you run out of lives",
+  "start_url": "/games/flag-quiz/",
+  "display": "standalone",
+  "background_color": "#0d0d1a",
+  "theme_color": "#0d0d1a",
+  "icons": []
+}
