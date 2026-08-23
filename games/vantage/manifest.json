@@ -1,7 +1,7 @@
 {
   "name": "Vantage",
   "short_name": "Vantage",
-  "description": "Mental rotation puzzle — identify the shape from a different angle",
+  "description": "Match a 3D pyramid to its correct top-down view",
   "start_url": "/games/vantage/",
   "display": "standalone",
   "background_color": "#0d0d1a",
