@@ -40,11 +40,25 @@ The site must work as a PWA ("Add to Home Screen") and function fully offline. E
   - `<meta name="apple-mobile-web-app-capable" content="yes">`
   - `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`
   - Service worker registration: `navigator.serviceWorker.register('/sw.js')`
-- Each game is a **self-contained single HTML file** (no external JS/CSS dependencies), so the service worker only needs to cache the HTML files and manifests
+  - `<link rel="icon" href=".../icon.svg" type="image/svg+xml">` and `<link rel="apple-touch-icon" href=".../apple-touch-icon.png">`
+- Each game is a **self-contained single HTML file** (no external JS/CSS dependencies), so the service worker only needs to cache the HTML files, manifests, and icons
+- Non-`games/` paths are only deployed if whitelisted in `.assetsignore` — root-level assets need an explicit `!` entry there, or they 404 and break the service worker install
 - When adding a new game:
   1. Create `/games/<name>/manifest.json`
-  2. Add the game's paths to the `ASSETS` array in `/sw.js`
-  3. Bump the `CACHE_NAME` version in `/sw.js`
+  2. Create `/games/<name>/icon.svg`, then run `make icons`
+  3. Add the game's paths to the `GAMES` array in `/sw.js`
+  4. Bump the `CACHE_NAME` version in `/sw.js`
+
+### Icons
+
+Each page has a full-bleed `icon.svg` (the source of truth) plus three generated PNGs:
+`apple-touch-icon.png` (180, iOS home screen), `icon-192.png` and `icon-512.png` (manifest).
+
+- **iOS ignores SVG `apple-touch-icon`s** — the PNGs are required for a home screen icon to appear at all
+- Regenerate with `make icons` after editing any `icon.svg`; never hand-edit the PNGs
+- `icon.svg` must be full-bleed (background rect covering all of `0 0 100 100`, no rounded corners) — iOS applies its own mask
+- Don't use `<text>` in `icon.svg`; the renderer has no fonts, and system font stacks aren't portable. Use paths
+- Icons aren't declared `purpose: "maskable"`: artwork extends to ~10% of the edge, which Android's circular safe zone would clip
 
 ## Portal Page
 
