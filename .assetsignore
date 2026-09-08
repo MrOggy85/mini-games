@@ -10,3 +10,6 @@
 !apple-touch-icon.png
 !games/
 !games/**
+!vendor/
+!vendor/three.module.min.js
+!vendor/three.core.min.js

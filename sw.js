@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v12';
+const CACHE_NAME = 'mini-games-v13';
 // Every page has: dir, index.html, manifest.json, icon.svg, apple-touch-icon.png,
 // icon-192.png, icon-512.png
 const GAMES = [
@@ -20,6 +20,10 @@ const ASSETS = [
   '/index.html',
   '/manifest.json',
   '/games/sliding-puzzle/favicon.svg',
+  // Shared three.js engine — three.module.min.js imports three.core.min.js,
+  // so both must be cached or the 3D games break offline.
+  '/vendor/three.module.min.js',
+  '/vendor/three.core.min.js',
   ...ICONS.map((i) => `/${i}`),
   ...GAMES.flatMap((g) => [
     `/games/${g}/`,

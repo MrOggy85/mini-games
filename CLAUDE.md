@@ -6,6 +6,7 @@ A collection of browser-based mini games served as a single Cloudflare Workers s
 
 - `/index.html` — portal page listing all games
 - `/games/<name>/index.html` — each game is a self-contained single HTML file
+- `/vendor/` — checked-in third-party libraries shared by all games (see **3D / three.js**)
 - `/wrangler.jsonc` — Cloudflare Workers config, serves `./` as asset root
 
 ## Game Conventions
@@ -41,7 +42,7 @@ The site must work as a PWA ("Add to Home Screen") and function fully offline. E
   - `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`
   - Service worker registration: `navigator.serviceWorker.register('/sw.js')`
   - `<link rel="icon" href=".../icon.svg" type="image/svg+xml">` and `<link rel="apple-touch-icon" href=".../apple-touch-icon.png">`
-- Each game is a **self-contained single HTML file** (no external JS/CSS dependencies), so the service worker only needs to cache the HTML files, manifests, and icons
+- Each game is a **self-contained single HTML file** — no per-game JS/CSS files. The only permitted external dependency is a shared library under `/vendor/` (see **3D / three.js**), which every game imports from the same path so the browser caches one copy
 - Non-`games/` paths are only deployed if whitelisted in `.assetsignore` — root-level assets need an explicit `!` entry there, or they 404 and break the service worker install
 - When adding a new game:
   1. Create `/games/<name>/manifest.json`
@@ -60,6 +61,38 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 - Don't use `<text>` in `icon.svg`; the renderer has no fonts, and system font stacks aren't portable. Use paths
 - Icons aren't declared `purpose: "maskable"`: artwork extends to ~10% of the edge, which Android's circular safe zone would clip
 
+## 3D / three.js
+
+Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
+`games/glide/index.html` is the reference implementation.
+
+three.js is **vendored, not loaded from a CDN** — a CDN request breaks offline play:
+
+- `/vendor/three.module.min.js` + `/vendor/three.core.min.js` (the module build imports the
+  core build by relative path, so both files must exist and both must be in `sw.js`)
+- Import with an absolute path: `import * as THREE from '/vendor/three.module.min.js';`
+  inside a `<script type="module">`
+- Refresh with `make vendor` (bump `THREE_VERSION` in the `Makefile`); never hand-edit `vendor/`
+- Only the core module is vendored — nothing from `three/examples/`. Anything from `addons`
+  (`RoundedBoxGeometry`, `OrbitControls`, postprocessing) has to be written by hand instead.
+  Rounded/beveled solids come from `ExtrudeGeometry` over a rounded-rect `Shape`.
+
+Conventions for a 3D game:
+
+- **Keep the grid axis-aligned on screen.** Tilt the camera down (~50°) with no yaw rather than
+  using a true 45° isometric view: rows/columns stay mapped to screen up/down/left/right, and a
+  square board still fits a portrait phone (a rotated board becomes a wide, short diamond).
+- Low-FOV `PerspectiveCamera` (~26°) placed far back — near-orthographic, with just enough
+  convergence to read as 3D. Solve the camera distance from the board's bounding box so it frames
+  correctly at any canvas size.
+- Budget for iPhone/iPad: `setPixelRatio(Math.min(2, devicePixelRatio))`, one shadow-casting
+  `DirectionalLight` at 1024², no postprocessing, `InstancedMesh` for repeated board tiles.
+- Tune light intensities so a fully lit top face lands at roughly the material's own color —
+  otherwise the **Color & Contrast** rules above can't be checked against a hex value.
+- Meshes aren't tappable targets on their own. Give each interactive piece an oversized
+  invisible collider (`colorWrite: false`) as a child, and raycast that.
+- The HUD, buttons, toasts and win overlay stay as DOM on top of the canvas.
+
 ## Portal Page
 
 The root `index.html` is the portal/index that links to all games. When a new game is added, its link must be added here.
@@ -75,4 +108,6 @@ When a game would benefit from more tactile/alive feedback (a piece landing, an 
 - `juiceBurst(x, y, colors, opts)` — small particle burst at a viewport position, e.g. for a piece being cleared/collected
 - `juiceSpring(from, to, onUpdate, opts)` — damped-spring value animation for anything driven by a changing target (e.g. drag-to-target, follow)
 
-All four use only the Web Animations API and `requestAnimationFrame` — no build step, no external assets. See `games/glide/index.html` for a working example (squash on a landed block, shake on a stuck block, burst when a block exits the board).
+All four use only the Web Animations API and `requestAnimationFrame` — no build step, no external assets.
+
+In a three.js game these apply to meshes, not DOM elements, so only `juiceBurst` copies over as-is (it spawns DOM particles at a projected screen position). Squash, shake and spring get re-expressed as tweens on `mesh.scale` / `mesh.position` / `camera.position` inside the render loop — see `games/glide/index.html` (squash on a landed block, nudge-and-bounce plus camera shake on a stuck block, `juiceBurst` at the projected position when a block exits the board).
