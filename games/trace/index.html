@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/games/trace/manifest.json">
@@ -30,7 +30,7 @@ body {
   position: absolute;
   top: 14px;
   left: 16px;
-  color: #556;
+  color: #8a8ab0;
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 600;
@@ -60,12 +60,12 @@ h1 {
   font-size: 0.72rem;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: #667;
+  color: #9a9ac0;
 }
 #hint-text {
   margin-top: 3px;
   font-size: 0.68rem;
-  color: #556;
+  color: #8a8ab0;
   letter-spacing: 1px;
 }
 
@@ -76,12 +76,37 @@ h1 {
   align-items: center;
   justify-content: center;
   min-height: 0;
+  position: relative;
+}
+/* Soft pool of light under the board so the 3D scene doesn't float on flat black. */
+#canvas-wrap::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 5%;
+  width: 90%;
+  height: 80%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 55%, rgba(80,110,190,0.16), rgba(0,0,0,0) 70%);
+  pointer-events: none;
 }
 canvas {
   touch-action: none;
   cursor: crosshair;
   display: block;
+  position: relative;
 }
+
+#load-err {
+  display: none;
+  max-width: 22rem;
+  padding: 0 20px;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #d88;
+}
+#load-err.on { display: block; }
 
 #btn-row {
   display: flex;
@@ -91,10 +116,10 @@ canvas {
 }
 .btn {
   padding: 10px 30px;
-  border: 1px solid #232340;
+  border: 1px solid #3a3a60;
   border-radius: 8px;
-  background: #0f0f20;
-  color: #667;
+  background: #1a1a30;
+  color: #9a9ac0;
   font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 2px;
@@ -170,7 +195,7 @@ canvas {
   background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 50%; width: 40px; height: 40px; font-size: 19px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  color: #556; transition: background 0.15s, color 0.15s;
+  color: #8a8ab0; transition: background 0.15s, color 0.15s;
   -webkit-tap-highlight-color: transparent; user-select: none;
 }
 #settingsBtn:hover { background: rgba(255,255,255,0.14); color: #99b; }
@@ -181,7 +206,7 @@ canvas {
 }
 #settingsPanel.open { display: block; }
 .s-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.s-label { font-size: 0.88rem; font-weight: 600; color: #889; }
+.s-label { font-size: 0.88rem; font-weight: 600; color: #aab; }
 .s-toggle {
   position: relative; width: 44px; height: 24px; border-radius: 12px;
   border: none; cursor: pointer; transition: background 0.2s;
@@ -205,6 +230,7 @@ canvas {
 
 <div id="canvas-wrap">
   <canvas id="gc"></canvas>
+  <p id="load-err">Couldn&rsquo;t load the 3D engine. Reload the page &mdash; if you&rsquo;re offline, open the game once while connected so it can be cached.</p>
 </div>
 
 <div id="btn-row">
@@ -220,8 +246,199 @@ canvas {
   </div>
 </div>
 
-<script>
-// ── Grid size schedule ────────────────────────────────────────────────
+<script type="module">
+import * as THREE from '/vendor/three.module.min.js';
+
+// ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ─────────────
+
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 4 + Math.random() * 4;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function(particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.3)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function() {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
+
+// ── Board constants (world units, 1 unit = 1 cell) ───────────────────────────
+
+const GAP = 0.09;
+const STEP = 1 + GAP;
+const PAD = 0.3;
+const SLAB_H = 0.42;
+const TILE_H = 0.16;
+const TILE_LIFT = 0.14;            // how far a visited tile rises
+const PATH_Y = TILE_H + TILE_LIFT + 0.10;
+const TUBE_R = 0.17;
+const CHAMFER = 0.34;              // corner cut, keeps the spline inside its cells
+const LABEL_SCALE = 0.58;
+const LABEL_Y = TILE_H + TILE_LIFT + 0.66;
+const PITCH = THREE.MathUtils.degToRad(51);
+const TARGET = new THREE.Vector3(0, 0.3, 0);
+
+// Board neutrals are deliberately light: at ~3:1+ against the near-black page
+// they stay readable on a dimmed tablet outdoors (see CLAUDE.md). Lighting
+// lands a fully lit top face at roughly the material's own colour.
+const C_EMPTY   = new THREE.Color(0x7d7dae);
+const C_VISITED = new THREE.Color(0xa5a5e0);
+const C_START   = new THREE.Color(0x74d3aa);
+const C_END     = new THREE.Color(0xe2bd8d);
+const C_WHITE   = new THREE.Color(0xffffff);
+const SLAB_COLOR = 0x676796;
+const CLR_PATH = 0x8adfff;
+const CLR_S = 0x5dffb0;
+const CLR_E = 0xffcb8c;
+
+// ── Renderer / scene ─────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('gc');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(26, 1, 1, 200);
+const camBase = new THREE.Vector3();
+
+scene.add(new THREE.HemisphereLight(0x93a8dd, 0x0e1018, 0.38));
+
+const keyLight = new THREE.DirectionalLight(0xfff4e2, 0.72);
+keyLight.position.set(-6.5, 15, 4.5);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.left = -6.5;
+keyLight.shadow.camera.right = 6.5;
+keyLight.shadow.camera.top = 6.5;
+keyLight.shadow.camera.bottom = -6.5;
+keyLight.shadow.camera.near = 4;
+keyLight.shadow.camera.far = 34;
+keyLight.shadow.bias = -0.0012;
+keyLight.shadow.normalBias = 0.02;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x88aaff, 0.16);
+fillLight.position.set(7, 5, -8);
+scene.add(fillLight);
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────
+
+function roundedRect(w, h, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+// Beveled box with its base at y=0. ExtrudeGeometry spans [-bevel, depth+bevel]
+// on its extrusion axis, so inset the profile by `bevel` and lift by `bevel`.
+function roundedBox(w, d, h, r, bevel) {
+  const geo = new THREE.ExtrudeGeometry(
+    roundedRect(w - 2 * bevel, d - 2 * bevel, Math.max(0.01, r - bevel)),
+    {
+      depth: h - 2 * bevel,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 2,
+      curveSegments: 5
+    }
+  );
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, bevel, 0);
+  return geo;
+}
+
+// Letter drawn with the browser's own fonts — this is a canvas texture, not the
+// font-less server-side icon renderer, so a system font stack is fine here.
+function labelTexture(ch) {
+  const s = 128;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = s;
+  const g = cv.getContext('2d');
+  g.font = 'bold 82px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineWidth = 12;
+  g.lineJoin = 'round';
+  g.strokeStyle = 'rgba(6,6,20,0.92)';
+  g.strokeText(ch, s / 2, s / 2 + 4);
+  g.fillStyle = '#ffffff';
+  g.fillText(ch, s / 2, s / 2 + 4);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const TILE_GEO = roundedBox(1, 1, TILE_H, 0.2, 0.035);
+const RING_GEO = new THREE.TorusGeometry(0.40, 0.045, 8, 32).rotateX(-Math.PI / 2);
+const HEAD_GEO = new THREE.TorusGeometry(0.30, 0.035, 8, 28).rotateX(-Math.PI / 2);
+
+const slabMat = new THREE.MeshStandardMaterial({ color: SLAB_COLOR, roughness: 0.9, metalness: 0.02 });
+const tileMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.02 });
+const tubeMat = new THREE.MeshStandardMaterial({
+  color: CLR_PATH, roughness: 0.25, metalness: 0.1, emissive: CLR_PATH, emissiveIntensity: 0.55
+});
+
+function markerRing(color) {
+  const m = new THREE.Mesh(RING_GEO, new THREE.MeshStandardMaterial({
+    color, roughness: 0.3, metalness: 0.1, emissive: color, emissiveIntensity: 0.5
+  }));
+  m.castShadow = true;
+  scene.add(m);
+  return m;
+}
+
+function markerLabel(ch, color) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: labelTexture(ch), color, transparent: true, depthWrite: false
+  }));
+  s.scale.setScalar(LABEL_SCALE);
+  scene.add(s);
+  return s;
+}
+
+const ringS = markerRing(CLR_S);
+const ringE = markerRing(CLR_E);
+const labelS = markerLabel('S', CLR_S);
+const labelE = markerLabel('E', CLR_E);
+
+const headRing = new THREE.Mesh(HEAD_GEO, new THREE.MeshStandardMaterial({
+  color: CLR_PATH, emissive: CLR_PATH, emissiveIntensity: 0.8, transparent: true, roughness: 0.3
+}));
+scene.add(headRing);
+
+// ── State ────────────────────────────────────────────────────────────────────
+
 const SIZES = [
   {R:3,C:3},{R:3,C:3},{R:3,C:3},
   {R:3,C:4},{R:3,C:4},{R:3,C:4},
@@ -232,25 +449,34 @@ const SIZES = [
   {R:6,C:6},{R:6,C:6},{R:6,C:6},
 ];
 
-// ── State ─────────────────────────────────────────────────────────────
-let lv    = {R:0,C:0,start:[0,0],end:[0,0]};
-let path  = [];     // [[r,c], ...]
-let vis   = [];     // vis[r][c] = true if in path
-let drag  = false;
-let won   = false;
+let lv = { R: 0, C: 0, start: [0, 0], end: [0, 0] };
+let path = [];      // [[r,c], ...]
+let vis = [];       // vis[r][c] = true if in path
+let drag = false;
+let won = false;
+let winT = 0;
+let winBurst = false;
 let lvIdx = 0;
-let cs    = 0;      // cell size in px
 
-const canvas = document.getElementById('gc');
-const ctx    = canvas.getContext('2d');
+let slab = null;
+let tiles = null;
+let tube = null;
+let cellColor = [];   // per-instance animated colour
+let cellLift = [];    // per-instance animated height
+let cellFlash = [];   // per-instance win-wave brightness
 
-// ── Hamiltonian path generator (Warnsdorff + backtrack) ───────────────
+function cellX(c) { return (c - (lv.C - 1) / 2) * STEP; }
+function cellZ(r) { return (r - (lv.R - 1) / 2) * STEP; }
+function idxOf(r, c) { return r * lv.C + c; }
+
+// ── Hamiltonian path generator (Warnsdorff + backtrack) ──────────────────────
+
 const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
 
 function genLevel(R, C) {
-  const grid = Array.from({length:R}, () => Array(C).fill(false));
-  const r0   = Math.floor(Math.random() * R);
-  const c0   = Math.floor(Math.random() * C);
+  const grid = Array.from({length: R}, () => Array(C).fill(false));
+  const r0 = Math.floor(Math.random() * R);
+  const c0 = Math.floor(Math.random() * C);
   grid[r0][c0] = true;
   const p = [[r0, c0]];
   if (hamilDFS(grid, R, C, p)) {
@@ -294,181 +520,259 @@ function hamilDFS(grid, R, C, p) {
   return false;
 }
 
-// ── Level initialisation ───────────────────────────────────────────────
+// ── Board build ──────────────────────────────────────────────────────────────
+
+function buildBoard() {
+  if (slab) { slab.geometry.dispose(); scene.remove(slab); }
+  if (tiles) { tiles.dispose(); scene.remove(tiles); }
+
+  const bw = lv.C + (lv.C - 1) * GAP + 2 * PAD;
+  const bd = lv.R + (lv.R - 1) * GAP + 2 * PAD;
+  slab = new THREE.Mesh(roundedBox(bw, bd, SLAB_H, 0.34, 0.06), slabMat);
+  slab.position.y = -SLAB_H;
+  slab.receiveShadow = true;
+  scene.add(slab);
+
+  const n = lv.R * lv.C;
+  tiles = new THREE.InstancedMesh(TILE_GEO, tileMat, n);
+  tiles.castShadow = true;
+  tiles.receiveShadow = true;
+  scene.add(tiles);
+
+  cellColor = [];
+  cellLift = new Float32Array(n);
+  cellFlash = new Float32Array(n);
+  for (let i = 0; i < n; i++) cellColor.push(new THREE.Color());
+  syncCells(true);
+}
+
+const _obj = new THREE.Object3D();
+const _col = new THREE.Color();
+
+function targetColor(r, c, out) {
+  if (r === lv.start[0] && c === lv.start[1]) return out.copy(C_START);
+  if (r === lv.end[0] && c === lv.end[1]) return out.copy(C_END);
+  return out.copy(vis[r][c] ? C_VISITED : C_EMPTY);
+}
+
+// Writes per-instance colour + height. `snap` skips the easing on a fresh level.
+function syncCells(snap, dt) {
+  const k = snap ? 1 : 1 - Math.pow(0.001, dt);
+  for (let r = 0; r < lv.R; r++) {
+    for (let c = 0; c < lv.C; c++) {
+      const i = idxOf(r, c);
+      targetColor(r, c, _col);
+      if (cellFlash[i] > 0.001) _col.lerp(C_WHITE, cellFlash[i] * 0.75);
+      const lift = (vis[r][c] ? TILE_LIFT : 0) + cellFlash[i] * 0.16;
+      cellColor[i].lerp(_col, k);
+      cellLift[i] += (lift - cellLift[i]) * k;
+      _obj.position.set(cellX(c), cellLift[i], cellZ(r));
+      _obj.updateMatrix();
+      tiles.setMatrixAt(i, _obj.matrix);
+      tiles.setColorAt(i, cellColor[i]);
+    }
+  }
+  tiles.instanceMatrix.needsUpdate = true;
+  tiles.instanceColor.needsUpdate = true;
+}
+
+// ── Path tube ────────────────────────────────────────────────────────────────
+
+// Straight runs joined by short quarter-arcs. Feeding the spline pre-chamfered
+// corners keeps centripetal Catmull-Rom from bulging past the turn (~0.14 of a
+// cell without this, ~0.005 with it).
+function pathPolyline() {
+  const p = path.map(([r, c]) => new THREE.Vector3(cellX(c), PATH_Y, cellZ(r)));
+  if (p.length < 3) return p;
+  const out = [p[0]];
+  const inD = new THREE.Vector3(), outD = new THREE.Vector3();
+  for (let i = 1; i < p.length - 1; i++) {
+    const a = p[i-1], b = p[i], d = p[i+1];
+    inD.subVectors(b, a).normalize();
+    outD.subVectors(d, b).normalize();
+    if (inD.dot(outD) > 0.999) { out.push(b.clone()); continue; }
+    const s = b.clone().addScaledVector(inD, -CHAMFER);
+    const e = b.clone().addScaledVector(outD, CHAMFER);
+    out.push(s);
+    for (let k = 1; k <= 3; k++) {
+      const t = k / 4;
+      out.push(s.clone().lerp(b, t).lerp(b.clone().lerp(e, t), t));
+    }
+    out.push(e);
+  }
+  out.push(p[p.length-1]);
+  return out;
+}
+
+function rebuildTube() {
+  if (tube) { tube.geometry.dispose(); scene.remove(tube); tube = null; }
+  if (path.length < 2) return;
+  const pts = pathPolyline();
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  const geo = new THREE.TubeGeometry(curve, Math.min(600, pts.length * 6), TUBE_R, 10, false);
+  tube = new THREE.Mesh(geo, tubeMat);
+  tube.castShadow = true;
+  scene.add(tube);
+}
+
+// ── Level init ───────────────────────────────────────────────────────────────
+
 function startLevel(idx) {
   lvIdx = idx;
   document.getElementById('lvl-num').textContent = idx + 1;
-  const sz = SIZES[Math.min(idx, SIZES.length - 1)] || {R:6, C:6};
-  lv  = genLevel(sz.R, sz.C);
+  const sz = SIZES[Math.min(idx, SIZES.length - 1)] || {R: 6, C: 6};
+  lv = genLevel(sz.R, sz.C);
   won = false;
+  winBurst = false;
   document.getElementById('win-screen').classList.remove('show');
   resetPath();
-  resize();
-  if (!rafId) loop();
+  buildBoard();
+  buildFitPoints();
+  layout();
 }
 
 function resetPath() {
   path = [lv.start.slice()];
-  vis  = Array.from({length:lv.R}, () => Array(lv.C).fill(false));
+  vis = Array.from({length: lv.R}, () => Array(lv.C).fill(false));
   vis[lv.start[0]][lv.start[1]] = true;
   drag = false;
+  if (cellFlash) cellFlash.fill(0);
+  rebuildTube();
 }
 
-// ── Canvas sizing ──────────────────────────────────────────────────────
-function resize() {
-  const wrap = document.getElementById('canvas-wrap');
-  const aw = wrap.clientWidth  - 24;
-  const ah = wrap.clientHeight - 24;
-  cs = Math.min(Math.floor(aw / lv.C), Math.floor(ah / lv.R), 112);
-  canvas.width  = cs * lv.C;
-  canvas.height = cs * lv.R;
-}
-window.addEventListener('resize', () => { resize(); });
+// ── Layout ───────────────────────────────────────────────────────────────────
 
-// ── Drawing helpers ────────────────────────────────────────────────────
-const PAD      = 0.11;  // fraction of cs for cell inset
-// The board fills sit in a dim, muted band (WCAG luminance ~0.12-0.16) that
-// still clears 3:1 against the near-black background, leaving enough
-// headroom for the path/marker colors below to clear 3:1 against the fills
-// too (the start cell, and most of the drawn path, render as CLR_CELL_VISITED,
-// so that fill's brightness is the binding constraint on every accent color).
-const CLR_CELL_EMPTY     = '#5c5c88';
-const CLR_CELL_VISITED   = '#6a6a9e';
-const CLR_BORDER_EMPTY   = '#484872';
-const CLR_BORDER_VISITED = '#9494d0';
-const CLR_PATH = '#8adfff';
-const CLR_S    = '#5dffb0';
-const CLR_E    = '#ffcb8c';
+// Everything that must stay on screen. `pad` is a screen-space allowance, for
+// the S/E labels: they're camera-aligned sprites, so they take up a fixed slab
+// of screen regardless of where the cell they sit on projects to.
+let fitPts = [];
 
-const midX = col => col * cs + cs / 2;
-const midY = row => row * cs + cs / 2;
-
-function rRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.arcTo(x+w, y,   x+w, y+h, r);
-  ctx.arcTo(x+w, y+h, x,   y+h, r);
-  ctx.arcTo(x,   y+h, x,   y,   r);
-  ctx.arcTo(x,   y,   x+w, y,   r);
-  ctx.closePath();
-}
-
-function drawGrid() {
-  for (let r = 0; r < lv.R; r++) {
-    for (let c = 0; c < lv.C; c++) {
-      const x = c*cs + cs*PAD;
-      const y = r*cs + cs*PAD;
-      const s = cs * (1 - PAD*2);
-      const rd = s * 0.2;
-      ctx.fillStyle   = vis[r][c] ? CLR_CELL_VISITED : CLR_CELL_EMPTY;
-      rRect(x, y, s, s, rd);
-      ctx.fill();
-      ctx.strokeStyle = vis[r][c] ? CLR_BORDER_VISITED : CLR_BORDER_EMPTY;
-      ctx.lineWidth   = 1;
-      rRect(x, y, s, s, rd);
-      ctx.stroke();
+function buildFitPoints() {
+  const hw = (lv.C + (lv.C - 1) * GAP + 2 * PAD) / 2;
+  const hd = (lv.R + (lv.R - 1) * GAP + 2 * PAD) / 2;
+  fitPts = [];
+  for (const x of [-hw, hw]) {
+    for (const z of [-hd, hd]) {
+      for (const y of [-SLAB_H, TILE_H + TILE_LIFT]) {
+        fitPts.push({ v: new THREE.Vector3(x, y, z), pad: 0 });
+      }
+    }
+  }
+  const lx = (lv.C - 1) / 2 * STEP, lz = (lv.R - 1) / 2 * STEP;
+  for (const x of [-lx, lx]) {
+    for (const z of [-lz, lz]) {
+      fitPts.push({ v: new THREE.Vector3(x, LABEL_Y, z), pad: LABEL_SCALE / 2 });
     }
   }
 }
 
-function drawPathLine() {
-  if (path.length < 2) return;
-  ctx.save();
-  ctx.lineCap    = 'round';
-  ctx.lineJoin   = 'round';
+const FIT_MARGIN = 0.97;   // leave a 3% border in normalised device coords
+const camTarget = new THREE.Vector3();
 
-  // Glow pass
-  ctx.shadowBlur   = 22;
-  ctx.shadowColor  = CLR_PATH;
-  ctx.strokeStyle  = CLR_PATH + '44';
-  ctx.lineWidth    = cs * 0.42;
-  strokePath();
-
-  // Main line
-  ctx.shadowBlur   = 8;
-  ctx.strokeStyle  = CLR_PATH;
-  ctx.lineWidth    = cs * 0.24;
-  strokePath();
-
-  ctx.restore();
-}
-
-function strokePath() {
-  ctx.beginPath();
-  ctx.moveTo(midX(path[0][1]), midY(path[0][0]));
-  for (let i = 1; i < path.length; i++) {
-    ctx.lineTo(midX(path[i][1]), midY(path[i][0]));
+// Rough orthographic estimate of the tilted board's screen aspect. Only used as
+// a starting point — perspective makes the real numbers bigger.
+function orthoAspect() {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  let hx = 0, hy = 0;
+  for (const { v, pad } of fitPts) {
+    hx = Math.max(hx, Math.abs(v.x) + pad);
+    hy = Math.max(hy, Math.abs((v.y - TARGET.y) * cp - v.z * sp) + pad);
   }
-  ctx.stroke();
+  return { hx, hy, aspect: hx / hy };
 }
 
-function drawMarker([r, c], clr, lbl) {
-  const x = midX(c), y = midY(r), sz = cs * 0.3;
-  ctx.save();
-  ctx.shadowBlur  = 20;
-  ctx.shadowColor = clr;
+// An orthographic solve under-reserves, because perspective spreads the near
+// edge of a tilted board outward — at this fov it cropped the corner cells by a
+// few percent. So measure instead of predicting: project the corners, walk the
+// distance until the widest one sits just inside the frame, and slide the
+// look-at point along the camera's own up axis to recentre what's left.
+function fitCamera(startDist) {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const v = new THREE.Vector3();
+  let dist = startDist, shift = 0, spanX = 1, spanY = 1;
 
-  ctx.globalAlpha = 0.22;
-  ctx.fillStyle   = clr;
-  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI*2); ctx.fill();
+  for (let i = 0; i < 12; i++) {
+    camTarget.set(TARGET.x, TARGET.y + cp * shift, TARGET.z - sp * shift);
+    camera.position.set(camTarget.x, camTarget.y + sp * dist, camTarget.z + cp * dist);
+    camera.near = Math.max(0.5, dist - 14);
+    camera.far = dist + 14;
+    camera.lookAt(camTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
 
-  ctx.globalAlpha = 0.85;
-  ctx.strokeStyle = clr;
-  ctx.lineWidth   = 2;
-  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI*2); ctx.stroke();
+    const padY = 1 / (dist * tanY);          // world unit -> ndc y
+    const padX = padY / camera.aspect;
+    let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    for (const p of fitPts) {
+      v.copy(p.v).project(camera);
+      mnx = Math.min(mnx, v.x - p.pad * padX);
+      mxx = Math.max(mxx, v.x + p.pad * padX);
+      mny = Math.min(mny, v.y - p.pad * padY);
+      mxy = Math.max(mxy, v.y + p.pad * padY);
+    }
+    spanX = (mxx - mnx) / 2;
+    spanY = (mxy - mny) / 2;
+    const cy = (mxy + mny) / 2;
+    const over = Math.max(spanX, spanY);
+    if (Math.abs(over - FIT_MARGIN) < 0.003 && Math.abs(cy) < 0.003) break;
+    shift += cy * dist * tanY;
+    dist *= over / FIT_MARGIN;
+  }
 
-  ctx.globalAlpha = 1;
-  ctx.fillStyle   = clr;
-  ctx.font        = `bold ${Math.max(10, Math.round(cs * 0.2))}px monospace`;
-  ctx.textAlign   = 'center';
-  ctx.textBaseline= 'middle';
-  ctx.fillText(lbl, x, y);
-  ctx.restore();
+  camBase.copy(camera.position);
+  return { dist, spanX, spanY };
 }
 
-function drawHeadPulse() {
-  if (!path.length) return;
-  const [hr, hc] = path[path.length-1];
-  if (hr === lv.end[0] && hc === lv.end[1]) return; // already showing end marker
-  const t   = Date.now() / 700;
-  const amp = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);
-  ctx.save();
-  ctx.globalAlpha  = 0.2 + 0.35 * amp;
-  ctx.strokeStyle  = CLR_PATH;
-  ctx.shadowBlur   = 22;
-  ctx.shadowColor  = CLR_PATH;
-  ctx.lineWidth    = 2;
-  ctx.beginPath();
-  ctx.arc(midX(hc), midY(hr), cs * 0.3 * (1 + 0.18 * amp), 0, Math.PI*2);
-  ctx.stroke();
-  ctx.restore();
+function layout() {
+  const wrap = document.getElementById('canvas-wrap');
+  const availW = Math.max(160, wrap.clientWidth - 20);
+  const availH = Math.max(140, wrap.clientHeight - 20);
+  const est = orthoAspect();
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  let aspect = est.aspect;
+  let dist = est.hy / tanY;
+
+  // Second pass retightens the canvas aspect to the spans the first pass measured,
+  // so the board fills the canvas instead of leaving a band on one axis.
+  for (let pass = 0; pass < 2; pass++) {
+    let w = Math.min(availW, 560);
+    let h = w / aspect;
+    if (h > availH) { h = availH; w = h * aspect; }
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    const fit = fitCamera(dist);
+    dist = fit.dist;
+    aspect = THREE.MathUtils.clamp(aspect * fit.spanX / fit.spanY, 0.5, 3);
+  }
 }
 
-function draw() {
-  if (!cs) return;
-  ctx.fillStyle = '#09091a';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  drawGrid();
-  drawPathLine();
-  drawMarker(lv.start, CLR_S, 'S');
-  drawMarker(lv.end,   CLR_E, 'E');
-  drawHeadPulse();
+window.addEventListener('resize', layout);
+
+// ── Shake ────────────────────────────────────────────────────────────────────
+
+let shakeAmt = 0;
+const shakeOff = new THREE.Vector3();
+function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+
+function toScreen(v) {
+  const p = v.clone().project(camera);
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: rect.left + (p.x * 0.5 + 0.5) * rect.width,
+    y: rect.top + (-p.y * 0.5 + 0.5) * rect.height
+  };
 }
 
-let rafId = 0;
-function loop() {
-  draw();
-  rafId = requestAnimationFrame(loop);
-}
+// ── Game logic ───────────────────────────────────────────────────────────────
 
-// ── Game logic ────────────────────────────────────────────────────────
 function isAdj(a, b) {
   return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]) === 1;
 }
 
 function tryExtend(r, c) {
   if (won) return;
-  const cur  = path[path.length-1];
+  const cur = path[path.length-1];
   const prev = path.length > 1 ? path[path.length-2] : null;
   if (r === cur[0] && c === cur[1]) return;
 
@@ -476,12 +780,15 @@ function tryExtend(r, c) {
   if (prev && r === prev[0] && c === prev[1]) {
     vis[cur[0]][cur[1]] = false;
     path.pop();
+    rebuildTube();
     return;
   }
   // Forward extension
   if (isAdj(cur, [r,c]) && !vis[r][c]) {
     path.push([r,c]);
     vis[r][c] = true;
+    rebuildTube();
+    shake(0.012);
     checkWin();
   }
 }
@@ -490,6 +797,7 @@ function undoStep() {
   if (won || path.length <= 1) return;
   const last = path.pop();
   vis[last[0]][last[1]] = false;
+  rebuildTube();
 }
 
 function checkWin() {
@@ -497,63 +805,139 @@ function checkWin() {
   const [er, ec] = path[path.length-1];
   if (er !== lv.end[0] || ec !== lv.end[1]) return;
   won = true;
-  setTimeout(() => document.getElementById('win-screen').classList.add('show'), 500);
+  winT = performance.now();
+  winBurst = false;
+  setTimeout(() => document.getElementById('win-screen').classList.add('show'), 950);
 }
 
-// ── Input handling ────────────────────────────────────────────────────
-function cellAt(px, py) {
+// ── Input ────────────────────────────────────────────────────────────────────
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const _hit = new THREE.Vector3();
+// Pick against the mid-height of a tile: at a 51-degree tilt the parallax from
+// a raised tile is well under a tenth of a cell, and rounding absorbs it.
+const pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(TILE_H + TILE_LIFT * 0.5));
+
+function cellAt(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const col  = Math.floor((px - rect.left)  / cs);
-  const row  = Math.floor((py - rect.top)   / cs);
-  if (row >= 0 && row < lv.R && col >= 0 && col < lv.C) return [row, col];
-  return null;
+  pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  if (!raycaster.ray.intersectPlane(pickPlane, _hit)) return null;
+  const c = Math.round(_hit.x / STEP + (lv.C - 1) / 2);
+  const r = Math.round(_hit.z / STEP + (lv.R - 1) / 2);
+  if (r < 0 || r >= lv.R || c < 0 || c >= lv.C) return null;
+  return [r, c];
 }
 
-function onDown(px, py) {
+canvas.addEventListener('pointerdown', (e) => {
   if (won) return;
-  const cell = cellAt(px, py);
+  e.preventDefault();
+  const cell = cellAt(e.clientX, e.clientY);
   if (!cell) return;
   const [r, c] = cell;
-  const [er, ec] = path[path.length-1];
-  if (r === er && c === ec) {
+  const [hr, hc] = path[path.length-1];
+  if (r === hr && c === hc) {
     drag = true;
   } else if (r === lv.start[0] && c === lv.start[1]) {
     resetPath();
     drag = true;
   }
-}
+  if (drag) canvas.setPointerCapture(e.pointerId);
+});
 
-function onMove(px, py) {
+canvas.addEventListener('pointermove', (e) => {
   if (!drag || won) return;
-  const cell = cellAt(px, py);
+  e.preventDefault();
+  const cell = cellAt(e.clientX, e.clientY);
   if (cell) tryExtend(cell[0], cell[1]);
+});
+
+function endDrag(e) {
+  drag = false;
+  if (e && canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+document.getElementById('undo-btn').addEventListener('click', undoStep);
+document.getElementById('reset-btn').addEventListener('click', () => { if (!won) resetPath(); });
+document.getElementById('next-btn').addEventListener('click', () => startLevel(lvIdx + 1));
+
+// ── Render loop ──────────────────────────────────────────────────────────────
+
+let last = performance.now();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  // Win wave: a bright pulse runs along the path in draw order.
+  if (won) {
+    const head = ((now - winT) / 620) * path.length;
+    for (let i = 0; i < path.length; i++) {
+      const [r, c] = path[i];
+      const f = Math.max(0, 1 - Math.abs(head - i) / 2.5);
+      const j = idxOf(r, c);
+      if (f > cellFlash[j]) cellFlash[j] = f;
+    }
+    if (!winBurst && head >= path.length) {
+      winBurst = true;
+      const e = toScreen(new THREE.Vector3(cellX(lv.end[1]), PATH_Y, cellZ(lv.end[0])));
+      juiceBurst(e.x, e.y, ['#8adfff', '#5dffb0', '#ffcb8c'], { count: 26, spread: 110 });
+      shake(0.10);
+    }
+  }
+  for (let i = 0; i < cellFlash.length; i++) {
+    if (cellFlash[i] > 0) cellFlash[i] = Math.max(0, cellFlash[i] - dt * 1.5);
+  }
+  syncCells(false, dt);
+
+  // Markers ride the height of the tile they sit on.
+  const sLift = cellLift[idxOf(lv.start[0], lv.start[1])];
+  const eLift = cellLift[idxOf(lv.end[0], lv.end[1])];
+  ringS.position.set(cellX(lv.start[1]), TILE_H + sLift + 0.02, cellZ(lv.start[0]));
+  ringE.position.set(cellX(lv.end[1]), TILE_H + eLift + 0.02, cellZ(lv.end[0]));
+  labelS.position.set(ringS.position.x, TILE_H + sLift + 0.62 + Math.sin(t * 1.7) * 0.04, ringS.position.z);
+  labelE.position.set(ringE.position.x, TILE_H + eLift + 0.62 + Math.sin(t * 1.7 + 1.6) * 0.04, ringE.position.z);
+
+  // Pulsing ring on the path head, hidden once it reaches the end marker.
+  const [hr, hc] = path[path.length-1];
+  const atEnd = hr === lv.end[0] && hc === lv.end[1];
+  headRing.visible = !won && !atEnd;
+  if (headRing.visible) {
+    const amp = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 / 0.7);
+    headRing.position.set(cellX(hc), PATH_Y + 0.02, cellZ(hr));
+    headRing.scale.setScalar(1 + 0.18 * amp);
+    headRing.material.opacity = 0.35 + 0.45 * amp;
+  }
+
+  if (shakeAmt > 0.0005) {
+    shakeOff.set((Math.random() - 0.5) * shakeAmt, (Math.random() - 0.5) * shakeAmt, 0)
+      .applyQuaternion(camera.quaternion);
+    camera.position.copy(camBase).add(shakeOff);
+    shakeAmt *= Math.pow(0.0015, dt);
+  } else if (shakeAmt !== 0) {
+    shakeAmt = 0;
+    camera.position.copy(camBase);
+  }
+
+  renderer.render(scene, camera);
 }
 
-function onUp() { drag = false; }
+// ── Boot ─────────────────────────────────────────────────────────────────────
 
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  onDown(e.touches[0].clientX, e.touches[0].clientY);
-}, {passive: false});
-
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  onMove(e.touches[0].clientX, e.touches[0].clientY);
-}, {passive: false});
-
-canvas.addEventListener('touchend',   e => { e.preventDefault(); onUp(); }, {passive: false});
-canvas.addEventListener('mousedown',  e => onDown(e.clientX, e.clientY));
-canvas.addEventListener('mousemove',  e => onMove(e.clientX, e.clientY));
-window.addEventListener('mouseup',    onUp);
-
-document.getElementById('undo-btn') .addEventListener('click', undoStep);
-document.getElementById('reset-btn').addEventListener('click', () => { if (!won) resetPath(); });
-document.getElementById('next-btn') .addEventListener('click', () => startLevel(lvIdx + 1));
-
-// ── Boot ──────────────────────────────────────────────────────────────
 startLevel(0);
+requestAnimationFrame(frame);
+window.__traceReady = true;
+</script>
 
-// ── Settings & Music ──────────────────────────────────────────
+<script>
+// Settings and music stay a classic script: the inline onclick handlers below
+// need these functions on `window`, which a module script would not provide.
 var _musicOn = localStorage.getItem('trace-music') !== 'false';
 var _actx = null, _mActive = false, _mNodes = [], _mTimers = [];
 
@@ -653,6 +1037,14 @@ document.addEventListener('click', function(e) {
     p.classList.remove('open');
 });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+// The board is drawn entirely by the module script above; if the engine fails
+// to load the page would otherwise just sit blank.
+setTimeout(function() {
+  if (!window.__traceReady) {
+    document.getElementById('gc').style.display = 'none';
+    document.getElementById('load-err').classList.add('on');
+  }
+}, 6000);
 </script>
 <button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
 <div id="settingsPanel">

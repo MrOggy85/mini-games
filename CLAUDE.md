@@ -64,7 +64,9 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 ## 3D / three.js
 
 Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
-`games/glide/index.html` is the reference implementation.
+Converted so far: `glide`, `trace`. `games/glide/index.html` is the reference
+implementation; `trace` additionally shows a variable-size board, per-instance tile
+colours and a swept path tube.
 
 three.js is **vendored, not loaded from a CDN** — a CDN request breaks offline play:
 
@@ -83,8 +85,15 @@ Conventions for a 3D game:
   using a true 45° isometric view: rows/columns stay mapped to screen up/down/left/right, and a
   square board still fits a portrait phone (a rotated board becomes a wide, short diamond).
 - Low-FOV `PerspectiveCamera` (~26°) placed far back — near-orthographic, with just enough
-  convergence to read as 3D. Solve the camera distance from the board's bounding box so it frames
-  correctly at any canvas size.
+  convergence to read as 3D.
+- **Fit the camera by measuring, not predicting.** An orthographic solve from the board's
+  bounding box under-reserves: perspective spreads the near edge of a tilted board outward, which
+  crops the corner cells by a few percent. Project the bounding corners, iterate the distance
+  until the widest lands just inside NDC ±0.97, and slide the look-at point along the camera's
+  own up axis to recentre (a slab's underside and any floating labels push content off-centre).
+  Then retighten the canvas aspect to the measured spans. See `fitCamera()` in either game.
+- Camera-aligned `Sprite`s occupy a fixed slab of *screen*, so they contribute a screen-space pad
+  to the fit rather than a world-space point.
 - Budget for iPhone/iPad: `setPixelRatio(Math.min(2, devicePixelRatio))`, one shadow-casting
   `DirectionalLight` at 1024², no postprocessing, `InstancedMesh` for repeated board tiles.
 - Tune light intensities so a fully lit top face lands at roughly the material's own color —
