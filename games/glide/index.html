@@ -466,45 +466,97 @@ function cellZ(r) { return (r - (G - 1) / 2) * STEP; }
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
-// Screen-space half-extents of the board once tilted, used to size the canvas
-// and to solve for a camera distance that always frames the whole board.
-function boardHalfExtents() {
-  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
-  const hw = BOARD_W / 2;
-  const ys = [-SLAB_H, BLOCK_Y + BLOCK_H + 0.25];
-  let hx = 0, hy = 0;
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      for (const y of ys) {
-        const vx = sx * hw, vz = sz * hw, vy = y - TARGET.y;
-        hx = Math.max(hx, Math.abs(vx));
-        hy = Math.max(hy, Math.abs(vy * cp - vz * sp));
+// Everything that must stay on screen, as two boxes: the slab, and the volume a
+// block can occupy. Bounding them separately avoids reserving empty air above
+// the slab rim, where nothing is ever drawn.
+const FIT_PTS = [];
+{
+  const box = (h, lo, hi) => {
+    for (const x of [-h, h]) {
+      for (const z of [-h, h]) {
+        for (const y of [lo, hi]) FIT_PTS.push(new THREE.Vector3(x, y, z));
       }
     }
+  };
+  box(BOARD_W / 2, -SLAB_H, TILE_H);
+  box(3 * STEP + BLOCK_W / 2, BLOCK_Y, BLOCK_Y + BLOCK_H);
+}
+const FIT_MARGIN = 0.97;   // leave a 3% border in normalised device coords
+const camTarget = new THREE.Vector3();
+
+// Rough orthographic estimate of the tilted board's screen aspect. Only used as
+// a starting point — perspective makes the real numbers bigger.
+function orthoAspect() {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  let hx = 0, hy = 0;
+  for (const p of FIT_PTS) {
+    hx = Math.max(hx, Math.abs(p.x));
+    hy = Math.max(hy, Math.abs((p.y - TARGET.y) * cp - p.z * sp));
   }
-  return { hx, hy };
+  return { hx, hy, aspect: hx / hy };
 }
 
-const HALF = boardHalfExtents();
-const ASPECT = HALF.hx / HALF.hy;
+// An orthographic solve under-reserves, because perspective spreads the near
+// edge of a tilted board outward — at this fov it cropped the corner cells by a
+// few percent. So measure instead of predicting: project the corners, walk the
+// distance until the widest one sits just inside the frame, and slide the
+// look-at point along the camera's own up axis to recentre what's left.
+function fitCamera(startDist) {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const v = new THREE.Vector3();
+  let dist = startDist, shift = 0, spanX = 1, spanY = 1;
+
+  for (let i = 0; i < 12; i++) {
+    camTarget.set(TARGET.x, TARGET.y + cp * shift, TARGET.z - sp * shift);
+    camera.position.set(camTarget.x, camTarget.y + sp * dist, camTarget.z + cp * dist);
+    camera.near = Math.max(0.5, dist - 14);
+    camera.far = dist + 14;
+    camera.lookAt(camTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+
+    let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    for (const p of FIT_PTS) {
+      v.copy(p).project(camera);
+      if (v.x < mnx) mnx = v.x;
+      if (v.x > mxx) mxx = v.x;
+      if (v.y < mny) mny = v.y;
+      if (v.y > mxy) mxy = v.y;
+    }
+    spanX = (mxx - mnx) / 2;
+    spanY = (mxy - mny) / 2;
+    const cy = (mxy + mny) / 2;
+    const over = Math.max(spanX, spanY);
+    if (Math.abs(over - FIT_MARGIN) < 0.003 && Math.abs(cy) < 0.003) break;
+    shift += cy * dist * tanY;
+    dist *= over / FIT_MARGIN;
+  }
+
+  camBase.copy(camera.position);
+  return { dist, spanX, spanY };
+}
 
 function layout() {
-  let w = Math.min(window.innerWidth - 24, 520);
-  const maxH = Math.max(190, window.innerHeight - 290);
-  let h = w / ASPECT;
-  if (h > maxH) { h = maxH; w = h * ASPECT; }
-
-  renderer.setSize(w, h);
-  camera.aspect = w / h;
-
+  const availW = window.innerWidth - 24;
+  const availH = Math.max(190, window.innerHeight - 290);
+  const est = orthoAspect();
   const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-  const dist = Math.max(HALF.hy / tanY, HALF.hx / (tanY * camera.aspect)) * 1.06;
-  camBase.set(0, TARGET.y + Math.sin(PITCH) * dist, Math.cos(PITCH) * dist);
-  camera.near = Math.max(0.5, dist - 14);
-  camera.far = dist + 14;
-  camera.position.copy(camBase);
-  camera.lookAt(TARGET);
-  camera.updateProjectionMatrix();
+  let aspect = est.aspect;
+  let dist = est.hy / tanY;
+
+  // Second pass retightens the canvas aspect to the spans the first pass measured,
+  // so the board fills the canvas instead of leaving a band on one axis.
+  for (let pass = 0; pass < 2; pass++) {
+    let w = Math.min(availW, 520);
+    let h = w / aspect;
+    if (h > availH) { h = availH; w = h * aspect; }
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    const fit = fitCamera(dist);
+    dist = fit.dist;
+    aspect = THREE.MathUtils.clamp(aspect * fit.spanX / fit.spanY, 0.5, 3);
+  }
 }
 
 // ── Tweens / shake ───────────────────────────────────────────────────────────
