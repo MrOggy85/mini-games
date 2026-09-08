@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mini-games-v14';
+const CACHE_NAME = 'mini-games-v15';
 // Every page has: dir, index.html, manifest.json, icon.svg, apple-touch-icon.png,
 // icon-192.png, icon-512.png
 const GAMES = [

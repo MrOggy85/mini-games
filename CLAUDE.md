@@ -64,9 +64,14 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 ## 3D / three.js
 
 Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
-Converted so far: `glide`, `trace`. `games/glide/index.html` is the reference
-implementation; `trace` additionally shows a variable-size board, per-instance tile
-colours and a swept path tube.
+Converted so far: `glide`, `trace`, `guide-the-way`. `games/glide/index.html` is the
+reference implementation; `trace` additionally shows a variable-size board, per-instance
+tile colours and a swept path tube; `guide-the-way` shows a full-viewport animated
+environment behind a board framed into a DOM-defined slot.
+
+Each game keeps its own palette — the 3D treatment is a rendering change, not a
+re-theme. `glide`/`trace` stay dark and neon; `guide-the-way` stays bright and
+playful, so it uses a lighter light rig and pastel surfaces.
 
 three.js is **vendored, not loaded from a CDN** — a CDN request breaks offline play:
 
@@ -81,9 +86,13 @@ three.js is **vendored, not loaded from a CDN** — a CDN request breaks offline
 
 Conventions for a 3D game:
 
-- **Keep the grid axis-aligned on screen.** Tilt the camera down (~50°) with no yaw rather than
-  using a true 45° isometric view: rows/columns stay mapped to screen up/down/left/right, and a
-  square board still fits a portrait phone (a rotated board becomes a wide, short diamond).
+- **Keep the grid axis-aligned on screen.** Tilt the camera down with no yaw rather than using a
+  true 45° isometric view: rows/columns stay mapped to screen up/down/left/right, and a square
+  board still fits a portrait phone (a rotated board becomes a wide, short diamond).
+- **Pick the tilt from how tall the pieces are.** A piece of height `h` hides `h / tan(pitch)`
+  of board behind it. ~50° suits flat boards (`glide`, `trace`); a game with things standing on
+  the cells needs to go shallower — `guide-the-way` uses 64°, where a 0.5-tall wall costs 0.24
+  of a cell instead of 0.4.
 - Low-FOV `PerspectiveCamera` (~26°) placed far back — near-orthographic, with just enough
   convergence to read as 3D.
 - **Fit the camera by measuring, not predicting.** An orthographic solve from the board's

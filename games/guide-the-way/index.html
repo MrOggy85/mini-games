@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/games/guide-the-way/manifest.json">
@@ -13,49 +13,65 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg: #e8eaf0;
-  --panel: #f4f5f8;
-  --border: #c8cad4;
+  --panel: rgba(255,255,255,0.72);
+  --panel-solid: #f6f7fb;
+  --border: #b9bfd4;
   --accent: #5b8dee;
   --accent2: #ff6b6b;
-  --accent3: #ffd93d;
-  --accent4: #6bcb77;
-  --text: #2d3561;
-  --text2: #888;
-  --robot: #5b8dee;
-  --goal: #6bcb77;
-  --wall: #4a4e69;
-  --ice: #a8d8ea;
-  --key-color: #ffd93d;
-  --lock-color: #ff6b6b;
-  --arrow-tile: #c3b1e1;
-  --shadow: 0 4px 20px rgba(0,0,0,0.12);
+  --accent3: #ffc319;
+  --accent4: #4cb963;
+  --text: #2b3157;
+  --text2: #5d648a;
+  --shadow: 0 4px 20px rgba(40,50,90,0.18);
 }
 
+html, body { height: 100%; }
+
+/* No page scrolling: the machine is drawn to the viewport and the board is
+   framed relative to it, so a scrolled page would desync the two. */
 body {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
-  background: var(--bg);
+  background: #e8ecf6;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 12px 24px;
+  padding: 10px 12px 18px;
   -webkit-user-select: none;
   user-select: none;
-  overflow-x: hidden;
+  overflow: hidden;
 }
+
+/* The clockwork/circuit machine fills the whole viewport; the board is framed
+   into the gap between the header and the program strip so the UI never
+   covers it. Input is all DOM buttons, so the canvas takes no pointer events. */
+#scene {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* Must be explicit. A canvas is a replaced element, so `inset: 0` with
+     `width: auto` sizes it to its intrinsic (backing-store) size instead of
+     stretching it, which renders the scene at viewport x devicePixelRatio
+     CSS pixels anchored top-left. */
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+body > * { position: relative; z-index: 1; }
 
 .back-link {
   align-self: flex-start;
-  color: #888;
+  color: var(--text2);
   text-decoration: none;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
   transition: color 0.15s;
   margin-bottom: 4px;
+  text-shadow: 0 1px 3px rgba(255,255,255,0.9);
 }
-.back-link:hover { color: #4a90e2; }
+.back-link:hover { color: var(--accent); }
 
 .header {
   display: flex;
@@ -63,33 +79,51 @@ body {
   justify-content: space-between;
   width: 100%;
   max-width: 500px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(40,50,90,0.1);
 }
 
 h1 {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 900;
-  color: var(--text);
+  color: var(--accent);
   letter-spacing: -0.5px;
+  background: linear-gradient(115deg, #5b8dee 0%, #7c5cd6 45%, #ff6b6b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .level-badge {
-  background: var(--accent);
+  background: linear-gradient(135deg, #6d9bf5, #4f74d8);
   color: #fff;
   font-size: 0.85rem;
   font-weight: 800;
-  padding: 4px 12px;
+  padding: 5px 13px;
   border-radius: 20px;
   letter-spacing: 0.5px;
+  box-shadow: 0 2px 0 #3a5cb0, 0 3px 8px rgba(70,100,200,0.35);
+}
+.level-badge.pop { animation: badgePop 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes badgePop {
+  0%   { transform: scale(0.6) rotate(-8deg); }
+  60%  { transform: scale(1.12) rotate(3deg); }
+  100% { transform: scale(1) rotate(0); }
 }
 
 .settings-btn {
-  background: var(--panel);
+  background: rgba(255,255,255,0.85);
   border: 2px solid var(--border);
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  font-size: 1.2rem;
+  width: 38px;
+  height: 38px;
+  font-size: 1.15rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -99,175 +133,222 @@ h1 {
 }
 .settings-btn:hover { border-color: var(--accent); }
 
-/* Grid container */
-.grid-wrap {
-  position: relative;
-  margin-bottom: 12px;
+/* Spacer that reserves the on-screen region the 3D board is framed into. */
+#board-slot {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 500px;
+  min-height: 110px;
 }
 
-canvas#gameCanvas {
-  display: block;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  touch-action: none;
-}
-
-/* Status message */
 .status-msg {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text2);
   height: 22px;
-  margin-bottom: 6px;
-  transition: color 0.2s;
+  margin-bottom: 4px;
+  text-shadow: 0 1px 3px rgba(255,255,255,0.9);
 }
-.status-msg.error { color: var(--accent2); }
-.status-msg.success { color: var(--accent4); }
+.status-msg.error { color: #d63b3b; }
+.status-msg.success { color: #2f9b4c; }
+.status-msg.pop { animation: msgPop 0.32s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes msgPop {
+  from { transform: translateY(6px) scale(0.9); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
 
-/* Command strip */
 .strip-label {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 800;
   color: var(--text2);
   text-transform: uppercase;
   letter-spacing: 1px;
   align-self: flex-start;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  text-shadow: 0 1px 3px rgba(255,255,255,0.9);
 }
 
 .cmd-strip-wrap {
+  position: relative;
   width: 100%;
   max-width: 500px;
   background: var(--panel);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 8px;
-  margin-bottom: 10px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
   min-height: 56px;
   display: flex;
   align-items: center;
   overflow-x: auto;
-  gap: 6px;
+  gap: 7px;
+  box-shadow: 0 2px 10px rgba(40,50,90,0.1);
   -webkit-overflow-scrolling: touch;
+}
+/* Dashed circuit trace the command chips sit on, echoing the machine below. */
+.cmd-strip-wrap::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  border-top: 3px dashed rgba(91,141,238,0.28);
+  pointer-events: none;
 }
 
 .cmd-strip-wrap::-webkit-scrollbar { height: 4px; }
 .cmd-strip-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 .cmd-arrow {
+  position: relative;
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--accent);
   color: #fff;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.1s, opacity 0.1s;
+  transition: transform 0.12s, opacity 0.12s;
   border: none;
-  position: relative;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.22), 0 3px 8px rgba(40,50,90,0.2);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  animation: chipPop 0.24s cubic-bezier(0.34,1.56,0.64,1);
   -webkit-tap-highlight-color: transparent;
 }
-.cmd-arrow:hover { opacity: 0.85; }
-.cmd-arrow.active-step {
-  box-shadow: 0 0 0 3px var(--accent3);
-  transform: scale(1.15);
+@keyframes chipPop {
+  from { transform: scale(0.3) rotate(-14deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0); opacity: 1; }
 }
-.cmd-arrow.done-step { opacity: 0.4; }
+.cmd-arrow:hover { opacity: 0.85; }
+.cmd-arrow:active { transform: translateY(3px); box-shadow: 0 0 0 rgba(0,0,0,0.22); }
+.cmd-arrow.active-step {
+  box-shadow: 0 0 0 4px var(--accent3), 0 3px 0 rgba(0,0,0,0.22), 0 4px 12px rgba(255,195,25,0.5);
+  animation: chipBeat 0.5s ease-in-out infinite alternate;
+}
+@keyframes chipBeat {
+  from { transform: scale(1.06); }
+  to   { transform: scale(1.22); }
+}
+.cmd-arrow.done-step { opacity: 0.38; transform: scale(0.88); }
 .cmd-strip-placeholder {
+  position: relative;
   color: var(--text2);
   font-size: 0.85rem;
-  font-style: italic;
-  padding: 0 8px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.75);
 }
 
-/* Direction buttons */
 .dir-panel {
   width: 100%;
   max-width: 500px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 5px;
+  margin-bottom: 8px;
 }
+.dir-row { display: flex; gap: 5px; }
 
-.dir-row {
-  display: flex;
-  gap: 6px;
-}
-
+/* Chunky toy buttons: a solid bottom edge that compresses on press, and one
+   colour per direction, matching that direction's chip in the program strip. */
 .dir-btn {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
   border: none;
-  background: var(--panel);
-  border: 2px solid var(--border);
+  border-radius: 16px;
+  color: #fff;
   font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.12s;
+  transition: transform 0.08s, box-shadow 0.08s;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.28);
 }
+.dir-btn[data-dir="U"] { background: #5b8dee; box-shadow: 0 5px 0 #3a63b8, 0 6px 14px rgba(58,99,184,0.35); }
+.dir-btn[data-dir="D"] { background: #ff6b6b; box-shadow: 0 5px 0 #cc4646, 0 6px 14px rgba(204,70,70,0.35); }
+.dir-btn[data-dir="L"] { background: #ffc319; box-shadow: 0 5px 0 #cc9500, 0 6px 14px rgba(204,149,0,0.35); }
+.dir-btn[data-dir="R"] { background: #4cb963; box-shadow: 0 5px 0 #35904a, 0 6px 14px rgba(53,144,74,0.35); }
 .dir-btn:active, .dir-btn.pressed {
-  transform: scale(0.92);
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+  transform: translateY(5px);
+  box-shadow: 0 0 0 rgba(0,0,0,0);
 }
 
-/* Action buttons */
 .action-row {
   width: 100%;
   max-width: 500px;
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .btn {
   flex: 1;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: none;
-  font-size: 1rem;
-  font-weight: 800;
+  font-size: 1.05rem;
+  font-weight: 900;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: transform 0.08s, box-shadow 0.08s, opacity 0.15s;
   -webkit-tap-highlight-color: transparent;
   letter-spacing: 0.3px;
 }
-.btn:active { transform: scale(0.97); }
-.btn-run {
-  background: var(--accent4);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(107,203,119,0.4);
+.btn:active:not(:disabled) {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 rgba(0,0,0,0) !important;
 }
-.btn-run:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
+.btn-run {
+  background: linear-gradient(180deg, #5fcf78, #45ad5b);
+  color: #fff;
+  box-shadow: 0 5px 0 #2f7d42, 0 6px 16px rgba(53,144,74,0.4);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.btn-run:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+/* Nudges you to press it once there's a program to run. */
+.btn-run.ready { animation: runReady 1.1s ease-in-out infinite alternate; }
+@keyframes runReady {
+  from { transform: scale(1); }
+  to   { transform: scale(1.035); }
 }
 .btn-clear {
-  background: var(--panel);
+  background: linear-gradient(180deg, #ffffff, #eceff8);
   color: var(--text2);
-  border: 2px solid var(--border);
+  box-shadow: 0 5px 0 #b9bfd4, 0 6px 14px rgba(40,50,90,0.18);
   flex: 0 0 auto;
   padding: 14px 20px;
 }
 
-/* Modal */
-.modal-overlay {
+#load-err {
+  display: none;
+  max-width: 22rem;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #b34;
+}
+#load-err.on { display: block; }
+
+/* Modals */
+.modal-overlay, .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(25,30,55,0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -277,14 +358,12 @@ canvas#gameCanvas {
   transition: opacity 0.3s;
   padding: 20px;
 }
-.modal-overlay.show {
-  opacity: 1;
-  pointer-events: all;
-}
+.settings-overlay { z-index: 200; transition: opacity 0.25s; }
+.modal-overlay.show, .settings-overlay.show { opacity: 1; pointer-events: all; }
 .modal {
-  background: var(--panel);
+  background: var(--panel-solid);
   border-radius: 20px;
-  padding: 32px 28px;
+  padding: 30px 26px;
   text-align: center;
   max-width: 340px;
   width: 100%;
@@ -294,81 +373,40 @@ canvas#gameCanvas {
 }
 .modal-overlay.show .modal { transform: scale(1); }
 .modal-emoji { font-size: 4rem; margin-bottom: 12px; }
-.modal-title {
-  font-size: 2rem;
-  font-weight: 900;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-.modal-sub {
-  font-size: 1rem;
-  color: var(--text2);
-  margin-bottom: 24px;
-}
+.modal-title { font-size: 2rem; font-weight: 900; color: var(--text); margin-bottom: 8px; }
+.modal-sub { font-size: 1rem; color: var(--text2); margin-bottom: 22px; }
 .btn-next {
   width: 100%;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: none;
-  background: var(--accent);
+  background: linear-gradient(180deg, #6d9bf5, #4f74d8);
   color: #fff;
   font-size: 1.1rem;
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
-  transition: all 0.15s;
+  box-shadow: 0 5px 0 #3a5cb0, 0 6px 16px rgba(70,100,200,0.4);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  transition: transform 0.08s, box-shadow 0.08s;
   -webkit-tap-highlight-color: transparent;
 }
-.btn-next:active { transform: scale(0.97); }
+.btn-next:active { transform: translateY(5px); box-shadow: 0 0 0 rgba(0,0,0,0); }
 
-/* Settings modal */
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s;
-  padding: 20px;
-}
-.settings-overlay.show { opacity: 1; pointer-events: all; }
 .settings-box {
-  background: var(--panel);
+  background: var(--panel-solid);
   border-radius: 20px;
-  padding: 28px 24px;
+  padding: 26px 22px;
   max-width: 320px;
   width: 100%;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
-.settings-title {
-  font-size: 1.3rem;
-  font-weight: 900;
-  color: var(--text);
-  margin-bottom: 20px;
-}
-.settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.settings-row label {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-}
-.toggle {
-  position: relative;
-  width: 50px;
-  height: 28px;
-}
+.settings-title { font-size: 1.3rem; font-weight: 900; color: var(--text); margin-bottom: 18px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.settings-row label { font-size: 1rem; font-weight: 700; color: var(--text); }
+.toggle { position: relative; width: 50px; height: 28px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background: var(--border);
   border-radius: 28px;
   cursor: pointer;
@@ -377,10 +415,7 @@ canvas#gameCanvas {
 .toggle-slider::before {
   content: '';
   position: absolute;
-  width: 22px;
-  height: 22px;
-  left: 3px;
-  top: 3px;
+  width: 22px; height: 22px; left: 3px; top: 3px;
   background: #fff;
   border-radius: 50%;
   transition: transform 0.2s;
@@ -397,46 +432,17 @@ canvas#gameCanvas {
   font-weight: 700;
   color: var(--text2);
   cursor: pointer;
-  margin-top: 8px;
-}
-
-/* Replay trail canvas overlay */
-.replay-canvas {
-  position: absolute;
-  top: 0; left: 0;
-  border-radius: 12px;
-  pointer-events: none;
-}
-
-/* Stars background */
-@keyframes twinkle {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-.stars {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  overflow: hidden;
-}
-.star {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  background: #fff;
-  border-radius: 50%;
-  animation: twinkle linear infinite;
+  margin-top: 6px;
 }
 </style>
 </head>
 <body>
 
-<div class="stars" id="starsContainer"></div>
+<canvas id="scene"></canvas>
 
 <a href="/" class="back-link">&larr; All Games</a>
 
-<div class="header" style="max-width:500px;width:100%;">
+<div class="header">
   <h1>Guide the Way</h1>
   <div style="display:flex;align-items:center;gap:8px;">
     <div class="level-badge" id="levelBadge">Level 1</div>
@@ -444,10 +450,9 @@ canvas#gameCanvas {
   </div>
 </div>
 
-<div class="grid-wrap" id="gridWrap">
-  <canvas id="gameCanvas"></canvas>
-  <canvas class="replay-canvas" id="replayCanvas"></canvas>
-</div>
+<div id="board-slot"></div>
+
+<p id="load-err">Couldn&rsquo;t load the 3D engine. Reload the page &mdash; if you&rsquo;re offline, open the game once while connected so it can be cached.</p>
 
 <div class="status-msg" id="statusMsg"></div>
 
@@ -459,16 +464,18 @@ canvas#gameCanvas {
 </div>
 
 <div class="dir-panel">
+  <!-- Plain arrows, not the ⬆️ emoji: the buttons are coloured now, and a
+       colour emoji on a colour fill reads as mud. -->
   <div class="dir-row">
-    <button class="dir-btn" id="btnUp" data-dir="U">⬆️</button>
+    <button class="dir-btn" id="btnUp" data-dir="U">&#8593;</button>
   </div>
   <div class="dir-row">
-    <button class="dir-btn" id="btnLeft" data-dir="L">⬅️</button>
+    <button class="dir-btn" id="btnLeft" data-dir="L">&#8592;</button>
     <button class="dir-btn" data-dir="X" style="visibility:hidden">·</button>
-    <button class="dir-btn" id="btnRight" data-dir="R">➡️</button>
+    <button class="dir-btn" id="btnRight" data-dir="R">&#8594;</button>
   </div>
   <div class="dir-row">
-    <button class="dir-btn" id="btnDown" data-dir="D">⬇️</button>
+    <button class="dir-btn" id="btnDown" data-dir="D">&#8595;</button>
   </div>
 </div>
 
@@ -477,7 +484,6 @@ canvas#gameCanvas {
   <button class="btn btn-run" id="btnRun">▶ Run</button>
 </div>
 
-<!-- Win Modal -->
 <div class="modal-overlay" id="winModal">
   <div class="modal">
     <div class="modal-emoji" id="winEmoji">🎉</div>
@@ -487,7 +493,6 @@ canvas#gameCanvas {
   </div>
 </div>
 
-<!-- Settings Modal -->
 <div class="settings-overlay" id="settingsOverlay">
   <div class="settings-box">
     <div class="settings-title">⚙️ Settings</div>
@@ -510,10 +515,949 @@ canvas#gameCanvas {
   </div>
 </div>
 
-<script>
-// ─── Audio ───────────────────────────────────────────────────────────────────
+<script type="module">
+import * as THREE from '/vendor/three.module.min.js';
+
+// ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ─────────────
+
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 5 + Math.random() * 5;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function(particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.3)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function() {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const GAP = 0.08;
+const STEP = 1 + GAP;
+const PAD = 0.28;
+const SLAB_H = 0.36;
+const TILE_H = 0.12;
+const WALL_H = 0.5;
+const LEG_H = 0.55;          // posts holding the board above the machine
+const ROBOT_Y = TILE_H;
+// Shallow tilt on purpose: walls and props stand proud of the board, and a
+// steeper angle hides the cells behind them. At 64 degrees a 0.5-tall wall
+// occludes 0.24 of a cell; at glide's 51 it would swallow 0.4.
+const PITCH = THREE.MathUtils.degToRad(64);
+const TARGET = new THREE.Vector3(0, 0.2, 0);
+
+// Board surfaces run near-white and the special tiles are candy-saturated;
+// the machine backdrop below stays the duller blue-grey so the board reads as
+// a bright thing sitting inside a dimmer mechanism.
+const C = {
+  sky:        0xe8ecf6,
+  slab:       0xeef2fc,
+  leg:        0xccd3e8,
+  empty:      0xfcfdff,
+  wall:       0x6068ad,
+  wallCap:    0x8f97d8,
+  ice:        0xa9e8fb,
+  keyTile:    0xffe884,
+  lockTile:   0xffb0b0,
+  lockOpen:   0xaef0c1,
+  arrowTile:  0xd6c2ff,
+  goalTile:   0xa6f2bd,
+  robot:      0x5b8dee,
+  robotDark:  0x3a63b8,
+  gold:       0xf2b632,
+  goldDark:   0xc98b1e,
+  steel:      0xc2cade,
+  board:      0xdfe5f2,   // machine backdrop
+  trace:      0x9aa6c4,
+  traceHot:   0x36d6ff,
+  trail:      0x5b8dee,
+  bulb:       0xffc319,
+  flagCloth:  0x4cb963,
+  lockShut:   0xd6474e,
+  lockOpened: 0x4cb963,
+};
+
+// ── Renderer / scene ─────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(C.sky);
+const camera = new THREE.PerspectiveCamera(26, 1, 1, 200);
+const camBase = new THREE.Vector3();
+const camTarget = new THREE.Vector3();
+
+// Bright, cheerful rig: intensities are tuned so a fully lit top face lands at
+// about 0.95 of the material's own colour, which keeps the pale tile palette
+// readable without blowing the near-whites out.
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0xa89b86, 0.35));
+
+const keyLight = new THREE.DirectionalLight(0xfff6e8, 0.65);
+keyLight.position.set(-5, 14, 6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.near = 2;
+keyLight.shadow.camera.far = 44;
+keyLight.shadow.bias = -0.0011;
+keyLight.shadow.normalBias = 0.02;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xbcd4ff, 0.18);
+fillLight.position.set(7, 5, -8);
+scene.add(fillLight);
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────
+
+function roundedRect(w, h, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+// Beveled box with its base at y=0. ExtrudeGeometry spans [-bevel, depth+bevel]
+// on its extrusion axis, so inset the profile by `bevel` and lift by `bevel`.
+function roundedBox(w, d, h, r, bevel) {
+  const geo = new THREE.ExtrudeGeometry(
+    roundedRect(w - 2 * bevel, d - 2 * bevel, Math.max(0.01, r - bevel)),
+    {
+      depth: h - 2 * bevel,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 2,
+      curveSegments: 5
+    }
+  );
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, bevel, 0);
+  return geo;
+}
+
+// Gear normalised to tip radius 1 and thickness 1, base at y=0, so one
+// geometry per tooth count can be shared and scaled per instance.
+const GEAR_TOOTH = 0.16;
+const GEAR_PITCH_R = 1 - GEAR_TOOTH / 2;   // radius meshing neighbours touch at
+const gearCache = new Map();
+
+function gearGeometry(teeth) {
+  if (gearCache.has(teeth)) return gearCache.get(teeth);
+  const s = new THREE.Shape();
+  const st = Math.PI * 2 / teeth, rR = 1 - GEAR_TOOTH;
+  const pt = (r, a) => [Math.cos(a) * r, Math.sin(a) * r];
+  for (let i = 0; i < teeth; i++) {
+    const a = i * st;
+    if (i === 0) s.moveTo(...pt(rR, a)); else s.lineTo(...pt(rR, a));
+    s.lineTo(...pt(1, a + st * 0.26));
+    s.lineTo(...pt(1, a + st * 0.50));
+    s.lineTo(...pt(rR, a + st * 0.76));
+  }
+  s.closePath();
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, 0.28, 0, Math.PI * 2, true);
+  s.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(s, {
+    depth: 0.88, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.05,
+    bevelSegments: 1, curveSegments: 10
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, 0.06, 0);
+  gearCache.set(teeth, geo);
+  return geo;
+}
+
+function arrowGeometry() {
+  const s = new THREE.Shape();
+  const w = 0.09, hw = 0.24, tip = 0.27, neck = 0.02, tail = -0.25;
+  s.moveTo(0, tip);
+  s.lineTo(-hw, neck);
+  s.lineTo(-w, neck);
+  s.lineTo(-w, tail);
+  s.lineTo(w, tail);
+  s.lineTo(w, neck);
+  s.lineTo(hw, neck);
+  s.closePath();
+  const geo = new THREE.ExtrudeGeometry(s, {
+    depth: 0.05, bevelEnabled: true, bevelThickness: 0.016, bevelSize: 0.016, bevelSegments: 1
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, 0.016, 0);
+  return geo;
+}
+
+const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
+const TILE_GEO = roundedBox(1, 1, TILE_H, 0.18, 0.03);
+const WALL_GEO = roundedBox(0.94, 0.94, WALL_H, 0.14, 0.04);
+const WALL_CAP_GEO = roundedBox(0.82, 0.82, 0.07, 0.12, 0.02);
+const ARROW_GEO = arrowGeometry();
+const DISC_GEO = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
+const BALL_GEO = new THREE.SphereGeometry(0.5, 14, 10);
+
+function mat(color, opts) {
+  return new THREE.MeshStandardMaterial(Object.assign({
+    color, roughness: 0.55, metalness: 0.05
+  }, opts || {}));
+}
+
+// ── Tile types ───────────────────────────────────────────────────────────────
+
+const T = { EMPTY: 0, WALL: 1, ICE: 2, KEY: 3, LOCK: 4, ARROW_U: 5, ARROW_D: 6, ARROW_L: 7, ARROW_R: 8 };
+const ARROW_YAW = [0, Math.PI, Math.PI / 2, -Math.PI / 2];   // U, D, L, R (local forward is -Z)
+
+// ── Board ────────────────────────────────────────────────────────────────────
+
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+
+let ROWS = 5, COLS = 5;
+let halfX = 0, halfZ = 0;          // slab half extents
+let slab = null, tiles = null, walls = null, wallCaps = null;
+let legs = [];
+let props = [];                    // per-level prop meshes/groups
+let goalRing = null, lockGroup = null, keyProp = null;
+
+const tileColors = [];             // animated per-instance colours
+const _obj = new THREE.Object3D();
+const _col = new THREE.Color();
+const _hotColor = new THREE.Color(C.traceHot);
+
+function cellX(c) { return (c - (COLS - 1) / 2) * STEP; }
+function cellZ(r) { return (r - (ROWS - 1) / 2) * STEP; }
+
+const slabMat = mat(C.slab, { roughness: 0.75 });
+const tileMat = mat(0xffffff, { roughness: 0.6 });
+const wallMat = mat(C.wall, { roughness: 0.7 });
+const wallCapMat = mat(C.wallCap, { roughness: 0.6 });
+const legMat = mat(C.leg, { roughness: 0.5, metalness: 0.35 });
+
+function disposeGroup(list) {
+  for (const o of list) {
+    o.traverse((n) => {
+      if (n.isMesh) {
+        if (n.geometry && n.geometry.userData.own) n.geometry.dispose();
+        if (n.material && n.material.userData.own) n.material.dispose();
+      }
+    });
+    o.parent && o.parent.remove(o);
+  }
+  list.length = 0;
+}
+
+function baseTileColor(r, c) {
+  const t = levelData.grid[r][c];
+  if (r === levelData.goal[0] && c === levelData.goal[1]) return C.goalTile;
+  if (t === T.ICE) return C.ice;
+  if (t === T.KEY) return C.keyTile;
+  if (t === T.LOCK) return robotHasKey ? C.lockOpen : C.lockTile;
+  if (t >= T.ARROW_U && t <= T.ARROW_R) return C.arrowTile;
+  return C.empty;
+}
+
+function buildBoard() {
+  const grid = levelData.grid;
+  ROWS = grid.length;
+  COLS = grid[0].length;
+  halfX = (COLS + (COLS - 1) * GAP + 2 * PAD) / 2;
+  halfZ = (ROWS + (ROWS - 1) * GAP + 2 * PAD) / 2;
+
+  if (slab) { slab.geometry.dispose(); boardGroup.remove(slab); }
+  if (tiles) { tiles.dispose(); boardGroup.remove(tiles); }
+  if (walls) { walls.dispose(); boardGroup.remove(walls); }
+  if (wallCaps) { wallCaps.dispose(); boardGroup.remove(wallCaps); }
+  disposeGroup(legs);
+  disposeGroup(props);
+  goalRing = lockGroup = keyProp = null;
+
+  slab = new THREE.Mesh(roundedBox(halfX * 2, halfZ * 2, SLAB_H, 0.3, 0.05), slabMat);
+  slab.position.y = -SLAB_H;
+  slab.receiveShadow = true;
+  slab.castShadow = true;
+  boardGroup.add(slab);
+
+  // Posts, so the board reads as mounted inside the machine rather than
+  // floating over it.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(DISC_GEO, legMat);
+      leg.scale.set(0.26, LEG_H, 0.26);
+      leg.position.set(sx * (halfX - 0.22), -SLAB_H - LEG_H / 2, sz * (halfZ - 0.22));
+      boardGroup.add(leg);
+      legs.push(leg);
+    }
+  }
+
+  const n = ROWS * COLS;
+  tiles = new THREE.InstancedMesh(TILE_GEO, tileMat, n);
+  tiles.receiveShadow = true;
+  tiles.castShadow = true;
+  boardGroup.add(tiles);
+
+  tileColors.length = 0;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = r * COLS + c;
+      _obj.position.set(cellX(c), 0, cellZ(r));
+      _obj.updateMatrix();
+      tiles.setMatrixAt(i, _obj.matrix);
+      const col = new THREE.Color(baseTileColor(r, c));
+      tileColors.push(col);
+      tiles.setColorAt(i, col);
+    }
+  }
+  tiles.instanceMatrix.needsUpdate = true;
+  tiles.instanceColor.needsUpdate = true;
+
+  // Walls
+  const wallCells = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) if (grid[r][c] === T.WALL) wallCells.push([r, c]);
+  }
+  walls = new THREE.InstancedMesh(WALL_GEO, wallMat, Math.max(1, wallCells.length));
+  wallCaps = new THREE.InstancedMesh(WALL_CAP_GEO, wallCapMat, Math.max(1, wallCells.length));
+  walls.count = wallCaps.count = wallCells.length;
+  walls.castShadow = walls.receiveShadow = true;
+  wallCaps.castShadow = true;
+  boardGroup.add(walls, wallCaps);
+  wallCells.forEach(([r, c], i) => {
+    _obj.position.set(cellX(c), TILE_H, cellZ(r));
+    _obj.updateMatrix();
+    walls.setMatrixAt(i, _obj.matrix);
+    _obj.position.y = TILE_H + WALL_H;
+    _obj.updateMatrix();
+    wallCaps.setMatrixAt(i, _obj.matrix);
+  });
+  walls.instanceMatrix.needsUpdate = true;
+  wallCaps.instanceMatrix.needsUpdate = true;
+
+  buildProps();
+}
+
+function own(o) { o.userData.own = true; return o; }
+
+// Goal flag, key, padlock and arrow markers — a handful per level, so plain
+// meshes rather than instancing.
+function buildProps() {
+  const grid = levelData.grid;
+
+  // Goal: little flag on a pole, plus a pulsing ring on the tile.
+  const gx = cellX(levelData.goal[1]), gz = cellZ(levelData.goal[0]);
+  const flag = new THREE.Group();
+  const pole = new THREE.Mesh(DISC_GEO, own(mat(0xf6f8ff, { roughness: 0.4, metalness: 0.3 })));
+  pole.scale.set(0.045, 0.46, 0.045);
+  pole.position.y = 0.23;
+  pole.castShadow = true;
+  const cloth = new THREE.Mesh(own(roundedBox(0.24, 0.03, 0.15, 0.03, 0.012)), own(mat(C.flagCloth, { roughness: 0.5 })));
+  cloth.position.set(0.13, 0.30, 0);
+  cloth.castShadow = true;
+  flag.add(pole, cloth);
+  flag.position.set(gx, TILE_H, gz);
+  boardGroup.add(flag);
+  props.push(flag);
+
+  goalRing = new THREE.Mesh(
+    own(new THREE.TorusGeometry(0.38, 0.032, 8, 28).rotateX(-Math.PI / 2)),
+    own(mat(0x2f9b4c, { emissive: 0x2f9b4c, emissiveIntensity: 0.5, transparent: true }))
+  );
+  goalRing.position.set(gx, TILE_H + 0.02, gz);
+  boardGroup.add(goalRing);
+  props.push(goalRing);
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const t = grid[r][c];
+      const x = cellX(c), z = cellZ(r);
+      if (t === T.KEY) {
+        keyProp = makeKey();
+        keyProp.position.set(x, TILE_H + 0.3, z);
+        boardGroup.add(keyProp);
+        props.push(keyProp);
+      } else if (t === T.LOCK) {
+        lockGroup = makeLock();
+        lockGroup.position.set(x, TILE_H + 0.05, z);
+        boardGroup.add(lockGroup);
+        props.push(lockGroup);
+      } else if (t >= T.ARROW_U && t <= T.ARROW_R) {
+        const a = new THREE.Mesh(ARROW_GEO, own(mat(0x6b4bb8, { roughness: 0.45 })));
+        a.position.set(x, TILE_H, z);
+        a.rotation.y = ARROW_YAW[t - T.ARROW_U];
+        a.castShadow = true;
+        boardGroup.add(a);
+        props.push(a);
+      }
+    }
+  }
+}
+
+// A clockwork-looking key: ring, shaft and two teeth.
+function makeKey() {
+  const g = new THREE.Group();
+  const m = own(mat(C.gold, { roughness: 0.3, metalness: 0.5, emissive: C.gold, emissiveIntensity: 0.12 }));
+  const ring = new THREE.Mesh(own(new THREE.TorusGeometry(0.085, 0.026, 8, 18)), m);
+  ring.position.y = 0.085;
+  const shaft = new THREE.Mesh(UNIT_BOX, m);
+  shaft.scale.set(0.035, 0.22, 0.035);
+  shaft.position.y = -0.08;
+  const t1 = new THREE.Mesh(UNIT_BOX, m);
+  t1.scale.set(0.09, 0.032, 0.035);
+  t1.position.set(0.05, -0.14, 0);
+  const t2 = new THREE.Mesh(UNIT_BOX, m);
+  t2.scale.set(0.07, 0.032, 0.035);
+  t2.position.set(0.04, -0.06, 0);
+  g.add(ring, shaft, t1, t2);
+  g.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+  return g;
+}
+
+function makeLock() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(own(roundedBox(0.26, 0.16, 0.2, 0.05, 0.02)), own(mat(C.lockShut, { roughness: 0.45 })));
+  const shackle = new THREE.Mesh(
+    own(new THREE.TorusGeometry(0.085, 0.026, 8, 14, Math.PI)),
+    own(mat(C.steel, { roughness: 0.3, metalness: 0.55 }))
+  );
+  shackle.position.y = 0.2;
+  g.add(body, shackle);
+  g.userData.body = body;
+  g.userData.shackle = shackle;
+  g.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+  return g;
+}
+
+// ── Robot ────────────────────────────────────────────────────────────────────
+
+const robot = new THREE.Group();
+scene.add(robot);
+let robotBody = null, robotBulb = null, robotKey = null;
+
+(function buildRobot() {
+  const blue = mat(C.robot, { roughness: 0.35 });
+  const dark = mat(0x1e2445, { roughness: 0.4 });
+  const white = mat(0xffffff, { roughness: 0.35 });
+
+  robotBody = new THREE.Mesh(roundedBox(0.54, 0.46, 0.46, 0.15, 0.04), blue);
+  robotBody.castShadow = true;
+  robotBody.receiveShadow = true;
+  robot.add(robotBody);
+
+  // Face sits on the robot's local -Z, matching the "up" command direction.
+  for (const sx of [-1, 1]) {
+    const eye = new THREE.Mesh(BALL_GEO, white);
+    eye.scale.setScalar(0.15);
+    eye.position.set(sx * 0.12, 0.3, -0.2);
+    const pupil = new THREE.Mesh(BALL_GEO, dark);
+    pupil.scale.setScalar(0.08);
+    pupil.position.set(sx * 0.12, 0.3, -0.245);
+    robot.add(eye, pupil);
+  }
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.02, 6, 14, Math.PI), white);
+  smile.position.set(0, 0.17, -0.225);
+  smile.rotation.z = Math.PI;
+  robot.add(smile);
+
+  const stalk = new THREE.Mesh(DISC_GEO, mat(C.steel, { roughness: 0.3, metalness: 0.5 }));
+  stalk.scale.set(0.035, 0.17, 0.035);
+  stalk.position.y = 0.53;
+  robot.add(stalk);
+  robotBulb = new THREE.Mesh(BALL_GEO, mat(C.bulb, { emissive: C.bulb, emissiveIntensity: 0.9 }));
+  robotBulb.scale.setScalar(0.11);
+  robotBulb.position.y = 0.64;
+  robot.add(robotBulb);
+
+  for (const sx of [-1, 1]) {
+    const tread = new THREE.Mesh(roundedBox(0.12, 0.4, 0.1, 0.04, 0.02), mat(0x3a4066, { roughness: 0.6 }));
+    tread.position.set(sx * 0.3, 0.02, 0);
+    tread.castShadow = true;
+    robot.add(tread);
+  }
+
+  robotKey = makeKey();
+  robotKey.scale.setScalar(0.8);
+  robotKey.visible = false;
+  robot.add(robotKey);
+})();
+
+// ── Trail ────────────────────────────────────────────────────────────────────
+
+const TRAIL_MAX = 420;
+const trailMat = mat(C.trail, { emissive: C.trail, emissiveIntensity: 0.35, transparent: true, opacity: 0.85 });
+const trailMesh = new THREE.InstancedMesh(UNIT_BOX, trailMat, TRAIL_MAX);
+trailMesh.count = 0;
+scene.add(trailMesh);
+
+function rebuildTrail() {
+  let i = 0;
+  const put = (x, z, sx, sz) => {
+    if (i >= TRAIL_MAX) return;
+    _obj.position.set(x, TILE_H + 0.03, z);
+    _obj.scale.set(sx, 0.05, sz);
+    _obj.rotation.set(0, 0, 0);
+    _obj.updateMatrix();
+    trailMesh.setMatrixAt(i++, _obj.matrix);
+  };
+  for (let k = 0; k < replayTrail.length; k++) {
+    const [r, c] = replayTrail[k];
+    put(cellX(c), cellZ(r), 0.22, 0.22);
+    if (k > 0) {
+      const [pr, pc] = replayTrail[k - 1];
+      const mx = (cellX(c) + cellX(pc)) / 2, mz = (cellZ(r) + cellZ(pr)) / 2;
+      if (r === pr) put(mx, mz, STEP, 0.1);
+      else if (c === pc) put(mx, mz, 0.1, STEP);
+    }
+  }
+  trailMesh.count = i;
+  trailMesh.instanceMatrix.needsUpdate = true;
+  _obj.scale.set(1, 1, 1);
+}
+
+// ── The machine: clockwork + circuit board backdrop ──────────────────────────
+
+const machine = new THREE.Group();
+scene.add(machine);
+
+const gears = [];      // { mesh, speed }
+const clocks = [];     // { hour, minute }
+const traces = [];     // { len, pulse, speed, wait, endPad }
+let circuitMesh = null;
+let circuitInfo = [];  // per instance { trace, s }
+let backdrop = null;
+let machineY = -1.4;
+
+const backdropMat = mat(C.board, { roughness: 0.9 });
+const traceMat = mat(0xffffff, { roughness: 0.45, metalness: 0.2 });
+const gearMats = [
+  mat(C.gold, { roughness: 0.35, metalness: 0.55 }),
+  mat(C.goldDark, { roughness: 0.4, metalness: 0.5 }),
+  mat(C.steel, { roughness: 0.3, metalness: 0.6 })
+];
+const clockMat = mat(C.goldDark, { roughness: 0.35, metalness: 0.5 });
+const handMat = mat(0x3a4066, { roughness: 0.5 });
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function clearMachine() {
+  machine.traverse((n) => {
+    if (n.isInstancedMesh) n.dispose();
+    if (n.isMesh && n.geometry && n.geometry.userData.own) n.geometry.dispose();
+  });
+  machine.clear();
+  gears.length = 0;
+  clocks.length = 0;
+  traces.length = 0;
+  circuitInfo = [];
+  circuitMesh = null;
+  backdrop = null;
+}
+
+// A chain of meshing gears: each one touches the previous at its pitch radius
+// and counter-rotates at the inverse of the tooth ratio, which is what makes a
+// pile of spinning discs read as a mechanism.
+function addGearChain(x, z, y, teethList, unit, angle, baseSpeed) {
+  let px = x, pz = z, prevR = 0, prevTeeth = 0, speed = baseSpeed;
+  teethList.forEach((teeth, i) => {
+    const r = teeth * unit;
+    if (i > 0) {
+      const d = (prevR + r) * GEAR_PITCH_R;
+      px += Math.cos(angle) * d;
+      pz += Math.sin(angle) * d;
+      speed = -speed * prevTeeth / teeth;
+      angle += 0.7;
+    }
+    const g = new THREE.Mesh(gearGeometry(teeth), gearMats[i % gearMats.length]);
+    g.scale.set(r, Math.min(0.4, r * 0.36), r);
+    g.position.set(px, y, pz);
+    g.rotation.y = i * 0.4;
+    machine.add(g);
+    gears.push({ mesh: g, speed });
+    prevR = r;
+    prevTeeth = teeth;
+  });
+}
+
+function addClock(x, z, y, r) {
+  const rim = new THREE.Mesh(own(new THREE.TorusGeometry(r, r * 0.07, 8, 40).rotateX(-Math.PI / 2)), clockMat);
+  rim.position.set(x, y + 0.04, z);
+  machine.add(rim);
+
+  const face = new THREE.Mesh(DISC_GEO, backdropMat);
+  face.scale.set(r * 1.9, 0.05, r * 1.9);
+  face.position.set(x, y + 0.02, z);
+  machine.add(face);
+
+  const ticks = new THREE.InstancedMesh(UNIT_BOX, clockMat, 12);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    _obj.position.set(x + Math.cos(a) * r * 0.82, y + 0.05, z + Math.sin(a) * r * 0.82);
+    _obj.rotation.set(0, -a, 0);
+    _obj.scale.set(r * 0.16, 0.05, r * 0.05);
+    _obj.updateMatrix();
+    ticks.setMatrixAt(i, _obj.matrix);
+  }
+  ticks.instanceMatrix.needsUpdate = true;
+  machine.add(ticks);
+  _obj.rotation.set(0, 0, 0);
+  _obj.scale.set(1, 1, 1);
+
+  const mkHand = (len, wide) => {
+    const pivot = new THREE.Group();
+    const h = new THREE.Mesh(UNIT_BOX, handMat);
+    h.scale.set(wide, 0.05, len);
+    h.position.z = -len / 2;
+    pivot.add(h);
+    pivot.position.set(x, y + 0.08, z);
+    machine.add(pivot);
+    return pivot;
+  };
+  clocks.push({ hour: mkHand(r * 0.5, r * 0.1), minute: mkHand(r * 0.78, r * 0.07) });
+
+  const hub = new THREE.Mesh(DISC_GEO, clockMat);
+  hub.scale.set(r * 0.18, 0.12, r * 0.18);
+  hub.position.set(x, y + 0.1, z);
+  machine.add(hub);
+}
+
+// L-shaped traces running from the frame edge in to the board, so the pulses
+// read as power feeding the puzzle. Each is chopped into short segments whose
+// instance colour is driven by how close the pulse is.
+function buildCircuits(rect, y, rng) {
+  const routes = [];
+  const feeds = [
+    ...[-0.55, 0.0, 0.55].map((f) => ({ side: 'L', f })),
+    ...[-0.55, 0.0, 0.55].map((f) => ({ side: 'R', f })),
+    ...[-0.4, 0.4].map((f) => ({ side: 'T', f })),
+    ...[-0.4, 0.4].map((f) => ({ side: 'B', f })),
+  ];
+  for (const { side, f } of feeds) {
+    const jitter = (rng() - 0.5) * 0.5;
+    let a, mid, b;
+    if (side === 'L' || side === 'R') {
+      const sx = side === 'L' ? -1 : 1;
+      const zEnd = f * halfZ, zOut = f * halfZ + jitter + sx * 0.2;
+      a = [sx * (halfX + 0.05), zEnd];
+      mid = [sx * (halfX + 0.6 + rng() * 0.9), zEnd];
+      b = [side === 'L' ? rect.x0 : rect.x1, zOut];
+      routes.push([a, mid, [mid[0], zOut], b]);
+    } else {
+      const sz = side === 'T' ? -1 : 1;
+      const xEnd = f * halfX, xOut = f * halfX + jitter;
+      a = [xEnd, sz * (halfZ + 0.05)];
+      mid = [xEnd, sz * (halfZ + 0.6 + rng() * 0.9)];
+      b = [xOut, side === 'T' ? rect.z0 : rect.z1];
+      routes.push([a, mid, [xOut, mid[1]], b]);
+    }
+  }
+
+  // Segment everything first so the instance count is known up front.
+  const SEG = 0.34;
+  const items = [];
+  routes.forEach((pts, ti) => {
+    // Routes are built inward-last; walk them from the outer end so s=0 is the
+    // frame edge and the pulse travels toward the board.
+    const rev = pts.slice().reverse();
+    let s = 0;
+    for (let i = 0; i < rev.length - 1; i++) {
+      const [x0, z0] = rev[i], [x1, z1] = rev[i + 1];
+      const dx = x1 - x0, dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      if (len < 1e-4) continue;
+      const n = Math.max(1, Math.round(len / SEG));
+      const step = len / n;
+      const ang = Math.atan2(dz, dx);
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n;
+        items.push({
+          trace: ti, s: s + (k + 0.5) * step,
+          x: x0 + dx * t, z: z0 + dz * t,
+          yaw: -ang, long: step * 1.06, wide: 0.11, tall: 0.06
+        });
+      }
+      s += len;
+      // Pad at each corner and at the board end.
+      const last = i === rev.length - 2;
+      items.push({
+        trace: ti, s, x: x1, z: z1, yaw: 0,
+        long: last ? 0.26 : 0.17, wide: last ? 0.26 : 0.17, tall: last ? 0.1 : 0.07
+      });
+    }
+    traces.push({ len: s, pulse: -rng() * s, speed: 2.6 + rng() * 2.2 });
+  });
+
+  circuitMesh = new THREE.InstancedMesh(UNIT_BOX, traceMat, items.length);
+  circuitInfo = items.map((it, i) => {
+    _obj.position.set(it.x, y + it.tall / 2, it.z);
+    _obj.rotation.set(0, it.yaw, 0);
+    _obj.scale.set(it.long, it.tall, it.wide);
+    _obj.updateMatrix();
+    circuitMesh.setMatrixAt(i, _obj.matrix);
+    circuitMesh.setColorAt(i, _col.setHex(C.trace));
+    return { trace: it.trace, s: it.s };
+  });
+  circuitMesh.instanceMatrix.needsUpdate = true;
+  circuitMesh.instanceColor.needsUpdate = true;
+  machine.add(circuitMesh);
+  _obj.rotation.set(0, 0, 0);
+  _obj.scale.set(1, 1, 1);
+}
+
+// `rect` is the world-space region the camera can see at the machine plane, so
+// the mechanism always reaches the edges of the frame whatever the board size.
+function buildMachine(rect) {
+  clearMachine();
+  const y = machineY;
+  const rng = mulberry32(0x9E3779B9);
+
+  const w = (rect.x1 - rect.x0) * 1.1, d = (rect.z1 - rect.z0) * 1.1;
+  backdrop = new THREE.Mesh(own(new THREE.BoxGeometry(w, 0.6, d)), backdropMat);
+  backdrop.position.set((rect.x0 + rect.x1) / 2, y - 0.3, (rect.z0 + rect.z1) / 2);
+  backdrop.receiveShadow = true;
+  machine.add(backdrop);
+
+  buildCircuits(rect, y, rng);
+
+  // Margin bands between the board footprint and the edge of the frame.
+  const bandL = -halfX - rect.x0, bandR = rect.x1 - halfX;
+  const bandT = -halfZ - rect.z0, bandB = rect.z1 - halfZ;
+  const cxL = (rect.x0 - halfX) / 2, cxR = (rect.x1 + halfX) / 2;
+  const czT = (rect.z0 - halfZ) / 2, czB = (rect.z1 + halfZ) / 2;
+
+  // Corners get the big features; a region smaller than this can't show one.
+  const corner = (cx, cz, bw, bd, kind) => {
+    const room = Math.min(bw, bd);
+    if (room < 0.9) return;
+    if (kind === 'clock') addClock(cx, cz, y, Math.min(room * 0.42, 2.2));
+    else {
+      const unit = Math.min(room * 0.024, 0.14);
+      addGearChain(cx - room * 0.2, cz - room * 0.15, y, [18, 12, 10], unit, rng() * 6.28, 0.5 + rng() * 0.3);
+    }
+  };
+  corner(cxL, czT, bandL, bandT, 'gears');
+  corner(cxR, czT, bandR, bandT, 'clock');
+  corner(cxL, czB, bandL, bandB, 'clock');
+  corner(cxR, czB, bandR, bandB, 'gears');
+
+  // Side bands get shorter chains.
+  const band = (cx, cz, room, along) => {
+    if (room < 0.7) return;
+    const unit = Math.min(room * 0.026, 0.11);
+    addGearChain(cx, cz, y, [14, 10], unit, along, 0.6 + rng() * 0.5);
+  };
+  band(cxL, 0, bandL, Math.PI / 2);
+  band(cxR, 0, bandR, -Math.PI / 2);
+  band(0, czT, bandT, 0);
+  band(0, czB, bandB, Math.PI);
+
+  keyLight.shadow.camera.left = -(halfX + 1.5);
+  keyLight.shadow.camera.right = halfX + 1.5;
+  keyLight.shadow.camera.top = halfZ + 1.5;
+  keyLight.shadow.camera.bottom = -(halfZ + 1.5);
+  keyLight.shadow.camera.updateProjectionMatrix();
+}
+
+// ── Camera ───────────────────────────────────────────────────────────────────
+
+let fitPts = [];
+
+function buildFitPoints() {
+  fitPts = [];
+  const box = (hx, hz, lo, hi) => {
+    for (const x of [-hx, hx]) {
+      for (const z of [-hz, hz]) {
+        for (const y of [lo, hi]) fitPts.push(new THREE.Vector3(x, y, z));
+      }
+    }
+  };
+  box(halfX, halfZ, -SLAB_H, TILE_H);
+  // Tallest thing that can stand on a corner cell: the robot's antenna at 0.7,
+  // above a capped wall at 0.57 and the goal flag at 0.46.
+  const ex = (COLS - 1) / 2 * STEP + 0.5, ez = (ROWS - 1) / 2 * STEP + 0.5;
+  box(ex, ez, TILE_H, TILE_H + 0.82);
+}
+
+// The board is framed into the gap between the header and the program strip.
+// Everything outside that gap is machine, including behind the frosted panels.
+function boardSlotNdc() {
+  const H = window.innerHeight;
+  const slot = document.getElementById('board-slot').getBoundingClientRect();
+  const top = slot.top + 4;
+  const bottom = Math.max(top + 110, slot.bottom - 4);
+  return {
+    // Deliberately not the full width: the 10% strip left on each side is
+    // where the mechanism is visible unobstructed.
+    halfX: 0.8,
+    halfY: Math.max(0.08, (bottom - top) / H),
+    cy: 1 - (top + bottom) / H
+  };
+}
+
+// Perspective spreads the near edge of a tilted board outward, so an
+// orthographic solve under-reserves and crops the corner cells. Measure
+// instead: project the bounds, walk the distance until the binding axis just
+// fills its target, and slide the look-at point along the camera's own up axis
+// until the content sits on the slot's centre line.
+function fitCamera(slot, startDist) {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const v = new THREE.Vector3();
+  let dist = startDist, shift = 0;
+
+  for (let i = 0; i < 14; i++) {
+    camTarget.set(TARGET.x, TARGET.y + cp * shift, TARGET.z - sp * shift);
+    camera.position.set(camTarget.x, camTarget.y + sp * dist, camTarget.z + cp * dist);
+    // Distance-relative, because the machine backdrop reaches much further
+    // behind the board than the board's own bounds do.
+    camera.near = Math.max(0.5, dist * 0.4);
+    camera.far = dist * 2;
+    camera.lookAt(camTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+
+    let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    for (const p of fitPts) {
+      v.copy(p).project(camera);
+      if (v.x < mnx) mnx = v.x;
+      if (v.x > mxx) mxx = v.x;
+      if (v.y < mny) mny = v.y;
+      if (v.y > mxy) mxy = v.y;
+    }
+    const over = Math.max((mxx - mnx) / 2 / slot.halfX, (mxy - mny) / 2 / slot.halfY);
+    const cyErr = (mxy + mny) / 2 - slot.cy;
+    if (Math.abs(over - 1) < 0.004 && Math.abs(cyErr) < 0.004) break;
+    shift += cyErr * dist * tanY;
+    dist *= over;
+  }
+
+  camBase.copy(camera.position);
+  return dist;
+}
+
+// World rect the camera sees at the machine plane, used to size the mechanism.
+function visibleRectAt(y) {
+  const v = new THREE.Vector3();
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y);
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  const ray = new THREE.Raycaster();
+  for (const nx of [-1, 1]) {
+    for (const ny of [-1, 1]) {
+      ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      if (!ray.ray.intersectPlane(plane, v)) continue;
+      x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x);
+      z0 = Math.min(z0, v.z); z1 = Math.max(z1, v.z);
+    }
+  }
+  if (!Number.isFinite(x0)) return { x0: -12, x1: 12, z0: -12, z1: 12 };
+  return { x0, x1, z0, z1 };
+}
+
+let needsLayout = true;
+let lastRectKey = '';
+
+function layout() {
+  const w = window.innerWidth, h = window.innerHeight;
+  // Cap total pixels so a full-screen canvas at DPR 3 doesn't melt a phone.
+  let dpr = Math.min(2, window.devicePixelRatio || 1);
+  const budget = 4.2e6;
+  if (w * h * dpr * dpr > budget) dpr = Math.sqrt(budget / (w * h));
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+
+  buildFitPoints();
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  fitCamera(boardSlotNdc(), Math.max(halfX, halfZ) / tanY * 1.4);
+
+  // Rebuilding the mechanism means ~20 extruded gears, so only do it when the
+  // region it has to fill actually moved.
+  machineY = -(SLAB_H + LEG_H);
+  const rect = visibleRectAt(machineY);
+  const key = [rect.x0, rect.x1, rect.z0, rect.z1, halfX, halfZ]
+    .map((v) => Math.round(v * 8)).join(',');
+  if (key !== lastRectKey) {
+    lastRectKey = key;
+    buildMachine(rect);
+  }
+}
+
+window.addEventListener('resize', () => { needsLayout = true; });
+window.addEventListener('orientationchange', () => { needsLayout = true; });
+
+// ── Tweens / shake ───────────────────────────────────────────────────────────
+
+const tweens = [];
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+
+function tween(dur, onUpdate, onDone, ease) {
+  tweens.push({ t0: performance.now(), dur, up: onUpdate, done: onDone, ease: ease || easeOut });
+}
+
+function tweenAsync(dur, onUpdate, ease) {
+  return new Promise((res) => tween(dur, onUpdate, res, ease));
+}
+
+function stepTweens(now) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const t = tweens[i];
+    let p = (now - t.t0) / t.dur;
+    if (p >= 1) p = 1;
+    t.up(t.ease(p), p);
+    if (p === 1) { tweens.splice(i, 1); if (t.done) t.done(); }
+  }
+}
+
+let shakeAmt = 0;
+const shakeOff = new THREE.Vector3();
+function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+
+function toScreen(v) {
+  const p = v.clone().project(camera);
+  return {
+    x: (p.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-p.y * 0.5 + 0.5) * window.innerHeight
+  };
+}
+
+// ── Audio ────────────────────────────────────────────────────────────────────
+
 let AC = null;
-try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+
+let musicOn = true, sfxOn = true;
+let musicGain = null, musicNodes = [], musicTimer = null;
 
 function showAudioWarning() {
   const el = document.getElementById('audioWarning');
@@ -521,10 +1465,9 @@ function showAudioWarning() {
   const btn = document.getElementById('musicToggle');
   if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'default'; }
 }
-
 if (!AC) showAudioWarning();
 
-function playTone(freq, type, dur, vol=0.15, delay=0) {
+function playTone(freq, type, dur, vol = 0.15, delay = 0) {
   if (!sfxOn || !AC) return;
   const o = AC.createOscillator();
   const g = AC.createGain();
@@ -540,26 +1483,13 @@ function playTone(freq, type, dur, vol=0.15, delay=0) {
 function sfxAdd() { playTone(440, 'sine', 0.08, 0.1); }
 function sfxRemove() { playTone(300, 'sine', 0.08, 0.08); }
 function sfxStep() { playTone(520, 'sine', 0.06, 0.08); }
-function sfxSlide() {
-  [0,1,2,3].forEach(i => playTone(600 + i*60, 'sine', 0.05, 0.07, i*0.06));
-}
+function sfxSlide() { [0,1,2,3].forEach((i) => playTone(600 + i*60, 'sine', 0.05, 0.07, i*0.06)); }
 function sfxBump() {
   playTone(200, 'sawtooth', 0.15, 0.15);
   playTone(150, 'sawtooth', 0.12, 0.12, 0.05);
 }
-function sfxKey() {
-  [0,1,2].forEach(i => playTone(700 + i*150, 'sine', 0.12, 0.12, i*0.08));
-}
-function sfxWin() {
-  const notes = [523, 659, 784, 1047];
-  notes.forEach((n,i) => playTone(n, 'sine', 0.3, 0.2, i*0.15));
-}
-
-// Background music (simple arpeggiated chords)
-let musicGain;
-let musicNodes = [];
-let musicOn = true;
-let sfxOn = true;
+function sfxKey() { [0,1,2].forEach((i) => playTone(700 + i*150, 'sine', 0.12, 0.12, i*0.08)); }
+function sfxWin() { [523, 659, 784, 1047].forEach((n, i) => playTone(n, 'sine', 0.3, 0.2, i*0.15)); }
 
 function startMusic() {
   if (!musicOn || !AC) return;
@@ -569,9 +1499,8 @@ function startMusic() {
   musicGain.connect(AC.destination);
   const scale = [261, 293, 329, 392, 440, 523, 587, 659];
   let step = 0;
-  const bpm = 140;
-  const interval = (60 / bpm) * 1000 / 2;
-  function tick() {
+  const interval = (60 / 140) * 1000 / 2;
+  (function tick() {
     if (!musicOn) return;
     const o = AC.createOscillator();
     o.type = 'sine';
@@ -582,82 +1511,36 @@ function startMusic() {
     o.connect(g); g.connect(musicGain);
     o.start(); o.stop(AC.currentTime + 0.25);
     musicNodes.push(o);
+    o.onended = () => { const i = musicNodes.indexOf(o); if (i > -1) musicNodes.splice(i, 1); };
     step++;
     musicTimer = setTimeout(tick, interval);
-  }
-  tick();
+  })();
 }
 
-let musicTimer = null;
 function stopMusic() {
   clearTimeout(musicTimer);
-  musicNodes.forEach(n => { try { n.stop(); } catch(e){} });
+  musicNodes.forEach((n) => { try { n.stop(); } catch (e) {} });
   musicNodes = [];
   if (musicGain) { musicGain.disconnect(); musicGain = null; }
 }
 
-// Resume audio context on first touch
-document.addEventListener('touchstart', () => {
+function resumeAudio() {
   if (!AC) return;
   if (AC.state === 'suspended') {
     AC.resume().then(() => {
       if (AC.state !== 'running') { showAudioWarning(); return; }
       if (musicOn) startMusic();
     }).catch(() => showAudioWarning());
+  } else if (musicOn && !musicGain) {
+    startMusic();
   }
-}, { once: true });
-document.addEventListener('click', () => {
-  if (!AC) return;
-  if (AC.state === 'suspended') {
-    AC.resume().then(() => {
-      if (AC.state !== 'running') { showAudioWarning(); return; }
-      if (musicOn) startMusic();
-    }).catch(() => showAudioWarning());
-  }
-}, { once: true });
-
-// ─── Stars ───────────────────────────────────────────────────────────────────
-(function createStars() {
-  const c = document.getElementById('starsContainer');
-  for (let i = 0; i < 60; i++) {
-    const s = document.createElement('div');
-    s.className = 'star';
-    s.style.left = Math.random() * 100 + '%';
-    s.style.top = Math.random() * 100 + '%';
-    s.style.animationDuration = (2 + Math.random() * 4) + 's';
-    s.style.animationDelay = (Math.random() * 4) + 's';
-    s.style.opacity = 0.3;
-    s.style.width = s.style.height = (1 + Math.random() * 3) + 'px';
-    c.appendChild(s);
-  }
-})();
-
-// ─── Tile Types ───────────────────────────────────────────────────────────────
-const T = {
-  EMPTY: 0,
-  WALL: 1,
-  ICE: 2,
-  KEY: 3,
-  LOCK: 4,
-  ARROW_U: 5,
-  ARROW_D: 6,
-  ARROW_L: 7,
-  ARROW_R: 8,
-};
-
-// ─── Seeded PRNG ─────────────────────────────────────────────────────────────
-function mulberry32(seed) {
-  return function() {
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
 }
+document.addEventListener('touchstart', resumeAudio, { once: true });
+document.addEventListener('click', resumeAudio, { once: true });
 
-// ─── Hand-crafted levels ────────────────────────────────────────────────────
+// ── Levels (unchanged rules) ─────────────────────────────────────────────────
+
 const HAND_LEVELS = [
-  // Level 1: 5x5, simple path right then down
   {
     grid: [
       [0,0,0,0,0],
@@ -666,11 +1549,9 @@ const HAND_LEVELS = [
       [0,1,1,1,0],
       [0,0,0,0,0],
     ],
-    start: [0,0],
-    goal: [4,4],
+    start: [0,0], goal: [4,4],
     solution: ['D','D','R','R','R','R','D','D'],
   },
-  // Level 2: 6x6, with more walls
   {
     grid: [
       [0,0,1,0,0,0],
@@ -680,11 +1561,9 @@ const HAND_LEVELS = [
       [0,0,0,1,1,0],
       [1,0,0,0,0,0],
     ],
-    start: [0,0],
-    goal: [5,5],
+    start: [0,0], goal: [5,5],
     solution: ['D','R','D','D','R','R','D','D','R','R'],
   },
-  // Level 3: 6x6, ICE intro
   {
     grid: [
       [0,0,0,1,0,0],
@@ -694,46 +1573,39 @@ const HAND_LEVELS = [
       [1,0,1,0,0,0],
       [0,0,0,0,0,0],
     ],
-    start: [0,0],
-    goal: [5,4],
+    start: [0,0], goal: [5,4],
     solution: ['D','D','D','R','R','R','R','D','D'],
   },
-  // Level 4: 7x7, KEY + LOCK
   {
     grid: [
       [0,0,0,1,0,0,0],
       [0,1,0,1,0,1,0],
       [0,1,0,0,0,1,0],
       [1,0,0,1,0,0,0],
-      [0,0,1,3,0,1,0],  // 3 = key at [4][3]
+      [0,0,1,3,0,1,0],
       [0,1,0,0,0,0,0],
-      [0,0,0,1,4,0,0],  // 4 = lock at [6][4]
+      [0,0,0,1,4,0,0],
     ],
-    start: [0,0],
-    goal: [6,6],
+    start: [0,0], goal: [6,6],
     solution: ['D','D','D','D','R','R','R','D','D','R','R'],
   },
-  // Level 5: 7x7, Arrow tiles
   {
     grid: [
       [0,0,0,0,1,0,0],
       [1,0,1,0,0,0,0],
       [0,0,0,1,0,1,0],
-      [0,1,5,0,0,0,1],  // 5 = arrow-up at [3][2]
+      [0,1,5,0,0,0,1],
       [0,0,0,0,1,0,0],
       [1,0,1,0,0,0,1],
       [0,0,0,0,0,0,0],
     ],
-    start: [0,0],
-    goal: [6,6],
+    start: [0,0], goal: [6,6],
     solution: ['R','R','D','D','D','R','R','R','R','D','D'],
   },
 ];
 
-// ─── Procedural level generation ────────────────────────────────────────────
 function generateLevel(levelNum) {
   const rng = mulberry32(levelNum * 1337 + 42);
-
   const difficulty = Math.floor((levelNum - 6) / 10);
   const size = Math.min(5 + Math.floor(difficulty / 2), 10);
   const wallDensity = 0.15 + difficulty * 0.03;
@@ -747,14 +1619,11 @@ function generateLevel(levelNum) {
   do {
     attempts++;
     grid = [];
-    for (let r = 0; r < size; r++) {
-      grid.push(new Array(size).fill(T.EMPTY));
-    }
+    for (let r = 0; r < size; r++) grid.push(new Array(size).fill(T.EMPTY));
 
     start = [0, 0];
     goal = [size - 1, size - 1];
 
-    // Place walls
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         if ((r === 0 && c === 0) || (r === size-1 && c === size-1)) continue;
@@ -762,19 +1631,15 @@ function generateLevel(levelNum) {
       }
     }
 
-    // Place ice
     if (useIce) {
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
           if ((r === 0 && c === 0) || (r === size-1 && c === size-1)) continue;
-          if (grid[r][c] === T.EMPTY && rng() < 0.08) {
-            grid[r][c] = T.ICE;
-          }
+          if (grid[r][c] === T.EMPTY && rng() < 0.08) grid[r][c] = T.ICE;
         }
       }
     }
 
-    // Place key + lock pair
     let hasKey = false;
     if (useKey && rng() < 0.5) {
       const empties = [];
@@ -795,15 +1660,12 @@ function generateLevel(levelNum) {
       }
     }
 
-    // Place arrow tiles
     if (useArrowTiles && rng() < 0.4) {
       const dirs = [T.ARROW_U, T.ARROW_D, T.ARROW_L, T.ARROW_R];
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
           if ((r === 0 && c === 0) || (r === size-1 && c === size-1)) continue;
-          if (grid[r][c] === T.EMPTY && rng() < 0.05) {
-            grid[r][c] = dirs[Math.floor(rng() * 4)];
-          }
+          if (grid[r][c] === T.EMPTY && rng() < 0.05) grid[r][c] = dirs[Math.floor(rng() * 4)];
         }
       }
     }
@@ -812,7 +1674,6 @@ function generateLevel(levelNum) {
   } while (!solution && attempts < 30);
 
   if (!solution) {
-    // Fallback: clear grid
     for (let r = 0; r < size; r++) grid[r].fill(T.EMPTY);
     solution = bfs(grid, start, goal, size, false) || ['R','D'];
   }
@@ -820,56 +1681,54 @@ function generateLevel(levelNum) {
   return { grid, start, goal, solution, size };
 }
 
-// ─── BFS pathfinder ─────────────────────────────────────────────────────────
 function bfs(grid, start, goal, size, needKey) {
   const rows = size, cols = size;
   function key(r, c, hasK) { return r * cols * 2 + c * 2 + (hasK ? 1 : 0); }
   const visited = new Set();
-  const startKey = key(start[0], start[1], !needKey);
-  visited.add(startKey);
+  visited.add(key(start[0], start[1], !needKey));
   const queue = [{ r: start[0], c: start[1], hasKey: !needKey, path: [] }];
-
-  const DIRS = { U:[-1,0], D:[1,0], L:[0,-1], R:[0,1] };
+  const D = { U:[-1,0], D:[1,0], L:[0,-1], R:[0,1] };
 
   while (queue.length) {
     const { r, c, hasKey: hk, path } = queue.shift();
-
-    const dirs = ['U','D','L','R'];
-    for (const d of dirs) {
-      const [dr, dc] = DIRS[d];
-
-      // Simulate move (handle ice, arrow tiles)
+    for (const d of ['U','D','L','R']) {
+      const [dr, dc] = D[d];
       let nr = r, nc = c, curHk = hk;
-      const tile = grid[nr][nc];
-
-      let pr = nr + dr, pc = nc + dc;
-
-      // Normal single step
+      const pr = nr + dr, pc = nc + dc;
       if (pr < 0 || pr >= rows || pc < 0 || pc >= cols) continue;
       const destTile = grid[pr][pc];
       if (destTile === T.WALL) continue;
       if (destTile === T.LOCK && !curHk) continue;
-
       nr = pr; nc = pc;
       if (destTile === T.KEY) curHk = true;
-
-      // Ice sliding
       if (destTile === T.ICE) {
-        while (true) {
+        for (;;) {
           const ir = nr + dr, ic = nc + dc;
           if (ir < 0 || ir >= rows || ic < 0 || ic >= cols) break;
           const it = grid[ir][ic];
           if (it === T.WALL) break;
           if (it === T.LOCK && !curHk) break;
           nr = ir; nc = ic;
-          if (grid[nr][nc] !== T.ICE) break;
+          if (it === T.KEY) curHk = true;   // keys are collected mid-slide too
+          if (it !== T.ICE) break;
         }
       }
-
+      // An arrow tile forces one more move, no ice slide and no chaining —
+      // this has to mirror runSequence exactly, because maxCommands is derived
+      // from the length of the path this search returns.
+      const land = grid[nr][nc];
+      if (land >= T.ARROW_U && land <= T.ARROW_R) {
+        const [fdr, fdc] = [[-1,0],[1,0],[0,-1],[0,1]][land - T.ARROW_U];
+        const fr = nr + fdr, fc = nc + fdc;
+        if (fr >= 0 && fr < rows && fc >= 0 && fc < cols && grid[fr][fc] !== T.WALL &&
+            (grid[fr][fc] !== T.LOCK || curHk)) {
+          nr = fr; nc = fc;
+          if (grid[nr][nc] === T.KEY) curHk = true;
+        }
+      }
       const k = key(nr, nc, curHk);
       if (visited.has(k)) continue;
       visited.add(k);
-
       const newPath = [...path, d];
       if (nr === goal[0] && nc === goal[1]) return newPath;
       queue.push({ r: nr, c: nc, hasKey: curHk, path: newPath });
@@ -878,7 +1737,8 @@ function bfs(grid, start, goal, size, needKey) {
   return null;
 }
 
-// ─── Game State ──────────────────────────────────────────────────────────────
+// ── Game state ───────────────────────────────────────────────────────────────
+
 let level = 1;
 let levelData = null;
 let commands = [];
@@ -886,293 +1746,31 @@ let maxCommands = 0;
 let running = false;
 let robotPos = [0, 0];
 let robotHasKey = false;
-let robotAnim = { x: 0, y: 0, targetX: 0, targetY: 0, t: 1 };
-let particles = [];
 let replayTrail = [];
-let animFrame = null;
+let robotYaw = Math.PI;
 
-// ─── Canvas ───────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const replayCanvas = document.getElementById('replayCanvas');
-const rCtx = replayCanvas.getContext('2d');
+const DIRS = { U:[-1,0], D:[1,0], L:[0,-1], R:[0,1] };
+const DIR_YAW = { U: 0, D: Math.PI, L: Math.PI / 2, R: -Math.PI / 2 };
 
-let CELL = 56;
-let COLS = 5, ROWS = 5;
-let PAD = 6;
-
-function resizeCanvas() {
-  if (!levelData) return;
-  const grid = levelData.grid;
-  ROWS = grid.length;
-  COLS = grid[0].length;
-  const maxW = Math.min(window.innerWidth - 24, 500);
-  CELL = Math.floor((maxW - PAD * 2) / COLS);
-  const W = CELL * COLS + PAD * 2;
-  const H = CELL * ROWS + PAD * 2;
-  canvas.width = W; canvas.height = H;
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-  replayCanvas.width = W; replayCanvas.height = H;
-  replayCanvas.style.width = W + 'px'; replayCanvas.style.height = H + 'px';
-}
-
-function cellCenter(r, c) {
-  return {
-    x: PAD + c * CELL + CELL / 2,
-    y: PAD + r * CELL + CELL / 2,
-  };
-}
-
-// ─── Drawing ──────────────────────────────────────────────────────────────────
-const COLORS = {
-  bg: '#dde1ea',
-  empty: '#f0f2f8',
-  wall: '#3d4166',
-  ice: '#b8e0f0',
-  key: '#fff3b0',
-  lock: '#ffb3b3',
-  arrowTile: '#d4c5f9',
-  goal: '#b8f0c8',
-  robot: '#5b8dee',
-  trail: 'rgba(91,141,238,0.35)',
-};
-
-function drawTile(r, c) {
-  const tile = levelData.grid[r][c];
-  const x = PAD + c * CELL;
-  const y = PAD + r * CELL;
-  const isGoal = r === levelData.goal[0] && c === levelData.goal[1];
-
-  ctx.save();
-  ctx.beginPath();
-  const cr = 6;
-  ctx.roundRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3, cr);
-
-  if (isGoal) {
-    ctx.fillStyle = COLORS.goal;
-    ctx.fill();
-    ctx.fillStyle = '#555';
-    ctx.font = `${CELL * 0.45}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🏁', x + CELL/2, y + CELL/2);
-  } else if (tile === T.WALL) {
-    ctx.fillStyle = COLORS.wall;
-    ctx.fill();
-    // Brick-like highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    ctx.fillRect(x+2, y+2, CELL-4, (CELL-4)/2);
-  } else if (tile === T.ICE) {
-    ctx.fillStyle = COLORS.ice;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(100,180,220,0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = `${CELL * 0.4}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('❄️', x + CELL/2, y + CELL/2);
-  } else if (tile === T.KEY) {
-    ctx.fillStyle = COLORS.key;
-    ctx.fill();
-    ctx.fillStyle = '#555';
-    ctx.font = `${CELL * 0.45}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🔑', x + CELL/2, y + CELL/2);
-  } else if (tile === T.LOCK) {
-    ctx.fillStyle = robotHasKey ? COLORS.empty : COLORS.lock;
-    ctx.fill();
-    ctx.fillStyle = '#555';
-    ctx.font = `${CELL * 0.45}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(robotHasKey ? '🔓' : '🔒', x + CELL/2, y + CELL/2);
-  } else if (tile >= T.ARROW_U && tile <= T.ARROW_R) {
-    ctx.fillStyle = COLORS.arrowTile;
-    ctx.fill();
-    const arrows = ['⬆️','⬇️','⬅️','➡️'];
-    ctx.font = `${CELL * 0.4}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(arrows[tile - T.ARROW_U], x + CELL/2, y + CELL/2);
-  } else {
-    ctx.fillStyle = COLORS.empty;
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawRobot(px, py) {
-  const r = CELL * 0.32;
-  ctx.save();
-
-  // Glow
-  ctx.shadowColor = COLORS.robot;
-  ctx.shadowBlur = 12;
-
-  // Body
-  ctx.fillStyle = COLORS.robot;
-  ctx.beginPath();
-  ctx.roundRect(px - r, py - r, r * 2, r * 2, r * 0.3);
-  ctx.fill();
-
-  ctx.shadowBlur = 0;
-
-  // Eyes
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(px - r*0.3, py - r*0.15, r*0.22, 0, Math.PI*2);
-  ctx.arc(px + r*0.3, py - r*0.15, r*0.22, 0, Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle = '#1a1a40';
-  ctx.beginPath();
-  ctx.arc(px - r*0.3, py - r*0.15, r*0.12, 0, Math.PI*2);
-  ctx.arc(px + r*0.3, py - r*0.15, r*0.12, 0, Math.PI*2);
-  ctx.fill();
-
-  // Mouth (smile)
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = r * 0.12;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.arc(px, py + r*0.1, r*0.3, 0.2, Math.PI - 0.2);
-  ctx.stroke();
-
-  // Antenna
-  ctx.strokeStyle = COLORS.robot;
-  ctx.lineWidth = r * 0.12;
-  ctx.beginPath();
-  ctx.moveTo(px, py - r);
-  ctx.lineTo(px, py - r * 1.5);
-  ctx.stroke();
-  ctx.fillStyle = '#ffd93d';
-  ctx.beginPath();
-  ctx.arc(px, py - r * 1.55, r * 0.15, 0, Math.PI*2);
-  ctx.fill();
-
-  // Key if holding
-  if (robotHasKey) {
-    ctx.font = `${r * 0.9}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🔑', px + r * 1.1, py + r * 0.8);
-  }
-
-  ctx.restore();
-}
-
-function drawParticles() {
-  particles = particles.filter(p => p.life > 0);
-  for (const p of particles) {
-    ctx.save();
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.3;
-    p.life -= 0.03;
-  }
-}
-
-function spawnParticles(x, y, color, count=12) {
-  for (let i = 0; i < count; i++) {
-    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-    const speed = 2 + Math.random() * 3;
-    particles.push({
-      x, y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      r: 3 + Math.random() * 4,
-      color,
-      life: 0.8 + Math.random() * 0.3,
-    });
-  }
-}
-
-function drawFrame() {
-  if (!levelData) return;
-  const grid = levelData.grid;
-  ROWS = grid.length; COLS = grid[0].length;
-
-  // Background
-  ctx.fillStyle = COLORS.bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Tiles
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      drawTile(r, c);
-    }
-  }
-
-  // Interpolated robot position
-  const t = Math.min(robotAnim.t, 1);
-  const ease = 1 - Math.pow(1 - t, 3);
-  const rx = robotAnim.x + (robotAnim.targetX - robotAnim.x) * ease;
-  const ry = robotAnim.y + (robotAnim.targetY - robotAnim.y) * ease;
-
-  // Particles
-  drawParticles();
-
-  drawRobot(rx, ry);
-}
-
-function drawReplayTrail() {
-  rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
-  if (replayTrail.length < 2) return;
-  rCtx.strokeStyle = COLORS.trail;
-  rCtx.lineWidth = CELL * 0.15;
-  rCtx.lineCap = 'round';
-  rCtx.lineJoin = 'round';
-  rCtx.beginPath();
-  const first = cellCenter(replayTrail[0][0], replayTrail[0][1]);
-  rCtx.moveTo(first.x, first.y);
-  for (let i = 1; i < replayTrail.length; i++) {
-    const pt = cellCenter(replayTrail[i][0], replayTrail[i][1]);
-    rCtx.lineTo(pt.x, pt.y);
-  }
-  rCtx.stroke();
-  rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
-  // Dots
-  for (const [r, c] of replayTrail) {
-    const { x, y } = cellCenter(r, c);
-    rCtx.fillStyle = COLORS.trail;
-    rCtx.beginPath();
-    rCtx.arc(x, y, CELL * 0.08, 0, Math.PI*2);
-    rCtx.fill();
-  }
-}
-
-// ─── Animation loop ──────────────────────────────────────────────────────────
-let lastTime = 0;
-function loop(ts) {
-  const dt = ts - lastTime;
-  lastTime = ts;
-  robotAnim.t += dt / 180; // 180ms per step
-  robotAnim.t = Math.min(robotAnim.t, 1);
-  drawFrame();
-  animFrame = requestAnimationFrame(loop);
-}
-
-// ─── Level loading ───────────────────────────────────────────────────────────
 function loadLevel(lvl) {
   level = lvl;
+  tweens.length = 0;
   replayTrail = [];
-  rCtx && rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
 
   if (lvl <= HAND_LEVELS.length) {
     const ld = HAND_LEVELS[lvl - 1];
+    const grid = ld.grid.map((r) => [...r]);
+    const flat = grid.flat();
+    const needKey = flat.includes(T.KEY) && flat.includes(T.LOCK);
+    // The checked-in `solution` arrays don't replay against these grids (level
+    // 2's first move walks into a wall), and maxCommands is derived from the
+    // solution length — so measure the real shortest path instead.
+    const solved = bfs(grid, ld.start, ld.goal, grid.length, needKey);
     levelData = {
-      grid: ld.grid.map(r => [...r]),
+      grid,
       start: [...ld.start],
       goal: [...ld.goal],
-      solution: ld.solution,
+      solution: solved || ld.solution,
     };
   } else {
     levelData = generateLevel(lvl);
@@ -1182,30 +1780,97 @@ function loadLevel(lvl) {
   commands = [];
   robotPos = [...levelData.start];
   robotHasKey = false;
+  robotYaw = Math.PI;
 
-  resizeCanvas();
-  const { x, y } = cellCenter(robotPos[0], robotPos[1]);
-  robotAnim = { x, y, targetX: x, targetY: y, t: 1 };
+  buildBoard();
+  rebuildTrail();
+  placeRobot();
+  needsLayout = true;
 
   updateCommandStrip();
   updateStatus('');
-  document.getElementById('levelBadge').textContent = `Level ${lvl}`;
-  document.getElementById('btnRun').disabled = false;
-
-  if (!animFrame) {
-    lastTime = performance.now();
-    animFrame = requestAnimationFrame(loop);
-  }
+  const badge = document.getElementById('levelBadge');
+  badge.textContent = `Level ${lvl}`;
+  badge.classList.remove('pop');
+  void badge.offsetWidth;
+  badge.classList.add('pop');
+  document.getElementById('btnRun').disabled = true;
 }
 
-// ─── Command strip UI ────────────────────────────────────────────────────────
-const ARROW_SYMBOLS = { U:'⬆️', D:'⬇️', L:'⬅️', R:'➡️' };
-const ARROW_COLORS = { U:'#5b8dee', D:'#ff6b6b', L:'#ffd93d', R:'#6bcb77' };
+function placeRobot() {
+  robot.position.set(cellX(robotPos[1]), ROBOT_Y, cellZ(robotPos[0]));
+  robot.rotation.set(0, robotYaw, 0);
+  robot.scale.set(1, 1, 1);
+  robotKey.visible = robotHasKey;
+}
+
+function refreshTileColors() {
+  if (!tiles) return;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const i = r * COLS + c;
+      tileColors[i].setHex(baseTileColor(r, c));
+      tiles.setColorAt(i, tileColors[i]);
+    }
+  }
+  tiles.instanceColor.needsUpdate = true;
+}
+
+// ── Robot animation ──────────────────────────────────────────────────────────
+
+function faceDir(dir) {
+  const target = DIR_YAW[dir];
+  let delta = target - robotYaw;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  if (Math.abs(delta) < 1e-3) return;
+  const from = robotYaw;
+  robotYaw = from + delta;
+  tween(140, (e) => { robot.rotation.y = from + delta * e; });
+}
+
+function moveTo(r, c, dur, hop) {
+  const fx = robot.position.x, fz = robot.position.z;
+  const tx = cellX(c), tz = cellZ(r);
+  return tweenAsync(dur, (e, p) => {
+    robot.position.x = fx + (tx - fx) * e;
+    robot.position.z = fz + (tz - fz) * e;
+    robot.position.y = ROBOT_Y + Math.sin(p * Math.PI) * hop;
+    const sq = Math.sin(p * Math.PI);
+    robot.scale.set(1 + 0.06 * sq, 1 - 0.09 * sq, 1 + 0.06 * sq);
+  }).then(() => {
+    robot.position.set(tx, ROBOT_Y, tz);
+    robot.scale.set(1, 1, 1);
+  });
+}
+
+function landSquash() {
+  tween(200, (e, p) => {
+    const k = Math.sin(p * Math.PI);
+    robot.scale.set(1 + 0.14 * k, 1 - 0.2 * k, 1 + 0.14 * k);
+  }, () => robot.scale.set(1, 1, 1), (p) => p);
+}
+
+function bumpInto(dir) {
+  const [dr, dc] = DIRS[dir];
+  const ox = robot.position.x, oz = robot.position.z;
+  shake(0.16);
+  return tweenAsync(360, (e, p) => {
+    const k = Math.sin(p * Math.PI * 3) * (1 - p) * 0.22;
+    robot.position.x = ox + dc * k;
+    robot.position.z = oz + dr * k;
+  }, (p) => p).then(() => { robot.position.x = ox; robot.position.z = oz; });
+}
+
+// ── Command strip UI ─────────────────────────────────────────────────────────
+
+const ARROW_SYMBOLS = { U:'↑', D:'↓', L:'←', R:'→' };
+const ARROW_COLORS = { U:'#5b8dee', D:'#ff6b6b', L:'#ffc319', R:'#4cb963' };
 
 function updateCommandStrip() {
   const strip = document.getElementById('cmdStrip');
   const placeholder = document.getElementById('stripPlaceholder');
-  strip.querySelectorAll('.cmd-arrow').forEach(el => el.remove());
+  strip.querySelectorAll('.cmd-arrow').forEach((el) => el.remove());
 
   if (commands.length === 0) {
     placeholder.style.display = '';
@@ -1228,17 +1893,15 @@ function updateCommandStrip() {
     strip.scrollLeft = strip.scrollWidth;
   }
 
-  // Limit indicator
-  const remaining = maxCommands - commands.length;
   const btnRun = document.getElementById('btnRun');
   btnRun.disabled = commands.length === 0;
+  btnRun.classList.toggle('ready', commands.length > 0 && !running);
   updateStatus(commands.length > 0 ? `${commands.length}/${maxCommands} commands` : '');
 }
 
 function highlightStep(i) {
-  const arrows = document.querySelectorAll('.cmd-arrow');
-  arrows.forEach((el, idx) => {
-    el.classList.remove('active-step','done-step');
+  document.querySelectorAll('.cmd-arrow').forEach((el, idx) => {
+    el.classList.remove('active-step', 'done-step');
     if (idx < i) el.classList.add('done-step');
     if (idx === i) {
       el.classList.add('active-step');
@@ -1248,22 +1911,19 @@ function highlightStep(i) {
 }
 
 function clearStepHighlights() {
-  document.querySelectorAll('.cmd-arrow').forEach(el => {
-    el.classList.remove('active-step','done-step');
-  });
+  document.querySelectorAll('.cmd-arrow').forEach((el) => el.classList.remove('active-step', 'done-step'));
 }
 
-function updateStatus(msg, type='') {
+function updateStatus(msg, type = '') {
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
   el.className = 'status-msg' + (type ? ' ' + type : '');
+  if (msg) { void el.offsetWidth; el.classList.add('pop'); }
 }
 
-// ─── Direction buttons ────────────────────────────────────────────────────────
-document.querySelectorAll('.dir-btn').forEach(btn => {
+document.querySelectorAll('.dir-btn').forEach((btn) => {
   const dir = btn.dataset.dir;
   if (dir === 'X') return;
-
   function addCmd() {
     if (running) return;
     if (commands.length >= maxCommands) {
@@ -1277,7 +1937,7 @@ document.querySelectorAll('.dir-btn').forEach(btn => {
     setTimeout(() => btn.classList.remove('pressed'), 150);
   }
   btn.addEventListener('click', addCmd);
-  btn.addEventListener('touchstart', e => { e.preventDefault(); addCmd(); }, { passive: false });
+  btn.addEventListener('touchstart', (e) => { e.preventDefault(); addCmd(); }, { passive: false });
 });
 
 document.getElementById('btnClear').addEventListener('click', () => {
@@ -1289,36 +1949,39 @@ document.getElementById('btnClear').addEventListener('click', () => {
   updateStatus('');
 });
 
-// ─── Run sequence ─────────────────────────────────────────────────────────────
-const DIRS = { U:[-1,0], D:[1,0], L:[0,-1], R:[0,1] };
+// ── Run sequence ─────────────────────────────────────────────────────────────
 
-function moveRobotAnimTo(tx, ty) {
-  const t = Math.min(robotAnim.t, 1);
-  const ease = 1 - Math.pow(1 - t, 3);
-  robotAnim.x = robotAnim.x + (robotAnim.targetX - robotAnim.x) * ease;
-  robotAnim.y = robotAnim.y + (robotAnim.targetY - robotAnim.y) * ease;
-  robotAnim.targetX = tx;
-  robotAnim.targetY = ty;
-  robotAnim.t = 0;
-}
+async function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
-async function sleep(ms) {
-  return new Promise(res => setTimeout(res, ms));
+async function stepInto(r, c, dur, hop) {
+  robotPos = [r, c];
+  replayTrail.push([r, c]);
+  if (levelData.grid[r][c] === T.KEY && !robotHasKey) {
+    robotHasKey = true;
+    robotKey.visible = true;
+    refreshTileColors();
+    sfxKey();
+    const s = toScreen(new THREE.Vector3(cellX(c), TILE_H + 0.4, cellZ(r)));
+    juiceBurst(s.x, s.y, ['#ffc319', '#fff0b0'], { count: 16, spread: 80 });
+  }
+  await moveTo(r, c, dur, hop);
+  rebuildTrail();
 }
 
 async function runSequence() {
   if (running || commands.length === 0) return;
   running = true;
-  document.getElementById('btnRun').disabled = true;
-  replayTrail = [[ ...levelData.start ]];
-  rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
+  const btnRun = document.getElementById('btnRun');
+  btnRun.disabled = true;
+  btnRun.classList.remove('ready');
 
-  // Reset robot
   robotPos = [...levelData.start];
   robotHasKey = false;
-  const { x: sx, y: sy } = cellCenter(robotPos[0], robotPos[1]);
-  robotAnim = { x: sx, y: sy, targetX: sx, targetY: sy, t: 1 };
-  await sleep(100);
+  replayTrail = [[...levelData.start]];
+  refreshTileColors();
+  placeRobot();
+  rebuildTrail();
+  await sleep(120);
 
   let won = false;
   let stepsDone = 0;
@@ -1327,43 +1990,34 @@ async function runSequence() {
     stepsDone = i + 1;
     highlightStep(i);
     const dir = commands[i];
-
-    // Determine actual move direction (could be overridden by arrow tile)
-    let [dr, dc] = DIRS[dir];
-    let grid = levelData.grid;
+    const [dr, dc] = DIRS[dir];
+    const grid = levelData.grid;
     const rows = grid.length, cols = grid[0].length;
 
-    // Compute next position
+    faceDir(dir);
+    await sleep(90);
+
     let nr = robotPos[0] + dr;
     let nc = robotPos[1] + dc;
 
-    // Wall check
     if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || grid[nr][nc] === T.WALL) {
       sfxBump();
       updateStatus('Oops! Hit a wall — resetting…', 'error');
-      await sleep(400);
+      await bumpInto(dir);
       break;
     }
 
-    // Lock check
     if (grid[nr][nc] === T.LOCK && !robotHasKey) {
       sfxBump();
       updateStatus('Locked! Get the key first — resetting…', 'error');
-      await sleep(400);
+      await bumpInto(dir);
       break;
     }
 
-    // Key pickup
-    if (grid[nr][nc] === T.KEY) {
-      sfxKey();
-    }
-
-    // Ice sliding
     if (grid[nr][nc] === T.ICE) {
       sfxSlide();
-      // Slide until hitting a wall or non-ice tile
-      let slidePositions = [];
-      while (true) {
+      const slidePositions = [];
+      for (;;) {
         if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) { nr -= dr; nc -= dc; break; }
         if (grid[nr][nc] === T.WALL) { nr -= dr; nc -= dc; break; }
         if (grid[nr][nc] === T.LOCK && !robotHasKey) { nr -= dr; nc -= dc; break; }
@@ -1371,53 +2025,36 @@ async function runSequence() {
         if (grid[nr][nc] !== T.ICE) break;
         nr += dr; nc += dc;
       }
-      // Animate slide through all positions
-      for (const [sr, sc] of slidePositions) {
-        robotPos = [sr, sc];
-        const { x: tx, y: ty } = cellCenter(sr, sc);
-        moveRobotAnimTo(tx, ty);
-        replayTrail.push([sr, sc]);
-        if (grid[sr][sc] === T.KEY) robotHasKey = true;
-        await sleep(120);
-        drawReplayTrail();
-      }
+      // Skating: low, quick, no hop.
+      for (const [sr, sc] of slidePositions) await stepInto(sr, sc, 110, 0.02);
+      landSquash();
     } else {
-      // Normal step
-      robotPos = [nr, nc];
-      if (grid[nr][nc] === T.KEY) robotHasKey = true;
-      const { x: tx, y: ty } = cellCenter(nr, nc);
-      moveRobotAnimTo(tx, ty);
-      replayTrail.push([nr, nc]);
+      await stepInto(nr, nc, 230, 0.2);
+      landSquash();
       sfxStep();
-      await sleep(220);
-      drawReplayTrail();
     }
 
-    // Arrow tile redirect (next step input is overridden)
     const landTile = grid[robotPos[0]][robotPos[1]];
     if (landTile >= T.ARROW_U && landTile <= T.ARROW_R) {
       const forceDirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      const forceKeys = ['U','D','L','R'];
       const [fdr, fdc] = forceDirs[landTile - T.ARROW_U];
-      let fr = robotPos[0] + fdr, fc = robotPos[1] + fdc;
+      const fr = robotPos[0] + fdr, fc = robotPos[1] + fdc;
       if (fr >= 0 && fr < rows && fc >= 0 && fc < cols && grid[fr][fc] !== T.WALL) {
         if (grid[fr][fc] !== T.LOCK || robotHasKey) {
-          robotPos = [fr, fc];
-          if (grid[fr][fc] === T.KEY) robotHasKey = true;
-          const { x: tx, y: ty } = cellCenter(fr, fc);
-          moveRobotAnimTo(tx, ty);
-          replayTrail.push([fr, fc]);
+          faceDir(forceKeys[landTile - T.ARROW_U]);
+          await sleep(90);
+          await stepInto(fr, fc, 200, 0.24);
+          landSquash();
           sfxStep();
-          await sleep(220);
-          drawReplayTrail();
         }
       }
     }
 
-    // Check win
     if (robotPos[0] === levelData.goal[0] && robotPos[1] === levelData.goal[1]) {
-      const { x: wx, y: wy } = cellCenter(robotPos[0], robotPos[1]);
-      spawnParticles(wx, wy, '#ffd93d', 20);
-      spawnParticles(wx, wy, '#6bcb77', 15);
+      const s = toScreen(new THREE.Vector3(robot.position.x, TILE_H + 0.4, robot.position.z));
+      juiceBurst(s.x, s.y, ['#ffc319', '#4cb963', '#5b8dee', '#ff6b6b'], { count: 30, spread: 130 });
+      shake(0.2);
       sfxWin();
       won = true;
       break;
@@ -1428,79 +2065,160 @@ async function runSequence() {
   running = false;
 
   if (won) {
-    await sleep(600);
+    await sleep(650);
     showWin(stepsDone);
-  } else if (!won) {
-    // Reset robot
-    await sleep(300);
+  } else {
+    await sleep(340);
     robotPos = [...levelData.start];
     robotHasKey = false;
+    robotYaw = Math.PI;
     replayTrail = [];
-    rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
-    const { x, y } = cellCenter(robotPos[0], robotPos[1]);
-    moveRobotAnimTo(x, y);
+    refreshTileColors();
+    placeRobot();
+    rebuildTrail();
     commands = [];
     updateCommandStrip();
-    document.getElementById('btnRun').disabled = false;
   }
 }
 
 document.getElementById('btnRun').addEventListener('click', runSequence);
 
-// ─── Win modal ────────────────────────────────────────────────────────────────
 const winEmojis = ['🎉','🚀','⭐','🌟','🎊','🏆','💫','✨'];
 function showWin(steps) {
-  const modal = document.getElementById('winModal');
   document.getElementById('winEmoji').textContent = winEmojis[Math.floor(Math.random() * winEmojis.length)];
   document.getElementById('winSub').textContent = `Level ${level} cleared in ${steps} step${steps !== 1 ? 's' : ''}!`;
-  modal.classList.add('show');
+  document.getElementById('winModal').classList.add('show');
 }
 
 document.getElementById('btnNext').addEventListener('click', () => {
   document.getElementById('winModal').classList.remove('show');
-  replayTrail = [];
-  rCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
   loadLevel(level + 1);
 });
 
-// ─── Settings ─────────────────────────────────────────────────────────────────
+// ── Settings ─────────────────────────────────────────────────────────────────
+
 document.getElementById('settingsBtn').addEventListener('click', () => {
   document.getElementById('settingsOverlay').classList.add('show');
 });
 document.getElementById('btnCloseSettings').addEventListener('click', () => {
   document.getElementById('settingsOverlay').classList.remove('show');
 });
-document.getElementById('settingsOverlay').addEventListener('click', e => {
+document.getElementById('settingsOverlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) e.currentTarget.classList.remove('show');
 });
-
-document.getElementById('musicToggle').addEventListener('change', e => {
+document.getElementById('musicToggle').addEventListener('change', (e) => {
   musicOn = e.target.checked;
   if (musicOn) startMusic(); else stopMusic();
 });
-
-document.getElementById('sfxToggle').addEventListener('change', e => {
+document.getElementById('sfxToggle').addEventListener('change', (e) => {
   sfxOn = e.target.checked;
 });
 
-// ─── Service Worker ───────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
+// ── Render loop ──────────────────────────────────────────────────────────────
+
+let last = performance.now();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  if (needsLayout) {
+    needsLayout = false;
+    layout();
+  }
+
+  stepTweens(now);
+
+  // Clockwork
+  for (const g of gears) g.mesh.rotation.y += g.speed * dt;
+  for (const c of clocks) {
+    c.minute.rotation.y = -t * (Math.PI * 2 / 6);
+    c.hour.rotation.y = -t * (Math.PI * 2 / 72);
+  }
+
+  // Electricity: a pulse runs each trace from the frame edge in to the board.
+  if (circuitMesh) {
+    for (const tr of traces) {
+      tr.pulse += tr.speed * dt;
+      if (tr.pulse > tr.len + 1.2) tr.pulse = -0.8 - Math.random() * 3;
+    }
+    for (let i = 0; i < circuitInfo.length; i++) {
+      const info = circuitInfo[i];
+      const tr = traces[info.trace];
+      const d = Math.abs(info.s - tr.pulse);
+      const hot = d < 1.1 ? Math.pow(1 - d / 1.1, 2) : 0;
+      _col.setHex(C.trace);
+      if (hot > 0.002) _col.lerp(_hotColor, hot);
+      circuitMesh.setColorAt(i, _col);
+    }
+    circuitMesh.instanceColor.needsUpdate = true;
+  }
+
+  // Board life
+  if (goalRing) {
+    const amp = 0.5 + 0.5 * Math.sin(t * 3);
+    goalRing.scale.setScalar(1 + 0.1 * amp);
+    goalRing.material.opacity = 0.5 + 0.4 * amp;
+    goalRing.material.emissiveIntensity = 0.3 + 0.5 * amp;
+  }
+  if (keyProp) {
+    // Must be re-shown, not just hidden: a failed run puts the key back.
+    keyProp.visible = !robotHasKey;
+    if (keyProp.visible) {
+      keyProp.position.y = TILE_H + 0.3 + Math.sin(t * 2) * 0.05;
+      keyProp.rotation.y = t * 1.4;
+    }
+  }
+  if (lockGroup) {
+    lockGroup.userData.body.material.color.setHex(robotHasKey ? C.lockOpened : C.lockShut);
+    lockGroup.userData.shackle.rotation.z = robotHasKey ? -0.9 : 0;
+  }
+  if (robotKey.visible) {
+    robotKey.position.set(0.34, 0.42 + Math.sin(t * 3) * 0.04, -0.1);
+    robotKey.rotation.y = t * 2;
+  }
+  robotBulb.material.emissiveIntensity = 0.6 + 0.5 * (0.5 + 0.5 * Math.sin(t * 4));
+  if (!running && tweens.length === 0) {
+    robot.position.y = ROBOT_Y + Math.sin(t * 2.2) * 0.02;
+  }
+
+  if (shakeAmt > 0.0005) {
+    shakeOff.set((Math.random() - 0.5) * shakeAmt, (Math.random() - 0.5) * shakeAmt, 0)
+      .applyQuaternion(camera.quaternion);
+    camera.position.copy(camBase).add(shakeOff);
+    shakeAmt *= Math.pow(0.0015, dt);
+  } else if (shakeAmt !== 0) {
+    shakeAmt = 0;
+    camera.position.copy(camBase);
+  }
+
+  renderer.render(scene, camera);
 }
 
-// ─── Start ────────────────────────────────────────────────────────────────────
-loadLevel(1);
-window.addEventListener('resize', () => {
-  resizeCanvas();
-  const { x, y } = cellCenter(robotPos[0], robotPos[1]);
-  robotAnim.x = robotAnim.targetX = x;
-  robotAnim.y = robotAnim.targetY = y;
-});
+// ── Boot ─────────────────────────────────────────────────────────────────────
 
-// Start music after user interaction
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+
+loadLevel(1);            // sets needsLayout; the first frame does the fit
+requestAnimationFrame(frame);
+window.__gtwReady = true;
+
 setTimeout(() => {
   if (AC && AC.state === 'running' && musicOn) startMusic();
 }, 500);
+</script>
+<script>
+// The board is drawn entirely by the module script above; if the engine fails
+// to load the page would otherwise just sit blank.
+setTimeout(function() {
+  if (!window.__gtwReady) {
+    document.getElementById('scene').style.display = 'none';
+    document.getElementById('board-slot').style.display = 'none';
+    document.getElementById('load-err').classList.add('on');
+  }
+}, 6000);
 </script>
 </body>
 </html>
