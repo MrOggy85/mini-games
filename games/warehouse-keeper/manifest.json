@@ -4,5 +4,10 @@
   "start_url": "/games/warehouse-keeper/",
   "display": "standalone",
   "background_color": "#fff3e0",
-  "theme_color": "#fff3e0"
+  "theme_color": "#fff3e0",
+  "icons": [
+    { "src": "/games/warehouse-keeper/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/games/warehouse-keeper/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/games/warehouse-keeper/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
 }

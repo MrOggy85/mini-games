@@ -4,5 +4,10 @@
   "start_url": "/games/guide-the-way/",
   "display": "standalone",
   "background_color": "#e8eaf0",
-  "theme_color": "#5b8dee"
+  "theme_color": "#5b8dee",
+  "icons": [
+    { "src": "/games/guide-the-way/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/games/guide-the-way/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/games/guide-the-way/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
 }
