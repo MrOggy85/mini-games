@@ -1,5 +1,8 @@
-# installed by `make icons`
+# installed by `make icons` / `make vendor`
 node_modules/
+
+# per-machine Claude Code settings
+.claude/settings.local.json
 
 # wrangler files
 .wrangler
