@@ -137,11 +137,14 @@ h1 {
 .settings-btn:hover { border-color: var(--accent); }
 
 /* Spacer that reserves the on-screen region the 3D board is framed into. */
+/* Must not take pointer events: it sits directly over the 3D board, and would
+   otherwise swallow every tap meant for the canvas (e.g. tapping the robot). */
 #board-slot {
   flex: 1 1 auto;
   width: 100%;
   max-width: 500px;
   min-height: 110px;
+  pointer-events: none;
 }
 
 .status-msg {

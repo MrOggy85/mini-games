@@ -44,6 +44,9 @@ body {
 
 body > * { position: relative; z-index: 1; }
 
+/* Non-interactive parts must let pointer events through: the transparent
+   #board-slot sits directly over the 3D board and would otherwise swallow
+   every swipe started on it. */
 .wrapper {
   display: flex;
   flex-direction: column;
@@ -53,7 +56,11 @@ body > * { position: relative; z-index: 1; }
   max-width: 460px;
   flex: 1 1 auto;
   min-height: 0;
+  pointer-events: none;
 }
+.wrapper .back-link,
+.wrapper .controls-row,
+.wrapper .dpad { pointer-events: auto; }
 
 .back-link {
   align-self: flex-start;
