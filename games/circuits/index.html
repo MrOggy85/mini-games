@@ -271,7 +271,7 @@ body > * { position: relative; z-index: 1; }
   <h1 class="title">Circuits</h1>
 
   <div class="info-bar">
-    <span class="info-pill" id="levelDisplay">Level 1 / 8</span>
+    <span class="info-pill" id="levelDisplay">Level 1 / 12</span>
     <span class="info-pill" id="bulbsDisplay">Bulbs: 0 / 0</span>
   </div>
 
@@ -978,15 +978,35 @@ function sparkAt(v3, colors, count) {
 const DXY = { 0: [0, -1], 1: [1, 0], 2: [0, 1], 3: [-1, 0] };
 const BASE_CONN = { I: [0, 2], C: [0, 1], T: [0, 1, 3] };
 
+// Hand-authored, no generator. Each token is a piece type plus its starting
+// rotation; the scramble is baked in, so a level plays identically every time.
+// See ./CLAUDE.md before editing — rows must be equal length and nothing else
+// checks that a level is solvable.
 const LEVELS = [
+// 1: one wire to rotate
 [["B1", "I0", "L3"]],
+// 2: a single corner turn
 [["B1", "C0"], ["..", "L0"]],
+// 3: zig-zag — corner, straight, corner
 [["C0", "I0", "C0"], ["B0", "..", "L0"]],
+// 4: a tee splits power to two bulbs
 [["L2", "..", "L2"], ["C2", "T0", "C1"], ["..", "B0", ".."]],
+// 5: a longer bridge with two straights
 [["C0", "I0", "I0", "C0"], ["B0", "..", "..", "L0"]],
+// 6: tee split with an extra straight run
 [["L2", "..", "L2"], ["C2", "T0", "C1"], ["..", "I1", ".."], ["..", "B0", ".."]],
+// 7: a five-turn staircase
 [["..", "..", "..", "L2"], ["..", "..", "C3", "C1"], ["..", "C3", "C1", ".."], ["B1", "C1", "..", ".."]],
-[["L2", "..", "..", "..", "L2"], ["C2", "I0", "T0", "I0", "C1"], ["..", "..", "B0", "..", ".."]]
+// 8: two bulbs fed through a central tee
+[["L2", "..", "..", "..", "L2"], ["C2", "I0", "T0", "I0", "C1"], ["..", "..", "B0", "..", ".."]],
+// 9: tee in the corner, one bulb up and one across
+[["..", "L2", "C0", "L3"], ["C2", "T3", "C1", ".."], ["C2", "B3", "..", ".."]],
+// 10: the feed climbs two corners before the split
+[["..", "L2", "C3", "I2", "L3"], ["C2", "T1", "C1", "..", ".."], ["C1", "B3", "..", "..", ".."]],
+// 11: three bulbs off stacked tees — only one arrangement works
+[["L1", "C0", "..", "B2", ".."], ["..", "C2", "C3", "T2", "L3"], ["..", "..", "C3", "T3", "L3"]],
+// 12: two tees back to back, seven pieces, one solution in 16384
+[["B2", "..", "L2", ".."], ["C2", "T1", "T3", "C1"], ["..", "L0", "C2", "C1"], ["..", "L1", "C0", ".."]]
 ];
 
 const LEVEL_COUNT = LEVELS.length;
@@ -1049,6 +1069,58 @@ function energizedInfo(lvl) {
     }
   }
   return { energized, depth, list };
+}
+
+// Levels are hand-authored and nothing else validates them, so brute-force
+// every rotation combination at boot and complain loudly about anything broken.
+// Silent when the data is fine. Runs deferred so it never delays first paint.
+function auditLevels() {
+  const problems = [];
+  LEVELS.forEach((rows, i) => {
+    const n = i + 1;
+    if (rows.some((r) => r.length !== rows[0].length)) {
+      problems.push('level ' + n + ': rows are not all the same length (parseLevel will throw)');
+      return;
+    }
+    const lvl = parseLevel(rows);
+    const rot = [], bulbs = [];
+    let batteries = 0;
+    for (let y = 0; y < lvl.height; y++) {
+      for (let x = 0; x < lvl.width; x++) {
+        const c = lvl.grid[y][x];
+        if (!c) continue;
+        if (!c.fixed) rot.push([x, y]);
+        if (c.type === 'L') bulbs.push(x + ',' + y);
+        if (c.type === 'B') batteries++;
+      }
+    }
+    if (!bulbs.length) { problems.push('level ' + n + ': no bulbs, can never be won'); return; }
+    if (!batteries) { problems.push('level ' + n + ': no battery, nothing can energize'); return; }
+
+    const lit = (info) => bulbs.every((k) => info.energized[k]);
+    if (lit(energizedInfo(parseLevel(rows)))) {
+      problems.push('level ' + n + ': starts already solved');
+    }
+
+    const combos = Math.pow(4, rot.length);
+    if (combos > 4194304) {
+      problems.push('level ' + n + ': ' + rot.length + ' rotatable pieces, too many to audit');
+      return;
+    }
+    let solutions = 0;
+    for (let k = 0; k < combos; k++) {
+      let v = k;
+      for (const [x, y] of rot) { lvl.grid[y][x].rot = v % 4; v = (v / 4) | 0; }
+      if (lit(energizedInfo(lvl))) solutions++;
+    }
+    if (!solutions) problems.push('level ' + n + ': UNSOLVABLE in any of ' + combos + ' rotations');
+    // Only meaningful once there are a few pieces: with one rotatable piece the
+    // best possible ratio is 1 in 4, so the tutorial levels aren't "trivial".
+    else if (rot.length >= 3 && solutions / combos > 0.05) {
+      problems.push('level ' + n + ': trivial — ' + solutions + ' of ' + combos + ' rotations solve it');
+    }
+  });
+  if (problems.length) console.error('[circuits] level audit failed:\n  ' + problems.join('\n  '));
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -1701,6 +1773,7 @@ loadLevel(progress.current);
 updateToggle();
 requestAnimationFrame(frame);
 window.__circReady = true;
+setTimeout(auditLevels, 0);
 </script>
 <script>
 // Hide the portal link when launched standalone without coming via the portal.
