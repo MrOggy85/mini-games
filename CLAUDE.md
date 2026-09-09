@@ -69,7 +69,8 @@ Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`.
 variable-size board, per-instance tile colours and a swept path tube; `guide-the-way`
 shows a full-viewport animated environment behind a board framed into a DOM-defined
 slot; `warehouse-keeper` adds procedural canvas textures, an env-mapped glossy board
-and a fogged landscape.
+and a fogged landscape; `circuits` adds instanced beads and lightning bolts driven off
+a BFS over the puzzle graph.
 
 Each game keeps its own palette — the 3D treatment is a rendering change, not a
 re-theme. `glide`/`trace` stay dark and neon; `guide-the-way` stays bright and
@@ -115,6 +116,13 @@ Conventions for a 3D game:
   procedurally on a canvas — no external image assets.
 - **Instance the scenery.** `warehouse-keeper`'s hills, trees and cloud puffs were ~200 draw
   calls as individual meshes; as four `InstancedMesh`es they're four.
+- **Watch the far plane when the scenery is at a fixed depth.** A `far` derived purely from the
+  camera distance (`dist * n`) clips the backdrop as soon as a small board pulls the camera in
+  close. Fold the backdrop's own drop into it — see `circuits`, which clipped its floor on iPad
+  landscape until `far` accounted for `GROUND_Y`.
+- Self-lit scenery (neon grids, glowing traces, energy beads) wants `MeshBasicMaterial`, which
+  ignores lights and renders the texture at full brightness — cheaper and brighter than trying
+  to drive an emissive PBR material, and it still respects fog.
 - Budget for iPhone/iPad: `setPixelRatio(Math.min(2, devicePixelRatio))`, one shadow-casting
   `DirectionalLight` at 1024², no postprocessing, `InstancedMesh` for repeated board tiles.
 - Tune light intensities so a fully lit top face lands at roughly the material's own color —

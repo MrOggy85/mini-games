@@ -10,210 +10,174 @@
 <link rel="apple-touch-icon" href="/games/circuits/apple-touch-icon.png">
 <title>Circuits</title>
 <style>
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+html, body { height: 100%; }
+
+/* No page scrolling: the machine is drawn to the viewport and the board is
+   framed relative to it, so a scrolled page would desync the two. */
 body {
-  min-height: 100vh;
-  background: radial-gradient(ellipse at top, #262b52 0%, #1b1e3a 55%, #12142b 100%);
+  background: #05070f;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  overflow-x: hidden;
-  padding: 16px 14px 32px;
+  overflow: hidden;
+  /* Top padding clears the fixed back link and settings button. */
+  padding: 58px 12px 18px;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Must be explicit: a canvas is a replaced element, so `inset: 0` with
+   `width: auto` sizes it to its backing store instead of stretching it. */
+#scene {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
   touch-action: manipulation;
 }
 
-/* ── Back link ── */
-.back-link {
-  align-self: flex-start;
-  color: #7d84b0;
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: color 0.15s;
-}
-.back-link:hover { color: #4ecbff; }
+body > * { position: relative; z-index: 1; }
 
-/* ── Main wrapper ── */
+/* The board is drawn on the canvas underneath, so every non-interactive part
+   of the UI has to let pointer events through — otherwise the transparent
+   #board-slot sits right on top of the board and eats every tap on a tile. */
 .wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   width: 100%;
   max-width: 460px;
+  flex: 1 1 auto;
+  min-height: 0;
+  pointer-events: none;
 }
+.wrapper .back-link,
+.wrapper .controls-row { pointer-events: auto; }
+
+.back-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: #6fd8ff;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: color 0.15s;
+  text-shadow: 0 0 10px rgba(34,211,255,0.5);
+}
+.back-link:hover { color: #b6ecff; }
 
 .title {
-  font-size: clamp(1.5rem, 6vw, 2.2rem);
-  font-weight: 800;
+  font-size: clamp(1.4rem, 5.5vw, 2.1rem);
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: #ffd93d;
-  letter-spacing: 0.03em;
-  margin-top: 4px;
-  text-shadow: 0 0 18px rgba(255,217,61,0.35);
+  text-shadow: 0 0 12px rgba(255,217,61,0.75), 0 0 34px rgba(255,150,20,0.45);
 }
 
 .info-bar {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #cfd3f0;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #9fe8ff;
+  letter-spacing: 0.06em;
 }
 
 .info-pill {
-  background: rgba(255,255,255,0.08);
+  background: rgba(10,30,48,0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(34,211,255,0.4);
   padding: 5px 13px;
-  border-radius: 20px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.25);
-  letter-spacing: 0.02em;
+  border-radius: 6px;
+  box-shadow: 0 0 14px rgba(34,211,255,0.22), inset 0 0 10px rgba(34,211,255,0.1);
 }
 
 .feedback-msg {
-  min-height: 1.3em;
-  font-size: 0.92rem;
+  min-height: 1.25em;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #ffd93d;
   text-align: center;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 10px rgba(255,217,61,0.5);
 }
 
-/* ── Board ── */
-.board-outer {
+/* Spacer reserving the on-screen region the 3D board is framed into. */
+#board-slot {
+  flex: 1 1 auto;
   width: 100%;
-  display: flex;
-  justify-content: center;
+  min-height: 130px;
 }
 
-.board-wrap {
-  position: relative;
-  width: 100%;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 6px 22px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06);
-  background: #0f1128;
+#load-err {
+  display: none;
+  max-width: 22rem;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #ff8080;
 }
+#load-err.on { display: block; }
 
-.tile-grid {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  width: 100%;
-  height: 100%;
-  gap: 2px;
-  padding: 2px;
-}
+.controls-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
-.cell {
-  position: relative;
-  border-radius: 6px;
-}
-.cell.void {
-  background: transparent;
-}
-.cell.wire, .cell.battery, .cell.bulb {
-  background: #1c2044;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
-}
-.cell.wire {
-  cursor: pointer;
-}
-.cell.wire:active {
-  background: #262b58;
-}
-
-.stub-wrap {
-  position: absolute;
-  inset: 0;
-  transition: transform 0.16s ease;
-  will-change: transform;
-}
-.stub-wrap svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.stub-wrap path, .stub-wrap line {
-  fill: none;
-  stroke: #3a3f6e;
-  stroke-width: 11;
-  stroke-linecap: round;
-  transition: stroke 0.18s ease;
-}
-.cell.energized .stub-wrap path,
-.cell.energized .stub-wrap line {
-  stroke: #ffd93d;
-  filter: drop-shadow(0 0 5px rgba(255,217,61,0.85));
-}
-
-.cell-icon {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 46%;
-  line-height: 1;
-  pointer-events: none;
-  z-index: 2;
-  filter: grayscale(0.6) brightness(0.75);
-  transition: filter 0.2s ease, transform 0.2s ease;
-}
-.cell.energized .cell-icon {
-  filter: none;
-  transform: scale(1.08);
-}
-.cell.bulb.energized .cell-icon {
-  filter: drop-shadow(0 0 9px rgba(255,217,61,0.95));
-}
-
-/* ── Controls ── */
-.controls-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 2px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
+/* 48px, comfortably over Apple's 44pt minimum hit target. */
 .btn {
-  padding: 10px 20px;
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  padding: 14px 22px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  border: none;
-  border-radius: 50px;
+  border: 1px solid rgba(34,211,255,0.5);
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s, box-shadow 0.15s, background 0.15s;
   touch-action: manipulation;
-  min-height: 44px;
+  min-height: 48px;
+  min-width: 48px;
 }
-.btn:active { transform: scale(0.96); }
-.btn:disabled { opacity: 0.4; cursor: default; }
+.btn:active:not(:disabled) { transform: translateY(3px); }
+.btn:disabled { opacity: 0.32; cursor: default; }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.08);
-  color: #cfd3f0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  background: rgba(10,30,48,0.7);
+  color: #9fe8ff;
+  box-shadow: 0 0 14px rgba(34,211,255,0.2), inset 0 0 12px rgba(34,211,255,0.08);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(18,52,78,0.8);
+  box-shadow: 0 0 22px rgba(34,211,255,0.4), inset 0 0 14px rgba(34,211,255,0.15);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #ffd93d 0%, #ffb037 100%);
+  background: linear-gradient(180deg, #ffe066, #f0a91c);
   color: #241a00;
-  box-shadow: 0 4px 16px rgba(255,180,55,0.4);
+  border-color: rgba(255,217,61,0.8);
+  padding: 17px 38px;
+  font-size: 1rem;
+  min-height: 54px;
+  box-shadow: 0 0 26px rgba(255,180,55,0.6);
 }
 
-/* ── Success / complete overlay ── */
 #winOverlay, #completeOverlay {
   display: none;
   position: fixed;
@@ -223,7 +187,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(18,20,43,0.94);
+  background: rgba(3,6,14,0.9);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
   text-align: center;
@@ -234,19 +198,22 @@ body {
 .win-emoji {
   font-size: clamp(3rem, 14vw, 5.5rem);
   animation: bounceIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+  filter: drop-shadow(0 0 20px rgba(255,217,61,0.8));
 }
 .win-title {
-  font-size: clamp(1.7rem, 7vw, 2.6rem);
-  font-weight: 800;
+  font-size: clamp(1.6rem, 6.5vw, 2.5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: #ffd93d;
+  text-shadow: 0 0 20px rgba(255,217,61,0.8);
   animation: popIn 0.45s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 .win-sub {
   font-size: 1rem;
-  color: #cfd3f0;
+  color: #9fe8ff;
   animation: popIn 0.45s 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
 }
-
 @keyframes popIn {
   from { opacity: 0; transform: scale(0.5); }
   to   { opacity: 1; transform: scale(1); }
@@ -256,52 +223,50 @@ body {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ── Settings ── */
 #settingsBtn {
   position: fixed; top: 12px; right: 14px; z-index: 200;
-  background: rgba(255,255,255,0.08); border: none; border-radius: 50%;
-  width: 40px; height: 40px; font-size: 19px; cursor: pointer;
+  background: rgba(10,30,48,0.8); border: 1px solid rgba(34,211,255,0.45);
+  border-radius: 10px; width: 48px; height: 48px; font-size: 21px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  color: #cfd3f0; box-shadow: 0 1px 6px rgba(0,0,0,0.3);
-  transition: background 0.15s, color 0.15s;
-  -webkit-tap-highlight-color: transparent; user-select: none;
+  color: #9fe8ff; box-shadow: 0 0 14px rgba(34,211,255,0.25);
 }
-#settingsBtn:hover { background: rgba(255,255,255,0.16); color: #fff; }
 #settingsPanel {
-  display: none; position: fixed; top: 58px; right: 14px; z-index: 199;
-  background: #1c2044; border-radius: 14px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4); padding: 16px 18px; min-width: 175px;
+  display: none; position: fixed; top: 68px; right: 14px; z-index: 199;
+  background: #0a1a2c; border: 1px solid rgba(34,211,255,0.35); border-radius: 10px;
+  box-shadow: 0 0 30px rgba(34,211,255,0.2); padding: 18px 20px; min-width: 190px;
 }
 #settingsPanel.open { display: block; }
 .s-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.s-label { font-size: 0.88rem; font-weight: 600; color: #cfd3f0; }
+.s-label { font-size: 0.88rem; font-weight: 700; color: #9fe8ff; }
 .s-toggle {
-  position: relative; width: 44px; height: 24px; border-radius: 12px;
-  border: none; cursor: pointer; transition: background 0.2s;
-  flex-shrink: 0; -webkit-tap-highlight-color: transparent;
+  position: relative; width: 56px; height: 32px; border-radius: 16px;
+  border: none; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
 }
 .s-toggle .thumb {
-  position: absolute; top: 2px; width: 20px; height: 20px;
+  position: absolute; top: 3px; width: 26px; height: 26px;
   border-radius: 50%; background: #fff; transition: left 0.2s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.25); pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35); pointer-events: none;
+}
+.s-row { min-height: 48px; }
+
+/* Full-screen flash for the moment the circuit goes live. */
+#surgeFlash {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255,240,190,0.95), rgba(255,190,60,0.35) 45%, rgba(0,0,0,0) 75%);
+  opacity: 0;
 }
 </style>
 </head>
 <body>
 
+<canvas id="scene"></canvas>
+<div id="surgeFlash"></div>
+
 <div class="wrapper">
   <a href="/" class="back-link">&larr; All Games</a>
-  <script>
-  (function(){
-    if (!window.matchMedia('(display-mode: standalone)').matches) return;
-    var fromPortal = false;
-    try { fromPortal = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch(e){}
-    if (fromPortal) sessionStorage.setItem('mini-games-portal', '1');
-    if (!fromPortal && sessionStorage.getItem('mini-games-portal') !== '1') {
-      document.querySelector('.back-link').style.display = 'none';
-    }
-  })();
-  </script>
 
   <h1 class="title">Circuits</h1>
 
@@ -312,11 +277,8 @@ body {
 
   <div class="feedback-msg" id="feedbackMsg">Tap the wires to rotate them and light every bulb.</div>
 
-  <div class="board-outer">
-    <div class="board-wrap" id="boardWrap">
-      <div class="tile-grid" id="tileGrid"></div>
-    </div>
-  </div>
+  <div id="board-slot"></div>
+  <p id="load-err">Couldn&rsquo;t load the 3D engine. Reload the page &mdash; if you&rsquo;re offline, open the game once while connected so it can be cached.</p>
 
   <div class="controls-row">
     <button class="btn btn-secondary" id="btnPrevLevel">&larr; Level</button>
@@ -325,170 +287,804 @@ body {
   </div>
 </div>
 
-<!-- Level-complete overlay -->
 <div id="winOverlay" role="dialog" aria-modal="true" aria-label="Level complete">
-  <div class="win-emoji">&#128161;</div>
+  <div class="win-emoji">&#9889;</div>
   <div class="win-title">Circuit Complete!</div>
   <div class="win-sub" id="winSub"></div>
   <button class="btn btn-primary" id="btnContinue">Continue</button>
 </div>
 
-<!-- All-levels-complete overlay -->
 <div id="completeOverlay" role="dialog" aria-modal="true" aria-label="All levels complete">
-  <div class="win-emoji">&#9889;</div>
+  <div class="win-emoji">&#128268;</div>
   <div class="win-title">Fully Wired!</div>
   <div class="win-sub">You lit up every circuit. Great work, electrician!</div>
   <button class="btn btn-primary" id="btnReplayAll">Play Again</button>
 </div>
 
-<script>
-// ── Direction constants: 0=N, 1=E, 2=S, 3=W ──
-var DXY = { 0: [0, -1], 1: [1, 0], 2: [0, 1], 3: [-1, 0] };
-// Base connection sets (at rotation 0) for each rotatable wire type.
-var BASE_CONN = { I: [0, 2], C: [0, 1], T: [0, 1, 3] };
+<button id="settingsBtn" aria-label="Settings">&#9881;</button>
+<div id="settingsPanel">
+  <div class="s-row">
+    <span class="s-label">Sound</span>
+    <button id="soundToggle" class="s-toggle"><div class="thumb"></div></button>
+  </div>
+</div>
 
-// ── Level data (hand-authored). Each cell is a 2-char token: type + rotation. ──
-// ".." = empty/no piece.  I = straight wire, C = corner wire, T = tee wire (3-way).
-// B<dir> = battery (fixed, always powered), L<dir> = bulb (fixed, lights up when powered).
-// I/C/T tiles start scrambled and the player rotates them (tap) to complete the circuit.
-var LEVELS = [
-// 1: one wire to rotate
-[
-  ["B1", "I0", "L3"]
-],
-// 2: a single corner turn
-[
-  ["B1", "C0"],
-  ["..", "L0"]
-],
-// 3: zig-zag with a corner, a straight, and a corner
-[
-  ["C0", "I0", "C0"],
-  ["B0", "..", "L0"]
-],
-// 4: a tee splits power to two bulbs
-[
-  ["L2", "..", "L2"],
-  ["C2", "T0", "C1"],
-  ["..", "B0", ".."]
-],
-// 5: a longer bridge with two straights
-[
-  ["C0", "I0", "I0", "C0"],
-  ["B0", "..", "..", "L0"]
-],
-// 6: tee split with an extra straight run
-[
-  ["L2", "..", "L2"],
-  ["C2", "T0", "C1"],
-  ["..", "I1", ".."],
-  ["..", "B0", ".."]
-],
-// 7: a five-turn staircase
-[
-  ["..", "..", "..", "L2"],
-  ["..", "..", "C3", "C1"],
-  ["..", "C3", "C1", ".."],
-  ["B1", "C1", "..", ".."]
-],
-// 8: two bulbs fed through a central tee
-[
-  ["L2", "..", "..", "..", "L2"],
-  ["C2", "I0", "T0", "I0", "C1"],
-  ["..", "..", "B0", "..", ".."]
-]
+<script type="module">
+import * as THREE from '/vendor/three.module.min.js';
+
+// ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ─────────────
+
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 3 + Math.random() * 4;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'box-shadow:0 0 8px ' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function(particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.2)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.15,.7,.4,1)' }).onfinish = function() {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const GAP = 0.06;
+const STEP = 1 + GAP;
+const PAD = 0.3;
+const SLAB_H = 0.34;
+const PLINTH_H = 1.1;
+const TILE_H = 0.09;
+const PIECE_Y = TILE_H;
+const ARM_H = 0.11;
+const PROP_TOP = 0.62;          // tallest thing standing on a cell
+// Pieces are low, so the tilt can be shallower than the other games and show
+// more of the machine the board is sitting inside.
+const PITCH = THREE.MathUtils.degToRad(60);
+const TARGET = new THREE.Vector3(0, 0.15, 0);
+const GROUND_Y = -13;
+const TOWER_Y = GROUND_Y;
+
+const C = {
+  slab:      0x12203a,
+  plinth:    0x070c18,
+  tile:      0x0d1b30,
+  wireDim:   0x2b3a63,
+  wireHot:   0xffd93d,
+  emitDim:   0x0a1428,
+  emitHot:   0xff9d1c,
+  neon:      0x22d3ff,
+  neonDim:   0x0e5c78,
+  bulbOff:   0x33415f,
+  bulbOn:    0xfff0a8,
+  cellBody:  0x1b2b4a,
+  spark:     0xfff3c4,
+  haze:      0x03060e,
+};
+
+// ── Renderer / scene ─────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(C.haze);
+scene.fog = new THREE.Fog(C.haze, 30, 80);   // range set per level in layout()
+const camera = new THREE.PerspectiveCamera(26, 1, 1, 400);
+const camBase = new THREE.Vector3();
+const camTarget = new THREE.Vector3();
+
+scene.add(new THREE.HemisphereLight(0x2a4a7a, 0x050810, 0.5));
+
+const keyLight = new THREE.DirectionalLight(0xbfd8ff, 0.6);
+keyLight.position.set(-5, 12, 6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.near = 2;
+keyLight.shadow.camera.far = 40;
+keyLight.shadow.bias = -0.0011;
+keyLight.shadow.normalBias = 0.02;
+scene.add(keyLight);
+
+const rimLight = new THREE.DirectionalLight(0x22d3ff, 0.35);
+rimLight.position.set(7, 4, -8);
+scene.add(rimLight);
+
+// Lives at the battery and brightens as current flows, so the surge actually
+// throws light onto the board rather than just changing material colours.
+const surgeLight = new THREE.PointLight(0xffc24a, 0, 9, 2);
+surgeLight.position.set(0, 1.2, 0);
+scene.add(surgeLight);
+
+// Small procedural sky through PMREM, used as an env map on the board only, so
+// the dark slab and the metal conduits pick up a sheen. Not scene.environment,
+// which would also wash out the deliberately black landscape.
+let ENV = null;
+(function buildEnv() {
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 64;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, '#1d4a6b');
+  grad.addColorStop(0.45, '#0e2438');
+  grad.addColorStop(0.6, '#07101d');
+  grad.addColorStop(1, '#02040a');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 64);
+  const glow = g.createRadialGradient(40, 16, 1, 40, 16, 26);
+  glow.addColorStop(0, 'rgba(150,235,255,0.95)');
+  glow.addColorStop(1, 'rgba(150,235,255,0)');
+  g.fillStyle = glow;
+  g.fillRect(0, 0, 128, 64);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  ENV = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose();
+  tex.dispose();
+})();
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────
+
+function roundedRect(w, h, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+// Beveled box with its base at y=0. ExtrudeGeometry spans [-bevel, depth+bevel]
+// on its extrusion axis, so inset the profile by `bevel` and lift by `bevel`.
+function roundedBox(w, d, h, r, bevel) {
+  const geo = new THREE.ExtrudeGeometry(
+    roundedRect(w - 2 * bevel, d - 2 * bevel, Math.max(0.01, r - bevel)),
+    {
+      depth: h - 2 * bevel, bevelEnabled: true, bevelThickness: bevel,
+      bevelSize: bevel, bevelSegments: 2, curveSegments: 5
+    }
+  );
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, bevel, 0);
+  return geo;
+}
+
+// ExtrudeGeometry's own UVs run in raw shape units, so a texture would land
+// arbitrarily. Reproject per face along its dominant normal.
+function boxUV(geo, scale) {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const pos = geo.attributes.position, nrm = geo.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const ax = Math.abs(nrm.getX(i)), ay = Math.abs(nrm.getY(i)), az = Math.abs(nrm.getZ(i));
+    let u, v;
+    if (ay >= ax && ay >= az) { u = x - bb.min.x; v = z - bb.min.z; }
+    else if (ax >= az)        { u = z - bb.min.z; v = y - bb.min.y; }
+    else                      { u = x - bb.min.x; v = y - bb.min.y; }
+    uv[i * 2] = u / scale;
+    uv[i * 2 + 1] = v / scale;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+function finishTex(cv, repeat) {
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  if (repeat) tex.repeat.set(repeat, repeat);
+  return tex;
+}
+
+// Right-angle trace routing used by both the board tiles and the far floor.
+function drawTraces(g, S, opts) {
+  const { lines, step, color, width, glow, pads } = opts;
+  g.lineCap = 'square';
+  g.lineJoin = 'miter';
+  for (let i = 0; i < lines; i++) {
+    let x = Math.floor(Math.random() * (S / step)) * step;
+    let y = Math.floor(Math.random() * (S / step)) * step;
+    g.beginPath();
+    g.moveTo(x, y);
+    const segs = 3 + Math.floor(Math.random() * 4);
+    for (let s = 0; s < segs; s++) {
+      if (s % 2 === 0) x += (Math.random() < 0.5 ? -1 : 1) * step * (1 + Math.floor(Math.random() * 3));
+      else y += (Math.random() < 0.5 ? -1 : 1) * step * (1 + Math.floor(Math.random() * 3));
+      g.lineTo(x, y);
+    }
+    if (glow) {
+      g.strokeStyle = glow;
+      g.lineWidth = width * 3;
+      g.stroke();
+    }
+    g.strokeStyle = color;
+    g.lineWidth = width;
+    g.stroke();
+    if (pads) {
+      g.fillStyle = color;
+      g.beginPath(); g.arc(x, y, width * 1.9, 0, Math.PI * 2); g.fill();
+    }
+  }
+}
+
+// Board tile: dark substrate with faint copper traces, so the board reads as a
+// PCB up close without competing with the wires laid over it.
+function tileTexture() {
+  const S = 256, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, S, S);
+  g.fillStyle = 'rgba(0,0,0,0.06)';
+  for (let i = 0; i <= S; i += 32) { g.fillRect(i, 0, 1, S); g.fillRect(0, i, S, 1); }
+  drawTraces(g, S, { lines: 7, step: 32, color: 'rgba(70,120,140,0.5)', width: 3, pads: true });
+  g.fillStyle = 'rgba(255,255,255,0.5)';
+  for (const x of [18, S - 18]) for (const y of [18, S - 18]) {
+    g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fill();
+  }
+  return finishTex(cv);
+}
+
+// The floor of the machine: a Tron grid with neon traces and pads. Drawn
+// bright and used on an unlit material so it self-glows against the black.
+function floorTexture() {
+  const S = 512, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#05070f';
+  g.fillRect(0, 0, S, S);
+
+  g.strokeStyle = 'rgba(20,90,120,0.22)';
+  g.lineWidth = 1;
+  for (let i = 0; i <= S; i += 32) {
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i, S); g.stroke();
+    g.beginPath(); g.moveTo(0, i); g.lineTo(S, i); g.stroke();
+  }
+  g.strokeStyle = 'rgba(34,211,255,0.24)';
+  g.lineWidth = 2;
+  for (let i = 0; i <= S; i += 128) {
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i, S); g.stroke();
+    g.beginPath(); g.moveTo(0, i); g.lineTo(S, i); g.stroke();
+  }
+
+  drawTraces(g, S, {
+    lines: 16, step: 32, color: 'rgba(90,235,255,0.5)',
+    glow: 'rgba(34,180,255,0.08)', width: 3, pads: true
+  });
+  drawTraces(g, S, {
+    lines: 6, step: 64, color: 'rgba(255,190,80,0.4)',
+    glow: 'rgba(255,150,40,0.07)', width: 4, pads: true
+  });
+
+  // Chip footprints with pin rows.
+  for (let i = 0; i < 7; i++) {
+    const w = 48 + Math.random() * 90, h = 34 + Math.random() * 60;
+    const x = Math.random() * (S - w), y = Math.random() * (S - h);
+    g.fillStyle = 'rgba(8,16,28,0.95)';
+    g.fillRect(x, y, w, h);
+    g.strokeStyle = 'rgba(34,211,255,0.28)';
+    g.lineWidth = 1.5;
+    g.strokeRect(x, y, w, h);
+    g.fillStyle = 'rgba(150,220,255,0.22)';
+    for (let p = 6; p < w - 6; p += 9) {
+      g.fillRect(x + p, y - 4, 4, 4);
+      g.fillRect(x + p, y + h, 4, 4);
+    }
+  }
+  return finishTex(cv);
+}
+
+const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
+const BALL_GEO = new THREE.SphereGeometry(0.5, 14, 10);
+const DISC_GEO = new THREE.CylinderGeometry(0.5, 0.5, 1, 18);
+const TILE_GEO = boxUV(roundedBox(1, 1, TILE_H, 0.1, 0.02), 1);
+const HUB_GEO = new THREE.CylinderGeometry(0.15, 0.15, ARM_H, 14);
+// Arm points north (-Z) at rotation 0, with its inner end at the tile centre.
+const ARM_GEO = (() => {
+  const g = new THREE.BoxGeometry(0.17, ARM_H, 0.58);
+  g.translate(0, 0, -0.29);
+  return g;
+})();
+const BEAD_GEO = new THREE.SphereGeometry(0.5, 10, 8);
+
+function mat(color, opts) {
+  return new THREE.MeshStandardMaterial(Object.assign({
+    color, roughness: 0.45, metalness: 0.3, envMap: ENV, envMapIntensity: 0.5
+  }, opts || {}));
+}
+
+// ── Landscape: the inside of the machine ─────────────────────────────────────
+
+const world = new THREE.Group();
+scene.add(world);
+
+// MeshBasicMaterial.color multiplies the map, so this is the one dial that
+// dims the whole machine floor without touching the board's lighting.
+const floorMat = new THREE.MeshBasicMaterial({ map: floorTexture(), color: 0x5a5a5a, fog: true });
+const towerMat = mat(0x0a1424, { roughness: 0.5, metalness: 0.6, envMapIntensity: 0.35 });
+const towerCapMat = new THREE.MeshBasicMaterial({ color: 0x8a8a8a, fog: true });
+const streamMat = new THREE.MeshBasicMaterial({ color: 0x4f8fa6, fog: true });
+
+let streamMesh = null;
+const streams = [];        // { ax, az, bx, bz, phase, speed }
+let worldRect = { x0: -40, x1: 40, z0: -40, z1: 40 };
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function buildWorld(rect) {
+  for (const o of world.children.slice()) {
+    if (o.isInstancedMesh) o.dispose();
+    if (o.geometry && o.geometry.userData.own) o.geometry.dispose();
+    world.remove(o);
+  }
+  streams.length = 0;
+  worldRect = rect;
+
+  const w = (rect.x1 - rect.x0) * 2.2, d = (rect.z1 - rect.z0) * 2.2;
+  const cx = (rect.x0 + rect.x1) / 2, cz = (rect.z0 + rect.z1) / 2;
+
+  floorMat.map.repeat.set(w / 14, d / 14);
+  const floor = new THREE.Mesh(own(new THREE.PlaneGeometry(w, d)), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(cx, GROUND_Y, cz);
+  world.add(floor);
+
+  const rng = mulberry32(0xC0FFEE);
+
+  // Chip packages rising out of the board like a city.
+  const N = 44;
+  const towers = new THREE.InstancedMesh(UNIT_BOX, towerMat, N);
+  const caps = new THREE.InstancedMesh(UNIT_BOX, towerCapMat, N);
+  let ti = 0;
+  for (let i = 0; i < N; i++) {
+    const tx = cx + (rng() - 0.5) * w * 0.9;
+    const tz = cz + (rng() - 0.5) * d * 0.9;
+    // Keep the skyline out from under the board, where it would never be seen.
+    if (Math.abs(tx) < halfX + 3 && Math.abs(tz) < halfZ + 3) continue;
+    const bw = 1.4 + rng() * 4.2, bd = 1.4 + rng() * 4.2;
+    const bh = 0.6 + rng() * 7;
+    _obj.position.set(tx, TOWER_Y + bh / 2, tz);
+    _obj.rotation.set(0, Math.round(rng() * 4) * Math.PI / 2, 0);
+    _obj.scale.set(bw, bh, bd);
+    _obj.updateMatrix();
+    towers.setMatrixAt(ti, _obj.matrix);
+    _obj.position.y = TOWER_Y + bh + 0.03;
+    _obj.scale.set(bw * 0.82, 0.06, bd * 0.82);
+    _obj.updateMatrix();
+    caps.setMatrixAt(ti, _obj.matrix);
+    _col.setHex(rng() < 0.22 ? C.wireHot : C.neon);
+    caps.setColorAt(ti, _col);
+    ti++;
+  }
+  towers.count = caps.count = ti;
+  towers.instanceMatrix.needsUpdate = true;
+  caps.instanceMatrix.needsUpdate = true;
+  caps.instanceColor.needsUpdate = true;
+  world.add(towers, caps);
+
+  // Data running along the far traces, so the machine looks alive.
+  const SN = 30;
+  for (let i = 0; i < SN; i++) {
+    const horiz = rng() < 0.5;
+    const a = rng(), len = 10 + rng() * 40;
+    const ox = cx + (rng() - 0.5) * w * 0.9, oz = cz + (rng() - 0.5) * d * 0.9;
+    streams.push({
+      ax: ox, az: oz,
+      bx: ox + (horiz ? len : 0), bz: oz + (horiz ? 0 : len),
+      phase: a, speed: 0.09 + rng() * 0.16
+    });
+  }
+  streamMesh = new THREE.InstancedMesh(BEAD_GEO, streamMat, SN);
+  world.add(streamMesh);
+
+  _obj.scale.set(1, 1, 1);
+  _obj.rotation.set(0, 0, 0);
+}
+
+function updateStreams(dt) {
+  if (!streamMesh) return;
+  for (let i = 0; i < streams.length; i++) {
+    const s = streams[i];
+    s.phase = (s.phase + s.speed * dt) % 1;
+    _obj.position.set(s.ax + (s.bx - s.ax) * s.phase, GROUND_Y + 0.12, s.az + (s.bz - s.az) * s.phase);
+    _obj.scale.setScalar(0.55);
+    _obj.updateMatrix();
+    streamMesh.setMatrixAt(i, _obj.matrix);
+  }
+  streamMesh.instanceMatrix.needsUpdate = true;
+  _obj.scale.set(1, 1, 1);
+}
+
+function own(o) { o.userData.own = true; return o; }
+
+// ── Board ────────────────────────────────────────────────────────────────────
+
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+
+let halfX = 2, halfZ = 2;
+const disposables = [];
+const pieces = new Map();      // "x,y" -> { group, mats, glow, type, hit }
+const pickTargets = [];
+
+const _obj = new THREE.Object3D();
+const _col = new THREE.Color();
+const _v = new THREE.Vector3();
+
+const slabMat = mat(C.slab, { roughness: 0.18, metalness: 0.5, envMapIntensity: 0.75 });
+const plinthMat = mat(C.plinth, { roughness: 0.85, metalness: 0.2, envMapIntensity: 0.2 });
+const tileMat = mat(C.tile, { roughness: 0.3, metalness: 0.4, envMapIntensity: 0.55, map: tileTexture() });
+const trimMat = new THREE.MeshBasicMaterial({ color: C.neon, fog: true });
+const cellBodyMat = mat(C.cellBody, { roughness: 0.35, metalness: 0.6, envMapIntensity: 0.6 });
+
+function cellX(x) { return (x - (st.lvl.width - 1) / 2) * STEP; }
+function cellZ(y) { return (y - (st.lvl.height - 1) / 2) * STEP; }
+
+function disposeTree(o) {
+  o.traverse && o.traverse((n) => {
+    if (n.isInstancedMesh) n.dispose();
+    if (n.isMesh) {
+      if (n.geometry && n.geometry.userData.own) n.geometry.dispose();
+      if (n.material && n.material.userData.own) n.material.dispose();
+    }
+  });
+  o.parent && o.parent.remove(o);
+}
+
+// A wire piece: a hub with one arm per connection, pointing north at rotation 0
+// and turned as a whole. Each piece owns its materials so it can flare
+// independently of its neighbours.
+function buildPiece(type, conns) {
+  const g = new THREE.Group();
+  const body = own(mat(C.wireDim, {
+    roughness: 0.28, metalness: 0.75, envMapIntensity: 0.8,
+    emissive: C.emitDim, emissiveIntensity: 1
+  }));
+  const hub = new THREE.Mesh(HUB_GEO, body);
+  hub.position.y = ARM_H / 2;
+  hub.castShadow = true;
+  g.add(hub);
+  for (const d of conns) {
+    const arm = new THREE.Mesh(ARM_GEO, body);
+    arm.position.y = ARM_H / 2;
+    arm.rotation.y = -d * Math.PI / 2;
+    arm.castShadow = true;
+    g.add(arm);
+  }
+  g.userData.body = body;
+  return g;
+}
+
+function buildBoard() {
+  const lvl = st.lvl;
+  halfX = (lvl.width + (lvl.width - 1) * GAP + 2 * PAD) / 2;
+  halfZ = (lvl.height + (lvl.height - 1) * GAP + 2 * PAD) / 2;
+
+  for (const o of disposables) disposeTree(o);
+  disposables.length = 0;
+  pieces.clear();
+  pickTargets.length = 0;
+
+  const slab = new THREE.Mesh(own(roundedBox(halfX * 2, halfZ * 2, SLAB_H, 0.2, 0.04)), slabMat);
+  slab.position.y = -SLAB_H;
+  slab.castShadow = slab.receiveShadow = true;
+  boardGroup.add(slab);
+  disposables.push(slab);
+
+  // Neon edge trim: four bars rather than a low-segment torus, which would
+  // come out as a diamond instead of a rectangle.
+  const trim = new THREE.Group();
+  for (const [sx, sz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+    const bar = new THREE.Mesh(UNIT_BOX, trimMat);
+    const horiz = sz !== 0;
+    bar.scale.set(horiz ? halfX * 2 + 0.06 : 0.06, 0.05, horiz ? 0.06 : halfZ * 2 + 0.06);
+    bar.position.set(sx * (halfX + 0.01), -0.03, sz * (halfZ + 0.01));
+    trim.add(bar);
+  }
+  boardGroup.add(trim);
+  disposables.push(trim);
+
+  const plinth = new THREE.Mesh(
+    own(roundedBox(halfX * 2 - 0.22, halfZ * 2 - 0.22, PLINTH_H, 0.16, 0.04)), plinthMat);
+  plinth.position.y = -SLAB_H - PLINTH_H;
+  boardGroup.add(plinth);
+  disposables.push(plinth);
+
+  const cells = [];
+  for (let y = 0; y < lvl.height; y++) {
+    for (let x = 0; x < lvl.width; x++) if (lvl.grid[y][x]) cells.push([x, y]);
+  }
+  const tiles = new THREE.InstancedMesh(TILE_GEO, tileMat, Math.max(1, cells.length));
+  tiles.count = cells.length;
+  tiles.receiveShadow = true;
+  boardGroup.add(tiles);
+  disposables.push(tiles);
+  cells.forEach(([x, y], i) => {
+    _obj.position.set(cellX(x), 0, cellZ(y));
+    _obj.updateMatrix();
+    tiles.setMatrixAt(i, _obj.matrix);
+  });
+  tiles.instanceMatrix.needsUpdate = true;
+
+  for (const [x, y] of cells) {
+    const cell = lvl.grid[y][x];
+    const g = buildPiece(cell.type, BASE_CONN[cell.type] || [0]);
+    g.position.set(cellX(x), PIECE_Y, cellZ(y));
+    g.rotation.y = -cell.rot * Math.PI / 2;
+    boardGroup.add(g);
+    disposables.push(g);
+
+    const rec = { group: g, body: g.userData.body, type: cell.type, glow: null, x, y };
+
+    if (cell.type === 'B') {
+      // Power cell: a canister with a bright core band.
+      const canBody = new THREE.Mesh(DISC_GEO, cellBodyMat);
+      canBody.scale.set(0.52, 0.42, 0.52);
+      canBody.position.y = 0.21;
+      canBody.castShadow = true;
+      const core = new THREE.Mesh(DISC_GEO, own(new THREE.MeshBasicMaterial({ color: C.wireHot, fog: true })));
+      core.scale.set(0.56, 0.13, 0.56);
+      core.position.y = 0.24;
+      const cap = new THREE.Mesh(DISC_GEO, cellBodyMat);
+      cap.scale.set(0.3, 0.1, 0.3);
+      cap.position.y = 0.47;
+      g.add(canBody, core, cap);
+      rec.glow = core;
+    } else if (cell.type === 'L') {
+      const base = new THREE.Mesh(DISC_GEO, cellBodyMat);
+      base.scale.set(0.44, 0.16, 0.44);
+      base.position.y = 0.08;
+      base.castShadow = true;
+      const bulb = new THREE.Mesh(BALL_GEO, own(mat(C.bulbOff, {
+        roughness: 0.1, metalness: 0.1, envMapIntensity: 0.9,
+        emissive: 0x000000, emissiveIntensity: 1, transparent: true, opacity: 0.92
+      })));
+      bulb.scale.setScalar(0.44);
+      bulb.position.y = 0.36;
+      g.add(base, bulb);
+      rec.glow = bulb;
+      rec.lamp = new THREE.PointLight(0xffe08a, 0, 3.2, 2);
+      rec.lamp.position.set(0, 0.4, 0);
+      g.add(rec.lamp);
+    } else {
+      // Rotatable: give it a fat invisible collider, the piece itself is thin.
+      const hit = new THREE.Mesh(UNIT_BOX, new THREE.MeshBasicMaterial({
+        transparent: true, opacity: 0, depthWrite: false, colorWrite: false
+      }));
+      hit.scale.set(STEP, 1.1, STEP);
+      hit.position.y = 0.4;
+      hit.userData.cell = [x, y];
+      g.add(hit);
+      pickTargets.push(hit);
+    }
+    pieces.set(x + ',' + y, rec);
+  }
+
+  keyLight.shadow.camera.left = -(halfX + 2);
+  keyLight.shadow.camera.right = halfX + 2;
+  keyLight.shadow.camera.top = halfZ + 2;
+  keyLight.shadow.camera.bottom = -(halfZ + 2);
+  keyLight.shadow.camera.updateProjectionMatrix();
+}
+
+// ── Current: flowing beads, bolts and sparks ─────────────────────────────────
+
+const fxGroup = new THREE.Group();
+scene.add(fxGroup);
+
+const BEAD_MAX = 96;
+const beadMat = new THREE.MeshBasicMaterial({ color: 0xfff3c4, fog: false, transparent: true });
+const beadMesh = new THREE.InstancedMesh(BEAD_GEO, beadMat, BEAD_MAX);
+beadMesh.count = 0;
+beadMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+fxGroup.add(beadMesh);
+
+const BOLT_SEGS = 90;
+const boltMat = new THREE.MeshBasicMaterial({ color: 0xdff2ff, fog: false, transparent: true, opacity: 0.95 });
+const boltMesh = new THREE.InstancedMesh(UNIT_BOX, boltMat, BOLT_SEGS);
+boltMesh.count = 0;
+boltMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+fxGroup.add(boltMesh);
+
+const bolts = [];   // { pts: Vector3[], born, life }
+let edges = [];     // { a: Vector3, b: Vector3, d0, d1 }
+let maxDepth = 0;
+
+// Jagged polyline between two points, offset perpendicular to the run.
+function spawnBolt(a, b, life) {
+  const pts = [a.clone()];
+  const n = 4 + Math.floor(Math.random() * 3);
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  const perp = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    const p = new THREE.Vector3().lerpVectors(a, b, t);
+    const j = (Math.random() - 0.5) * len * 0.34;
+    const k = (Math.random() - 0.5) * len * 0.28;
+    p.addScaledVector(perp, j).addScaledVector(up, k);
+    pts.push(p);
+  }
+  pts.push(b.clone());
+  bolts.push({ pts, born: performance.now(), life: life || 190 });
+}
+
+const _q = new THREE.Quaternion();
+const _fwd = new THREE.Vector3(0, 0, 1);
+const _seg = new THREE.Vector3();
+
+function updateBolts(now) {
+  let i = 0;
+  for (let bi = bolts.length - 1; bi >= 0; bi--) {
+    const b = bolts[bi];
+    const age = (now - b.born) / b.life;
+    if (age >= 1) { bolts.splice(bi, 1); continue; }
+    const thick = 0.055 * (1 - age) + 0.012;
+    for (let s = 0; s < b.pts.length - 1 && i < BOLT_SEGS; s++) {
+      const p0 = b.pts[s], p1 = b.pts[s + 1];
+      _seg.subVectors(p1, p0);
+      const len = _seg.length();
+      if (len < 1e-5) continue;
+      _q.setFromUnitVectors(_fwd, _seg.clone().normalize());
+      _obj.position.copy(p0).addScaledVector(_seg, 0.5);
+      _obj.quaternion.copy(_q);
+      _obj.scale.set(thick, thick, len);
+      _obj.updateMatrix();
+      boltMesh.setMatrixAt(i++, _obj.matrix);
+    }
+  }
+  boltMesh.count = i;
+  if (i) boltMesh.instanceMatrix.needsUpdate = true;
+  _obj.quaternion.identity();
+  _obj.scale.set(1, 1, 1);
+}
+
+function sparkAt(v3, colors, count) {
+  const p = v3.clone().project(camera);
+  juiceBurst((p.x * 0.5 + 0.5) * window.innerWidth, (-p.y * 0.5 + 0.5) * window.innerHeight,
+    colors || ['#fff3c4', '#ffd93d', '#9beeff'], { count: count || 12, spread: 62, duration: 460 });
+}
+
+// ── Circuit rules (unchanged) ────────────────────────────────────────────────
+
+const DXY = { 0: [0, -1], 1: [1, 0], 2: [0, 1], 3: [-1, 0] };
+const BASE_CONN = { I: [0, 2], C: [0, 1], T: [0, 1, 3] };
+
+const LEVELS = [
+[["B1", "I0", "L3"]],
+[["B1", "C0"], ["..", "L0"]],
+[["C0", "I0", "C0"], ["B0", "..", "L0"]],
+[["L2", "..", "L2"], ["C2", "T0", "C1"], ["..", "B0", ".."]],
+[["C0", "I0", "I0", "C0"], ["B0", "..", "..", "L0"]],
+[["L2", "..", "L2"], ["C2", "T0", "C1"], ["..", "I1", ".."], ["..", "B0", ".."]],
+[["..", "..", "..", "L2"], ["..", "..", "C3", "C1"], ["..", "C3", "C1", ".."], ["B1", "C1", "..", ".."]],
+[["L2", "..", "..", "..", "L2"], ["C2", "I0", "T0", "I0", "C1"], ["..", "..", "B0", "..", ".."]]
 ];
 
-var LEVEL_COUNT = LEVELS.length;
-var STORAGE_KEY = 'circuits-progress';
-var SOUND_KEY = 'circuits-sound';
+const LEVEL_COUNT = LEVELS.length;
+const STORAGE_KEY = 'circuits-progress';
+const SOUND_KEY = 'circuits-sound';
 
 function parseLevel(rows) {
-  var height = rows.length;
-  var width = rows[0].length;
-  var grid = [];
-  for (var y = 0; y < height; y++) {
-    var row = [];
-    for (var x = 0; x < width; x++) {
-      var tok = rows[y][x];
-      if (tok === '..') {
-        row.push(null);
-      } else {
-        row.push({ type: tok[0], rot: parseInt(tok[1], 10), fixed: tok[0] === 'B' || tok[0] === 'L' });
-      }
+  const height = rows.length, width = rows[0].length;
+  const grid = [];
+  for (let y = 0; y < height; y++) {
+    const row = [];
+    for (let x = 0; x < width; x++) {
+      const tok = rows[y][x];
+      row.push(tok === '..' ? null
+        : { type: tok[0], rot: parseInt(tok[1], 10), fixed: tok[0] === 'B' || tok[0] === 'L' });
     }
     grid.push(row);
   }
-  return { width: width, height: height, grid: grid };
+  return { width, height, grid };
 }
 
 function connectionsOf(cell) {
   if (!cell) return [];
   if (cell.fixed) return [cell.rot];
-  return BASE_CONN[cell.type].map(function (d) { return (d + cell.rot) % 4; });
+  return BASE_CONN[cell.type].map((d) => (d + cell.rot) % 4);
 }
 
-function energizedSet(lvl) {
-  var w = lvl.width, h = lvl.height, grid = lvl.grid;
-  function has(x, y) { return x >= 0 && y >= 0 && x < w && y < h && grid[y][x]; }
-  var energized = {};
-  var queue = [];
-  for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      var c = grid[y][x];
-      if (c && c.type === 'B') { energized[x + ',' + y] = true; queue.push([x, y]); }
+// Breadth-first from the battery. Returns which cells are live, how many hops
+// each is from the source, and the connected edges — the depths are what the
+// win surge travels along.
+function energizedInfo(lvl) {
+  const w = lvl.width, h = lvl.height, grid = lvl.grid;
+  const has = (x, y) => x >= 0 && y >= 0 && x < w && y < h && grid[y][x];
+  const energized = {}, depth = {}, list = [];
+  const queue = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const c = grid[y][x];
+      if (c && c.type === 'B') {
+        energized[x + ',' + y] = true;
+        depth[x + ',' + y] = 0;
+        queue.push([x, y]);
+      }
     }
   }
-  while (queue.length) {
-    var cur = queue.shift();
-    var cx = cur[0], cy = cur[1];
-    var conns = connectionsOf(grid[cy][cx]);
-    for (var i = 0; i < conns.length; i++) {
-      var d = conns[i];
-      var nx = cx + DXY[d][0], ny = cy + DXY[d][1];
+  let head = 0;
+  while (head < queue.length) {
+    const [cx, cy] = queue[head++];
+    const d0 = depth[cx + ',' + cy];
+    for (const d of connectionsOf(grid[cy][cx])) {
+      const nx = cx + DXY[d][0], ny = cy + DXY[d][1];
       if (!has(nx, ny)) continue;
-      var back = (d + 2) % 4;
-      var nconns = connectionsOf(grid[ny][nx]);
-      if (nconns.indexOf(back) === -1) continue;
-      var key = nx + ',' + ny;
-      if (!energized[key]) { energized[key] = true; queue.push([nx, ny]); }
+      if (connectionsOf(grid[ny][nx]).indexOf((d + 2) % 4) === -1) continue;
+      const key = nx + ',' + ny;
+      if (energized[key]) continue;
+      energized[key] = true;
+      depth[key] = d0 + 1;
+      list.push({ ax: cx, ay: cy, bx: nx, by: ny, d0, d1: d0 + 1 });
+      queue.push([nx, ny]);
     }
   }
-  return energized;
+  return { energized, depth, list };
 }
 
-// ── State ──
-var st = {
-  levelIndex: 0,
-  furthest: 0,
-  lvl: null,
-  locked: false,
-  cellEls: null
-};
+// ── State ────────────────────────────────────────────────────────────────────
 
-var tileGridEl = document.getElementById('tileGrid');
-var boardWrapEl = document.getElementById('boardWrap');
-var levelDisplay = document.getElementById('levelDisplay');
-var bulbsDisplay = document.getElementById('bulbsDisplay');
-var feedbackEl = document.getElementById('feedbackMsg');
-var winOverlay = document.getElementById('winOverlay');
-var completeOverlay = document.getElementById('completeOverlay');
-var btnPrevLevel = document.getElementById('btnPrevLevel');
-var btnNextLevel = document.getElementById('btnNextLevel');
-var btnRestart = document.getElementById('btnRestart');
+const st = { levelIndex: 0, furthest: 0, lvl: null, locked: false, live: null };
+
+const levelDisplay = document.getElementById('levelDisplay');
+const bulbsDisplay = document.getElementById('bulbsDisplay');
+const feedbackEl = document.getElementById('feedbackMsg');
+const winOverlay = document.getElementById('winOverlay');
+const completeOverlay = document.getElementById('completeOverlay');
+const btnPrevLevel = document.getElementById('btnPrevLevel');
+const btnNextLevel = document.getElementById('btnNextLevel');
+const btnRestart = document.getElementById('btnRestart');
+const surgeFlash = document.getElementById('surgeFlash');
 
 function loadProgress() {
   try {
-    var raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { furthest: 0, current: 0 };
-    var parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
     return {
       furthest: Math.min(Math.max(parsed.furthest | 0, 0), LEVEL_COUNT - 1),
       current: Math.min(Math.max(parsed.current | 0, 0), LEVEL_COUNT - 1)
     };
-  } catch (e) {
-    return { furthest: 0, current: 0 };
-  }
+  } catch (e) { return { furthest: 0, current: 0 }; }
 }
 
 function saveProgress() {
@@ -497,103 +1093,25 @@ function saveProgress() {
   } catch (e) {}
 }
 
-var STUB_PATH = {
-  I: '<line x1="50" y1="0" x2="50" y2="100"/>',
-  C: '<path d="M50,0 L50,50 L100,50"/>',
-  T: '<path d="M0,50 L100,50 M50,0 L50,50"/>',
-  B: '<line x1="50" y1="50" x2="50" y2="0"/>',
-  L: '<line x1="50" y1="50" x2="50" y2="0"/>'
-};
-var ICON = { B: '\u{1F50B}', L: '\u{1F4A1}' };
-
 function loadLevel(idx) {
   idx = Math.min(Math.max(idx, 0), LEVEL_COUNT - 1);
   st.levelIndex = idx;
   st.lvl = parseLevel(LEVELS[idx]);
   st.locked = false;
+  surge = null;
+  bolts.length = 0;
+  beadMesh.count = 0;
+  boltMesh.count = 0;
+  surgeLight.intensity = 0;
+  tweens.length = 0;
   setFeedback('Tap the wires to rotate them and light every bulb.');
   winOverlay.classList.remove('active');
   completeOverlay.classList.remove('active');
-  buildBoardDOM();
+  buildBoard();
   updateCircuit();
   updateInfo();
+  needsLayout = true;
   saveProgress();
-}
-
-function buildBoardDOM() {
-  var lvl = st.lvl;
-  tileGridEl.innerHTML = '';
-  tileGridEl.style.gridTemplateColumns = 'repeat(' + lvl.width + ', 1fr)';
-  tileGridEl.style.gridTemplateRows = 'repeat(' + lvl.height + ', 1fr)';
-  boardWrapEl.style.aspectRatio = lvl.width + ' / ' + lvl.height;
-  boardWrapEl.style.width = Math.min(420, lvl.width * 92) + 'px';
-  boardWrapEl.style.maxWidth = '96vw';
-
-  st.cellEls = {};
-  for (var y = 0; y < lvl.height; y++) {
-    for (var x = 0; x < lvl.width; x++) {
-      var cell = lvl.grid[y][x];
-      var div = document.createElement('div');
-      if (!cell) {
-        div.className = 'cell void';
-        tileGridEl.appendChild(div);
-        continue;
-      }
-      var kind = cell.type === 'B' ? 'battery' : (cell.type === 'L' ? 'bulb' : 'wire');
-      div.className = 'cell ' + kind;
-      var stubWrap = document.createElement('div');
-      stubWrap.className = 'stub-wrap';
-      stubWrap.innerHTML = '<svg viewBox="0 0 100 100">' + STUB_PATH[cell.type] + '</svg>';
-      stubWrap.style.transform = 'rotate(' + (cell.rot * 90) + 'deg)';
-      div.appendChild(stubWrap);
-      if (kind === 'battery' || kind === 'bulb') {
-        var iconEl = document.createElement('div');
-        iconEl.className = 'cell-icon';
-        iconEl.textContent = ICON[cell.type];
-        div.appendChild(iconEl);
-      }
-      if (kind === 'wire') {
-        (function (px, py) {
-          div.addEventListener('click', function () { rotateCell(px, py); });
-        })(x, y);
-      }
-      tileGridEl.appendChild(div);
-      st.cellEls[x + ',' + y] = { root: div, stubWrap: stubWrap };
-    }
-  }
-}
-
-function rotateCell(x, y) {
-  if (st.locked) return;
-  var cell = st.lvl.grid[y][x];
-  if (!cell || cell.fixed) return;
-  cell.rot = (cell.rot + 1) % 4;
-  var els = st.cellEls[x + ',' + y];
-  els.stubWrap.style.transform = 'rotate(' + (cell.rot * 90) + 'deg)';
-  playTone(260, 0.04);
-  updateCircuit();
-  checkWin();
-}
-
-function updateCircuit() {
-  var lvl = st.lvl;
-  var energized = energizedSet(lvl);
-  var lit = 0, total = 0;
-  for (var y = 0; y < lvl.height; y++) {
-    for (var x = 0; x < lvl.width; x++) {
-      var cell = lvl.grid[y][x];
-      if (!cell) continue;
-      var els = st.cellEls[x + ',' + y];
-      var on = !!energized[x + ',' + y];
-      els.root.classList.toggle('energized', on);
-      if (cell.type === 'L') {
-        total++;
-        if (on) lit++;
-      }
-    }
-  }
-  bulbsDisplay.textContent = 'Bulbs: ' + lit + ' / ' + total;
-  return { lit: lit, total: total };
 }
 
 function updateInfo() {
@@ -602,51 +1120,304 @@ function updateInfo() {
   btnNextLevel.disabled = st.levelIndex >= st.furthest;
 }
 
-function setFeedback(msg) {
-  feedbackEl.textContent = msg || '';
+function setFeedback(msg) { feedbackEl.textContent = msg || ''; }
+
+// Recomputes the live set and rebuilds the edge list the beads run along.
+function updateCircuit() {
+  const lvl = st.lvl;
+  const info = energizedInfo(lvl);
+  st.live = info;
+  let lit = 0, total = 0;
+
+  for (const [key, rec] of pieces) {
+    const on = !!info.energized[key];
+    rec.on = on;
+    rec.depth = info.depth[key];
+    if (rec.type === 'L') { total++; if (on) lit++; }
+  }
+
+  edges = info.list.map((e) => ({
+    a: new THREE.Vector3(cellX(e.ax), PIECE_Y + ARM_H / 2, cellZ(e.ay)),
+    b: new THREE.Vector3(cellX(e.bx), PIECE_Y + ARM_H / 2, cellZ(e.by)),
+    d0: e.d0, d1: e.d1, bx: e.bx, by: e.by
+  }));
+  maxDepth = edges.reduce((m, e) => Math.max(m, e.d1), 0);
+
+  bulbsDisplay.textContent = 'Bulbs: ' + lit + ' / ' + total;
+  return { lit, total };
 }
 
-function restart() {
-  loadLevel(st.levelIndex);
+function rotateCell(x, y) {
+  if (st.locked) return;
+  const cell = st.lvl.grid[y][x];
+  if (!cell || cell.fixed) return;
+  cell.rot = (cell.rot + 1) % 4;
+  const rec = pieces.get(x + ',' + y);
+  const from = rec.group.rotation.y;
+  const to = -cell.rot * Math.PI / 2;
+  // Always turn the short way, so 3 -> 0 doesn't spin backwards.
+  let delta = to - from;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  cancelTweens(rec.group);
+  tween(180, (e) => { rec.group.rotation.y = from + delta * e; },
+    () => { rec.group.rotation.y = to; }, easeOut, rec.group);
+
+  sfxClick();
+  const before = st.live ? Object.keys(st.live.energized).length : 0;
+  updateCircuit();
+  const after = Object.keys(st.live.energized).length;
+  if (after > before) {
+    // Something new came alive — arc across the piece that just connected.
+    sfxZap(0.09);
+    const p = new THREE.Vector3(cellX(x), PIECE_Y + 0.1, cellZ(y));
+    spawnBolt(p, p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.9, 0.5, (Math.random() - 0.5) * 0.9)), 150);
+    sparkAt(p, ['#fff3c4', '#ffd93d'], 8);
+  }
+  checkWin();
 }
+
+// ── Win surge ────────────────────────────────────────────────────────────────
+
+let surge = null;   // { t0, dur, flared:Set, done }
 
 function checkWin() {
-  var counts = updateCircuit();
+  const counts = updateCircuit();
   if (counts.total === 0 || counts.lit < counts.total) return;
   st.locked = true;
-  if (st.levelIndex >= st.furthest) {
-    st.furthest = Math.min(st.levelIndex + 1, LEVEL_COUNT - 1);
-  }
+  if (st.levelIndex >= st.furthest) st.furthest = Math.min(st.levelIndex + 1, LEVEL_COUNT - 1);
   saveProgress();
-  // Brief pause so the player sees the fully-lit circuit before the overlay covers it.
-  setTimeout(function () {
-    playWinJingle();
-    document.getElementById('winSub').textContent = 'All bulbs lit on level ' + (st.levelIndex + 1) + '!';
-    winOverlay.classList.add('active');
-  }, 600);
+  startSurge();
 }
 
-document.getElementById('btnContinue').addEventListener('click', function () {
-  winOverlay.classList.remove('active');
-  if (st.levelIndex + 1 >= LEVEL_COUNT) {
-    completeOverlay.classList.add('active');
-  } else {
-    loadLevel(st.levelIndex + 1);
+// The current walks the circuit one hop at a time, slowly, flaring each piece
+// and throwing sparks as it arrives — then the dialog.
+function startSurge() {
+  setFeedback('Powering up…');
+  const dur = Math.min(4200, Math.max(1900, (maxDepth + 1) * 430));
+  surge = { t0: performance.now(), dur, flared: new Set(), done: false };
+  sfxCharge(dur / 1000);
+}
+
+function flarePiece(rec) {
+  if (!rec) return;
+  rec.flare = 1;
+  const p = new THREE.Vector3(cellX(rec.x), PIECE_Y + 0.12, cellZ(rec.y));
+  sparkAt(p, ['#fff3c4', '#ffd93d', '#ffae3c'], rec.type === 'L' ? 22 : 11);
+  // Two bolts per piece: one arcing up, one to a random neighbour direction.
+  spawnBolt(p, p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.2, 0.7 + Math.random() * 0.5, (Math.random() - 0.5) * 1.2)), 200);
+  if (Math.random() < 0.7) {
+    const d = Math.floor(Math.random() * 4);
+    spawnBolt(p, p.clone().add(new THREE.Vector3(DXY[d][0] * STEP, 0.25, DXY[d][1] * STEP)), 170);
+  }
+  shake(rec.type === 'L' ? 0.11 : 0.05);
+  sfxCrackle();
+  if (rec.type === 'L') sfxZap(0.16);
+}
+
+function finishSurge() {
+  surge.done = true;
+  surgeFlash.animate(
+    [{ opacity: 0 }, { opacity: 0.85, offset: 0.12 }, { opacity: 0 }],
+    { duration: 620, easing: 'ease-out' });
+  shake(0.3);
+  sfxZap(0.22);
+  playWinJingle();
+  // A ring of bolts across the whole board for the overload moment.
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    spawnBolt(
+      new THREE.Vector3(Math.cos(a) * halfX * 0.8, 0.25, Math.sin(a) * halfZ * 0.8),
+      new THREE.Vector3(Math.cos(a + 2) * halfX * 0.8, 0.9, Math.sin(a + 2) * halfZ * 0.8), 420);
+  }
+  for (const [, rec] of pieces) {
+    if (rec.on) sparkAt(new THREE.Vector3(cellX(rec.x), PIECE_Y + 0.15, cellZ(rec.y)),
+      ['#fff3c4', '#ffd93d'], 10);
+  }
+  setTimeout(() => {
+    document.getElementById('winSub').textContent = 'All bulbs lit on level ' + (st.levelIndex + 1) + '!';
+    winOverlay.classList.add('active');
+  }, 780);
+}
+
+// ── Camera ───────────────────────────────────────────────────────────────────
+
+let fitPts = [];
+
+function buildFitPoints() {
+  fitPts = [];
+  const box = (hx, hz, lo, hi) => {
+    for (const x of [-hx, hx]) for (const z of [-hz, hz]) for (const y of [lo, hi])
+      fitPts.push(new THREE.Vector3(x, y, z));
+  };
+  box(halfX, halfZ, -SLAB_H, TILE_H);
+  const ex = (st.lvl.width - 1) / 2 * STEP + 0.55, ez = (st.lvl.height - 1) / 2 * STEP + 0.55;
+  box(ex, ez, TILE_H, PROP_TOP);
+}
+
+function boardSlotNdc() {
+  const H = window.innerHeight;
+  const slot = document.getElementById('board-slot').getBoundingClientRect();
+  const top = slot.top + 4;
+  const bottom = Math.max(top + 110, slot.bottom - 4);
+  return {
+    // Not the full width: the strip left on each side is where the machine shows.
+    halfX: 0.84,
+    halfY: Math.max(0.08, (bottom - top) / H),
+    cy: 1 - (top + bottom) / H
+  };
+}
+
+// Perspective spreads the near edge of a tilted board outward, so an
+// orthographic solve under-reserves and crops the corner cells. Measure
+// instead: project the bounds, walk the distance until the binding axis just
+// fills its target, and slide the look-at point along the camera's own up axis
+// until the content sits on the slot's centre line.
+function fitCamera(slot, startDist) {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const v = new THREE.Vector3();
+  let dist = startDist, shift = 0;
+
+  for (let i = 0; i < 14; i++) {
+    camTarget.set(TARGET.x, TARGET.y + cp * shift, TARGET.z - sp * shift);
+    camera.position.set(camTarget.x, camTarget.y + sp * dist, camTarget.z + cp * dist);
+    camera.near = Math.max(0.5, dist * 0.3);
+    // The machine floor is a fixed drop below the board, not a multiple of the
+    // camera distance — a purely relative far plane clips it once a small board
+    // pulls the camera in close.
+    camera.far = dist * 2 + Math.abs(GROUND_Y) * 2 + 60;
+    camera.lookAt(camTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+
+    let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    for (const p of fitPts) {
+      v.copy(p).project(camera);
+      if (v.x < mnx) mnx = v.x;
+      if (v.x > mxx) mxx = v.x;
+      if (v.y < mny) mny = v.y;
+      if (v.y > mxy) mxy = v.y;
+    }
+    const over = Math.max((mxx - mnx) / 2 / slot.halfX, (mxy - mny) / 2 / slot.halfY);
+    const cyErr = (mxy + mny) / 2 - slot.cy;
+    if (Math.abs(over - 1) < 0.004 && Math.abs(cyErr) < 0.004) break;
+    shift += cyErr * dist * tanY;
+    dist *= over;
+  }
+
+  camBase.copy(camera.position);
+  return dist;
+}
+
+function visibleRectAt(y) {
+  const v = new THREE.Vector3();
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y);
+  const ray = new THREE.Raycaster();
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const nx of [-1, 1]) for (const ny of [-1, 1]) {
+    ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    if (!ray.ray.intersectPlane(plane, v)) continue;
+    x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x);
+    z0 = Math.min(z0, v.z); z1 = Math.max(z1, v.z);
+  }
+  if (!Number.isFinite(x0)) return { x0: -40, x1: 40, z0: -40, z1: 40 };
+  return { x0, x1, z0, z1 };
+}
+
+let needsLayout = true;
+let lastWorldKey = '';
+
+function layout() {
+  const w = window.innerWidth, h = window.innerHeight;
+  let dpr = Math.min(2, window.devicePixelRatio || 1);
+  const budget = 4.2e6;
+  if (w * h * dpr * dpr > budget) dpr = Math.sqrt(budget / (w * h));
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+
+  buildFitPoints();
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const dist = fitCamera(boardSlotNdc(), Math.max(halfX, halfZ) / tanY * 1.5);
+
+  // Haze starts past the board so the platform stays crisp and the machine
+  // falls away into black.
+  scene.fog.near = dist + 3;
+  scene.fog.far = dist + 30;
+
+  const rect = visibleRectAt(GROUND_Y);
+  const key = [rect.x0, rect.x1, rect.z0, rect.z1].map((v) => Math.round(v / 4)).join(',');
+  if (key !== lastWorldKey) {
+    lastWorldKey = key;
+    buildWorld(rect);
+  }
+}
+
+window.addEventListener('resize', () => { needsLayout = true; });
+window.addEventListener('orientationchange', () => { needsLayout = true; });
+
+// ── Tweens / shake ───────────────────────────────────────────────────────────
+
+const tweens = [];
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+
+function tween(dur, onUpdate, onDone, ease, tag) {
+  tweens.push({ t0: performance.now(), dur, up: onUpdate, done: onDone, ease: ease || easeOut, tag });
+}
+function cancelTweens(tag) {
+  for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].tag === tag) tweens.splice(i, 1);
+}
+function stepTweens(now) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const t = tweens[i];
+    let p = (now - t.t0) / t.dur;
+    if (p >= 1) p = 1;
+    t.up(t.ease(p), p);
+    if (p === 1) { tweens.splice(i, 1); if (t.done) t.done(); }
+  }
+}
+
+let shakeAmt = 0;
+const shakeOff = new THREE.Vector3();
+function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+
+// ── Input ────────────────────────────────────────────────────────────────────
+
+const raycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2();
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (st.locked) return;
+  pointerNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointerNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hits = raycaster.intersectObjects(pickTargets, false);
+  if (hits.length) {
+    const [x, y] = hits[0].object.userData.cell;
+    rotateCell(x, y);
   }
 });
 
-document.getElementById('btnReplayAll').addEventListener('click', function () {
+document.getElementById('btnContinue').addEventListener('click', () => {
+  winOverlay.classList.remove('active');
+  if (st.levelIndex + 1 >= LEVEL_COUNT) completeOverlay.classList.add('active');
+  else loadLevel(st.levelIndex + 1);
+});
+document.getElementById('btnReplayAll').addEventListener('click', () => {
   completeOverlay.classList.remove('active');
   loadLevel(0);
 });
+btnRestart.addEventListener('click', () => loadLevel(st.levelIndex));
+btnPrevLevel.addEventListener('click', () => loadLevel(st.levelIndex - 1));
+btnNextLevel.addEventListener('click', () => loadLevel(st.levelIndex + 1));
 
-btnRestart.addEventListener('click', restart);
-btnPrevLevel.addEventListener('click', function () { loadLevel(st.levelIndex - 1); });
-btnNextLevel.addEventListener('click', function () { loadLevel(st.levelIndex + 1); });
+// ── Sound ────────────────────────────────────────────────────────────────────
 
-// ── Sound ──
-var _soundOn = localStorage.getItem(SOUND_KEY) !== 'false';
-var _actx = null;
+let _soundOn = localStorage.getItem(SOUND_KEY) !== 'false';
+let _actx = null;
+let _noiseBuf = null;
+
 function _getCtx() {
   if (!_actx) {
     try { _actx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -654,72 +1425,289 @@ function _getCtx() {
   }
   return _actx;
 }
-function playTone(freq, gain) {
+
+function playTone(freq, gain, delay = 0, type = 'sine') {
   if (!_soundOn) return;
-  var ctx = _getCtx();
+  const ctx = _getCtx();
   if (!ctx) return;
-  var osc = ctx.createOscillator(), g = ctx.createGain();
+  const osc = ctx.createOscillator(), g = ctx.createGain();
   osc.connect(g); g.connect(ctx.destination);
-  osc.type = 'sine'; osc.frequency.value = freq;
-  var t = ctx.currentTime;
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t = ctx.currentTime + delay;
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(gain, t + 0.015);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
   osc.start(t); osc.stop(t + 0.22);
 }
-function playWinJingle() {
+
+function sfxClick() { playTone(260, 0.04); }
+
+// White noise through a band-pass is what makes a spark read as a spark; a
+// clean oscillator just sounds like a beep.
+function noiseBuffer(ctx) {
+  if (_noiseBuf) return _noiseBuf;
+  const len = Math.floor(ctx.sampleRate * 0.5);
+  _noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = _noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return _noiseBuf;
+}
+
+function sfxCrackle() {
   if (!_soundOn) return;
-  [523.25, 659.25, 783.99, 1046.5].forEach(function (freq, i) {
-    setTimeout(function () { playTone(freq, 0.14); }, i * 110);
-  });
+  const ctx = _getCtx();
+  if (!ctx) return;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx);
+  src.playbackRate.value = 0.8 + Math.random() * 0.9;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1800 + Math.random() * 2600;
+  bp.Q.value = 3;
+  const g = ctx.createGain();
+  const t = ctx.currentTime;
+  g.gain.setValueAtTime(0.13, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t); src.stop(t + 0.13);
 }
-function _updateToggle() {
-  var btn = document.getElementById('soundToggle'); if (!btn) return;
-  btn.style.background = _soundOn ? '#ffb037' : '#444';
-  var th = btn.querySelector('.thumb'); if (th) th.style.left = _soundOn ? '22px' : '2px';
+
+function sfxZap(vol) {
+  if (!_soundOn) return;
+  const ctx = _getCtx();
+  if (!ctx) return;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx);
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = 1.4;
+  const t = ctx.currentTime;
+  bp.frequency.setValueAtTime(4200, t);
+  bp.frequency.exponentialRampToValueAtTime(320, t + 0.3);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol || 0.14, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t); src.stop(t + 0.36);
 }
-function toggleSound() {
+
+// Rising hum under the whole surge.
+function sfxCharge(seconds) {
+  if (!_soundOn) return;
+  const ctx = _getCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = 'sawtooth';
+  const t = ctx.currentTime;
+  osc.frequency.setValueAtTime(55, t);
+  osc.frequency.exponentialRampToValueAtTime(240, t + seconds);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.07, t + seconds * 0.8);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + seconds + 0.35);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(400, t);
+  lp.frequency.exponentialRampToValueAtTime(2600, t + seconds);
+  osc.connect(lp); lp.connect(g); g.connect(ctx.destination);
+  osc.start(t); osc.stop(t + seconds + 0.4);
+}
+
+function playWinJingle() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => playTone(f, 0.14, i * 0.11, 'triangle'));
+}
+
+function updateToggle() {
+  const btn = document.getElementById('soundToggle');
+  btn.style.background = _soundOn ? '#ffb037' : '#334';
+  btn.querySelector('.thumb').style.left = _soundOn ? '27px' : '3px';
+}
+
+document.getElementById('soundToggle').addEventListener('click', () => {
   _soundOn = !_soundOn;
   localStorage.setItem(SOUND_KEY, _soundOn);
-  _updateToggle();
-}
-function toggleSettings() { document.getElementById('settingsPanel').classList.toggle('open'); }
-document.addEventListener('click', function (e) {
-  var p = document.getElementById('settingsPanel'), b = document.getElementById('settingsBtn');
-  if (p && p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target)) {
+  updateToggle();
+});
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('settingsPanel').classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  const p = document.getElementById('settingsPanel'), b = document.getElementById('settingsBtn');
+  if (p.classList.contains('open') && !p.contains(e.target) && !b.contains(e.target)) {
     p.classList.remove('open');
   }
 });
-var _audioReady = false;
-function _onFirstTouch() {
-  if (_audioReady) return; _audioReady = true;
-  var ctx = _getCtx();
-  if (!ctx) return;
-  ctx.resume().catch(function () {});
-}
-document.addEventListener('click', _onFirstTouch, { once: true });
-document.addEventListener('touchstart', _onFirstTouch, { once: true });
 
-// ── Init ──
-var progress = loadProgress();
+let _audioReady = false;
+function onFirstTouch() {
+  if (_audioReady) return;
+  _audioReady = true;
+  const ctx = _getCtx();
+  if (ctx) ctx.resume().catch(() => {});
+}
+document.addEventListener('click', onFirstTouch, { once: true });
+document.addEventListener('touchstart', onFirstTouch, { once: true });
+
+// ── Render loop ──────────────────────────────────────────────────────────────
+
+const _hot = new THREE.Color(C.wireHot);
+const _dim = new THREE.Color(C.wireDim);
+const _emitHot = new THREE.Color(C.emitHot);
+const _emitDim = new THREE.Color(C.emitDim);
+const _white = new THREE.Color(0xffffff);
+const _bulbOn = new THREE.Color(C.bulbOn);
+const _tmpA = new THREE.Color();   // scratch: this runs per piece per frame
+const _tmpB = new THREE.Color();
+let last = performance.now();
+let ambientBoltAt = 0;
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  if (needsLayout) { needsLayout = false; layout(); }
+  stepTweens(now);
+  updateStreams(dt);
+
+  // Surge front, in hops from the battery.
+  let front = -1;
+  if (surge && !surge.done) {
+    const p = (now - surge.t0) / surge.dur;
+    front = p * (maxDepth + 0.6);
+    for (const [key, rec] of pieces) {
+      if (rec.on && rec.depth !== undefined && front >= rec.depth && !surge.flared.has(key)) {
+        surge.flared.add(key);
+        flarePiece(rec);
+      }
+    }
+    surgeLight.intensity = 2.2 + Math.sin(t * 40) * 0.5;
+    if (p >= 1) finishSurge();
+  } else if (surge && surge.done) {
+    surgeLight.intensity *= Math.pow(0.02, dt);
+  }
+
+  // Beads along the live edges: a steady trickle normally, and during the
+  // surge a single bright front walking hop by hop.
+  let bi = 0;
+  for (const e of edges) {
+    if (surge && !surge.done) {
+      if (front >= e.d0 && front <= e.d1 && bi < BEAD_MAX) {
+        const f = front - e.d0;
+        _v.lerpVectors(e.a, e.b, f);
+        _obj.position.copy(_v);
+        _obj.scale.setScalar(0.34 + Math.sin(t * 30) * 0.05);
+        _obj.updateMatrix();
+        beadMesh.setMatrixAt(bi++, _obj.matrix);
+      }
+    } else {
+      for (let k = 0; k < 2 && bi < BEAD_MAX; k++) {
+        const f = ((t * 1.15 - e.d0 * 0.5 + k * 0.5) % 1 + 1) % 1;
+        _v.lerpVectors(e.a, e.b, f);
+        _obj.position.copy(_v);
+        _obj.scale.setScalar(0.15);
+        _obj.updateMatrix();
+        beadMesh.setMatrixAt(bi++, _obj.matrix);
+      }
+    }
+  }
+  beadMesh.count = bi;
+  if (bi) beadMesh.instanceMatrix.needsUpdate = true;
+  _obj.scale.set(1, 1, 1);
+  beadMat.opacity = surge && !surge.done ? 1 : 0.85;
+
+  // Piece appearance: live pieces glow, and a flare decays after the front
+  // passes through.
+  for (const [, rec] of pieces) {
+    const flare = rec.flare ? (rec.flare = Math.max(0, rec.flare - dt * 2.4)) : 0;
+    const live = rec.on;
+    const pulse = live ? 0.72 + 0.28 * Math.sin(t * 6 - (rec.depth || 0) * 0.9) : 0;
+    const body = rec.body;
+    if (live) {
+      body.color.copy(_dim).lerp(_hot, 0.55 + 0.45 * pulse);
+      body.emissive.copy(_emitDim).lerp(_emitHot, pulse);
+    } else {
+      body.color.copy(_dim);
+      body.emissive.copy(_emitDim);
+    }
+    if (flare > 0) {
+      body.color.lerp(_white, flare * 0.85);
+      body.emissive.lerp(_white, flare * 0.7);
+    }
+    body.emissiveIntensity = live ? 0.55 + 0.5 * pulse + flare * 2.2 : 0.15;
+
+    if (rec.type === 'B' && rec.glow) {
+      rec.glow.material.color.copy(_hot).lerp(_white, 0.3 + 0.35 * Math.sin(t * 9));
+    }
+    if (rec.type === 'L') {
+      // A bulb only truly ignites once the surge front has reached it.
+      const ignited = rec.on && (!surge || surge.flared.has(rec.x + ',' + rec.y));
+      const glowAmt = ignited ? 1 : (rec.on ? 0.25 : 0);
+      const mtl = rec.glow.material;
+      mtl.color.copy(_tmpA.copy(_dim).lerp(_bulbOn, glowAmt));
+      mtl.emissive.copy(_tmpB.copy(_bulbOn).multiplyScalar(glowAmt));
+      mtl.emissiveIntensity = glowAmt * (1.6 + 0.5 * Math.sin(t * 14)) + flare * 3;
+      rec.glow.scale.setScalar(0.44 * (1 + glowAmt * 0.12 + flare * 0.35));
+      rec.lamp.intensity = glowAmt * (2.4 + 0.6 * Math.sin(t * 14)) + flare * 4;
+    }
+  }
+
+  // Occasional lightning out in the machine, more often while surging.
+  if (now > ambientBoltAt) {
+    ambientBoltAt = now + (surge && !surge.done ? 90 + Math.random() * 160 : 900 + Math.random() * 2600);
+    const r = worldRect;
+    const ax = r.x0 + Math.random() * (r.x1 - r.x0);
+    const az = r.z0 + Math.random() * (r.z1 - r.z0);
+    const a = new THREE.Vector3(ax, GROUND_Y + 0.4, az);
+    spawnBolt(a, a.clone().add(new THREE.Vector3((Math.random() - 0.5) * 9, 2 + Math.random() * 6, (Math.random() - 0.5) * 9)), 240);
+  }
+  updateBolts(now);
+
+  if (shakeAmt > 0.0005) {
+    shakeOff.set((Math.random() - 0.5) * shakeAmt, (Math.random() - 0.5) * shakeAmt, 0)
+      .applyQuaternion(camera.quaternion);
+    camera.position.copy(camBase).add(shakeOff);
+    shakeAmt *= Math.pow(0.0015, dt);
+  } else if (shakeAmt !== 0) {
+    shakeAmt = 0;
+    camera.position.copy(camBase);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+
+const progress = loadProgress();
 st.furthest = progress.furthest;
 loadLevel(progress.current);
-_updateToggle();
-
-window.addEventListener('resize', function () {
-  if (st.lvl) buildBoardDOM(), updateCircuit();
-});
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
-}
+updateToggle();
+requestAnimationFrame(frame);
+window.__circReady = true;
 </script>
-<button id="settingsBtn" onclick="toggleSettings()" aria-label="Settings">&#9881;</button>
-<div id="settingsPanel">
-  <div class="s-row">
-    <span class="s-label">Sound</span>
-    <button id="soundToggle" class="s-toggle" onclick="toggleSound()"><div class="thumb"></div></button>
-  </div>
-</div>
+<script>
+// Hide the portal link when launched standalone without coming via the portal.
+(function () {
+  if (!window.matchMedia('(display-mode: standalone)').matches) return;
+  var fromPortal = false;
+  try { fromPortal = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) {}
+  if (fromPortal) sessionStorage.setItem('mini-games-portal', '1');
+  if (!fromPortal && sessionStorage.getItem('mini-games-portal') !== '1') {
+    document.querySelector('.back-link').style.display = 'none';
+  }
+})();
+// The board is drawn entirely by the module script above; if the engine fails
+// to load the page would otherwise just sit blank.
+setTimeout(function () {
+  if (!window.__circReady) {
+    document.getElementById('scene').style.display = 'none';
+    document.getElementById('board-slot').style.display = 'none';
+    document.getElementById('load-err').classList.add('on');
+  }
+}, 6000);
+</script>
 </body>
 </html>
