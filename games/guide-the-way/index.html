@@ -56,7 +56,10 @@ body {
   height: 100%;
   z-index: 0;
   display: block;
-  pointer-events: none;
+  /* Takes clicks (tap the robot to make it jump). The UI sits at z-index 1
+     above it, so its own hits are unaffected. */
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 body > * { position: relative; z-index: 1; }
@@ -570,9 +573,9 @@ const TARGET = new THREE.Vector3(0, 0.2, 0);
 // a bright thing sitting inside a dimmer mechanism.
 const C = {
   sky:        0xe8ecf6,
-  slab:       0xeef2fc,
-  leg:        0xccd3e8,
-  empty:      0xfcfdff,
+  slab:       0xffffff,
+  leg:        0xdbe1ee,
+  empty:      0xffffff,
   wall:       0x6068ad,
   wallCap:    0x8f97d8,
   ice:        0xa9e8fb,
@@ -627,6 +630,38 @@ scene.add(keyLight);
 const fillLight = new THREE.DirectionalLight(0xbcd4ff, 0.18);
 fillLight.position.set(7, 5, -8);
 scene.add(fillLight);
+
+// A tiny procedural sky, run through PMREM, used as an environment map on the
+// board surfaces only. Direct lights alone can't make white read as glossy —
+// you get a hard specular dot and a flat diffuse. An env map gives the real
+// thing: a soft sheen across the slab plus a bright glint where the "sun" is.
+// Deliberately not scene.environment, which would relight the machine too.
+let ENV = null;
+(function buildEnv() {
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 64;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.42, '#e2ebff');
+  grad.addColorStop(0.55, '#c4cee4');
+  grad.addColorStop(1, '#8b93a8');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 64);
+  const sun = g.createRadialGradient(34, 15, 1, 34, 15, 22);
+  sun.addColorStop(0, 'rgba(255,255,255,1)');
+  sun.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = sun;
+  g.fillRect(0, 0, 128, 64);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  ENV = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose();
+  tex.dispose();
+})();
 
 // ── Geometry helpers ─────────────────────────────────────────────────────────
 
@@ -717,16 +752,95 @@ function arrowGeometry() {
 
 const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1);
 const TILE_GEO = roundedBox(1, 1, TILE_H, 0.18, 0.03);
-const WALL_GEO = roundedBox(0.94, 0.94, WALL_H, 0.14, 0.04);
+const WALL_GEO = boxUV(roundedBox(0.94, 0.94, WALL_H, 0.14, 0.04), 0.94);
 const WALL_CAP_GEO = roundedBox(0.82, 0.82, 0.07, 0.12, 0.02);
 const ARROW_GEO = arrowGeometry();
 const DISC_GEO = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
 const BALL_GEO = new THREE.SphereGeometry(0.5, 14, 10);
 
+// Board materials get the env map by default; pass `envMap: null` for the
+// machine, which is meant to stay matte and dimmer than the board.
 function mat(color, opts) {
   return new THREE.MeshStandardMaterial(Object.assign({
-    color, roughness: 0.55, metalness: 0.05
+    color, roughness: 0.55, metalness: 0.05, envMap: ENV, envMapIntensity: 0.35
   }, opts || {}));
+}
+
+// ExtrudeGeometry's own UVs run in raw shape units (roughly -0.45..1.04 for a
+// wall), so a texture would land arbitrarily. Reproject per face along its
+// dominant normal, at a fixed world size per tile, which keeps the pattern the
+// same physical scale on the top and all four sides.
+function boxUV(geo, scale) {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const pos = geo.attributes.position, nrm = geo.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const ax = Math.abs(nrm.getX(i)), ay = Math.abs(nrm.getY(i)), az = Math.abs(nrm.getZ(i));
+    let u, v;
+    if (ay >= ax && ay >= az) { u = x - bb.min.x; v = z - bb.min.z; }
+    else if (ax >= az)        { u = z - bb.min.z; v = y - bb.min.y; }
+    else                      { u = x - bb.min.x; v = y - bb.min.y; }
+    uv[i * 2] = u / scale;
+    uv[i * 2 + 1] = v / scale;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+// Riveted machine plate for the obstacles: brushed streaks, cut panel grooves
+// with a highlight along one side so they read as milled rather than drawn,
+// and four rivets. Greyscale, so the wall's own colour tints it.
+function plateTexture() {
+  const S = 256;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, S, S);
+
+  for (let i = 0; i < 240; i++) {
+    const y = Math.random() * S;
+    g.strokeStyle = 'rgba(30,30,50,' + (0.02 + Math.random() * 0.045) + ')';
+    g.lineWidth = 0.5 + Math.random();
+    g.beginPath(); g.moveTo(0, y); g.lineTo(S, y); g.stroke();
+  }
+
+  g.strokeStyle = 'rgba(255,255,255,0.8)';
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(S / 2 + 3, 0); g.lineTo(S / 2 + 3, S);
+  g.moveTo(0, S / 2 + 3); g.lineTo(S, S / 2 + 3);
+  g.stroke();
+  g.strokeStyle = 'rgba(20,20,40,0.22)';
+  g.lineWidth = 4;
+  g.strokeRect(0, 0, S, S);
+  g.beginPath();
+  g.moveTo(S / 2, 0); g.lineTo(S / 2, S);
+  g.moveTo(0, S / 2); g.lineTo(S, S / 2);
+  g.stroke();
+
+  for (const x of [S * 0.25, S * 0.75]) {
+    for (const y of [S * 0.25, S * 0.75]) {
+      const r = 10;
+      const rg = g.createRadialGradient(x - r * 0.35, y - r * 0.35, 1, x, y, r);
+      rg.addColorStop(0, 'rgba(255,255,255,1)');
+      rg.addColorStop(0.55, 'rgba(226,230,242,1)');
+      rg.addColorStop(1, 'rgba(120,124,145,1)');
+      g.fillStyle = rg;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(20,20,40,0.3)';
+      g.lineWidth = 1.5;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
 }
 
 // ── Tile types ───────────────────────────────────────────────────────────────
@@ -754,11 +868,13 @@ const _hotColor = new THREE.Color(C.traceHot);
 function cellX(c) { return (c - (COLS - 1) / 2) * STEP; }
 function cellZ(r) { return (r - (ROWS - 1) / 2) * STEP; }
 
-const slabMat = mat(C.slab, { roughness: 0.75 });
-const tileMat = mat(0xffffff, { roughness: 0.6 });
-const wallMat = mat(C.wall, { roughness: 0.7 });
-const wallCapMat = mat(C.wallCap, { roughness: 0.6 });
-const legMat = mat(C.leg, { roughness: 0.5, metalness: 0.35 });
+// Slab is glossy enamel white; tiles keep a lower env contribution so the
+// candy-coloured specials don't wash out toward white.
+const slabMat = mat(C.slab, { roughness: 0.13, metalness: 0.14, envMapIntensity: 0.55 });
+const tileMat = mat(0xffffff, { roughness: 0.2, metalness: 0.05, envMapIntensity: 0.25 });
+const wallMat = mat(C.wall, { roughness: 0.42, metalness: 0.18, envMapIntensity: 0.5, map: plateTexture() });
+const wallCapMat = mat(C.wallCap, { roughness: 0.3, metalness: 0.25, envMapIntensity: 0.6 });
+const legMat = mat(C.leg, { roughness: 0.2, metalness: 0.6, envMapIntensity: 0.85 });
 
 function disposeGroup(list) {
   for (const o of list) {
@@ -1004,7 +1120,52 @@ let robotBody = null, robotBulb = null, robotKey = null;
   robotKey.scale.setScalar(0.8);
   robotKey.visible = false;
   robot.add(robotKey);
+
+  // Oversized invisible collider: the robot is only ~30px across on a phone,
+  // which is a mean tap target for a bit of fun.
+  const hit = new THREE.Mesh(
+    new THREE.BoxGeometry(1.05, 1.1, 1.05),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
+  );
+  hit.position.y = 0.42;
+  robot.add(hit);
 })();
+
+const raycaster = new THREE.Raycaster();
+const pointerNdc = new THREE.Vector2();
+let jumping = false;
+
+function jumpRobot() {
+  if (running || jumping) return;
+  jumping = true;
+  sfxJump();
+  const baseYaw = robot.rotation.y;
+  tween(560, (e, p) => {
+    const arc = Math.sin(p * Math.PI);
+    robot.position.y = ROBOT_Y + arc * 0.62;
+    // Crouch off the floor, stretch through the air.
+    const crouch = p < 0.12 ? Math.sin((p / 0.12) * Math.PI) : 0;
+    robot.scale.set(1 + 0.16 * crouch - 0.1 * arc, 1 - 0.22 * crouch + 0.16 * arc,
+                    1 + 0.16 * crouch - 0.1 * arc);
+    robot.rotation.y = baseYaw + p * Math.PI * 2;
+  }, () => {
+    jumping = false;
+    robot.position.y = ROBOT_Y;
+    robot.rotation.y = robotYaw;
+    robot.scale.set(1, 1, 1);
+    landSquash();
+    shake(0.06);
+    const s = toScreen(new THREE.Vector3(robot.position.x, TILE_H, robot.position.z));
+    juiceBurst(s.x, s.y, ['#ffffff', '#cfe0ff'], { count: 9, spread: 46, duration: 380 });
+  }, (p) => p);
+}
+
+document.getElementById('scene').addEventListener('pointerdown', (e) => {
+  pointerNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointerNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointerNdc, camera);
+  if (raycaster.intersectObject(robot, true).length) jumpRobot();
+});
 
 // ── Trail ────────────────────────────────────────────────────────────────────
 
@@ -1052,15 +1213,17 @@ let circuitInfo = [];  // per instance { trace, s }
 let backdrop = null;
 let machineY = -1.4;
 
-const backdropMat = mat(C.board, { roughness: 0.9 });
-const traceMat = mat(0xffffff, { roughness: 0.45, metalness: 0.2 });
+// The machine stays matte and unlit by the env map, so the board reads as the
+// bright thing sitting inside a dimmer mechanism.
+const backdropMat = mat(C.board, { roughness: 0.9, envMap: null });
+const traceMat = mat(0xffffff, { roughness: 0.45, metalness: 0.2, envMap: null });
 const gearMats = [
-  mat(C.gold, { roughness: 0.35, metalness: 0.55 }),
-  mat(C.goldDark, { roughness: 0.4, metalness: 0.5 }),
-  mat(C.steel, { roughness: 0.3, metalness: 0.6 })
+  mat(C.gold, { roughness: 0.35, metalness: 0.55, envMap: null }),
+  mat(C.goldDark, { roughness: 0.4, metalness: 0.5, envMap: null }),
+  mat(C.steel, { roughness: 0.3, metalness: 0.6, envMap: null })
 ];
-const clockMat = mat(C.goldDark, { roughness: 0.35, metalness: 0.5 });
-const handMat = mat(0x3a4066, { roughness: 0.5 });
+const clockMat = mat(C.goldDark, { roughness: 0.35, metalness: 0.5, envMap: null });
+const handMat = mat(0x3a4066, { roughness: 0.5, envMap: null });
 
 function mulberry32(seed) {
   return function() {
@@ -1489,6 +1652,21 @@ function sfxBump() {
   playTone(150, 'sawtooth', 0.12, 0.12, 0.05);
 }
 function sfxKey() { [0,1,2].forEach((i) => playTone(700 + i*150, 'sine', 0.12, 0.12, i*0.08)); }
+
+// A boing needs a frequency ramp, which playTone's fixed pitch can't do.
+function sfxJump() {
+  if (!sfxOn || !AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.connect(g); g.connect(AC.destination);
+  o.type = 'sine';
+  const t = AC.currentTime;
+  o.frequency.setValueAtTime(320, t);
+  o.frequency.exponentialRampToValueAtTime(780, t + 0.13);
+  o.frequency.exponentialRampToValueAtTime(290, t + 0.36);
+  g.gain.setValueAtTime(0.16, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+  o.start(t); o.stop(t + 0.4);
+}
 function sfxWin() { [523, 659, 784, 1047].forEach((n, i) => playTone(n, 'sine', 0.3, 0.2, i*0.15)); }
 
 function startMusic() {
