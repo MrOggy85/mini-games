@@ -64,10 +64,12 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 ## 3D / three.js
 
 Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
-Converted so far: `glide`, `trace`, `guide-the-way`. `games/glide/index.html` is the
-reference implementation; `trace` additionally shows a variable-size board, per-instance
-tile colours and a swept path tube; `guide-the-way` shows a full-viewport animated
-environment behind a board framed into a DOM-defined slot.
+Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`.
+`games/glide/index.html` is the reference implementation; `trace` additionally shows a
+variable-size board, per-instance tile colours and a swept path tube; `guide-the-way`
+shows a full-viewport animated environment behind a board framed into a DOM-defined
+slot; `warehouse-keeper` adds procedural canvas textures, an env-mapped glossy board
+and a fogged landscape.
 
 Each game keeps its own palette — the 3D treatment is a rendering change, not a
 re-theme. `glide`/`trace` stay dark and neon; `guide-the-way` stays bright and
@@ -103,6 +105,16 @@ Conventions for a 3D game:
   Then retighten the canvas aspect to the measured spans. See `fitCamera()` in either game.
 - Camera-aligned `Sprite`s occupy a fixed slab of *screen*, so they contribute a screen-space pad
   to the fit rather than a world-space point.
+- **Gloss needs an environment map.** Direct lights alone give a hard specular dot on a flat
+  diffuse, which doesn't read as shiny. Build a small equirect sky on a canvas, run it through
+  `PMREMGenerator`, and set it as `envMap` on the board materials. Assign it per-material rather
+  than as `scene.environment` when the background is meant to stay dimmer than the board.
+- **Textures need reprojected UVs.** `ExtrudeGeometry` emits UVs in raw shape units, so a map
+  lands arbitrarily. Use the `boxUV(geo, worldUnitsPerTile)` helper (in `guide-the-way` and
+  `warehouse-keeper`) to reproject each face along its dominant normal. All textures are drawn
+  procedurally on a canvas — no external image assets.
+- **Instance the scenery.** `warehouse-keeper`'s hills, trees and cloud puffs were ~200 draw
+  calls as individual meshes; as four `InstancedMesh`es they're four.
 - Budget for iPhone/iPad: `setPixelRatio(Math.min(2, devicePixelRatio))`, one shadow-casting
   `DirectionalLight` at 1024², no postprocessing, `InstancedMesh` for repeated board tiles.
 - Tune light intensities so a fully lit top face lands at roughly the material's own color —
