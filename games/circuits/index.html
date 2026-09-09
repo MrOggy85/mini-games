@@ -742,7 +742,6 @@ scene.add(boardGroup);
 let halfX = 2, halfZ = 2;
 const disposables = [];
 const pieces = new Map();      // "x,y" -> { group, mats, glow, type, hit }
-const pickTargets = [];
 
 const _obj = new THREE.Object3D();
 const _col = new THREE.Color();
@@ -800,7 +799,6 @@ function buildBoard() {
   for (const o of disposables) disposeTree(o);
   disposables.length = 0;
   pieces.clear();
-  pickTargets.length = 0;
 
   const slab = new THREE.Mesh(own(roundedBox(halfX * 2, halfZ * 2, SLAB_H, 0.2, 0.04)), slabMat);
   slab.position.y = -SLAB_H;
@@ -884,15 +882,7 @@ function buildBoard() {
       rec.lamp.position.set(0, 0.4, 0);
       g.add(rec.lamp);
     } else {
-      // Rotatable: give it a fat invisible collider, the piece itself is thin.
-      const hit = new THREE.Mesh(UNIT_BOX, new THREE.MeshBasicMaterial({
-        transparent: true, opacity: 0, depthWrite: false, colorWrite: false
-      }));
-      hit.scale.set(STEP, 1.1, STEP);
-      hit.position.y = 0.4;
-      hit.userData.cell = [x, y];
-      g.add(hit);
-      pickTargets.push(hit);
+      rec.rotatable = true;
     }
     pieces.set(x + ',' + y, rec);
   }
@@ -1386,17 +1376,41 @@ function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
 
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
+const _hit = new THREE.Vector3();
+// Picking is a ray against the plane the pieces lie in, rounded to the nearest
+// cell — NOT a box collider per tile. A box tall enough to be an easy target
+// throws a silhouette up-screen of height/tan(pitch); at 60 degrees a 1.1-tall
+// box covered 0.64 of the cell behind it, so the near tile stole taps meant for
+// the one above it. A flat plane has no silhouette, and rounding to the nearest
+// centre means every point of a cell — gaps included — belongs to exactly one.
+const pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(PIECE_Y + ARM_H / 2));
+
+// Snap to the nearest *rotatable* piece rather than the nearest cell: a tile is
+// only ~39px tall on screen at this tilt on a small phone. Between two adjacent
+// wires the nearest-centre rule still splits them exactly at the midpoint, so
+// this only grows the target into space no other wire is claiming.
+const PICK_RADIUS_SQ = (STEP * 0.78) * (STEP * 0.78);
+
+function pieceAtPointer(clientX, clientY) {
+  pointerNdc.x = (clientX / window.innerWidth) * 2 - 1;
+  pointerNdc.y = -(clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointerNdc, camera);
+  if (!raycaster.ray.intersectPlane(pickPlane, _hit)) return null;
+
+  let best = null, bestD = Infinity;
+  for (const [, rec] of pieces) {
+    if (!rec.rotatable) continue;
+    const dx = _hit.x - cellX(rec.x), dz = _hit.z - cellZ(rec.y);
+    const d = dx * dx + dz * dz;
+    if (d < bestD) { bestD = d; best = rec; }
+  }
+  return best && bestD <= PICK_RADIUS_SQ ? best : null;
+}
 
 canvas.addEventListener('pointerdown', (e) => {
   if (st.locked) return;
-  pointerNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
-  pointerNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointerNdc, camera);
-  const hits = raycaster.intersectObjects(pickTargets, false);
-  if (hits.length) {
-    const [x, y] = hits[0].object.userData.cell;
-    rotateCell(x, y);
-  }
+  const rec = pieceAtPointer(e.clientX, e.clientY);
+  if (rec) rotateCell(rec.x, rec.y);
 });
 
 document.getElementById('btnContinue').addEventListener('click', () => {
