@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/games/vantage/manifest.json">
@@ -12,179 +12,210 @@
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
+html, body { height: 100%; }
+
+/* No page scrolling: the scene is drawn to the viewport and every 3D view is
+   framed into a DOM rect, so a scrolled page would desync the two. */
 body {
-  background: #0d0d1a;
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  min-height: 100vh;
+  background: #08080f;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow: hidden;
+  padding: 58px 12px 16px;
+  color: #e8e8f4;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
   user-select: none;
-  overflow-x: hidden;
 }
 
-.back-link {
-  align-self: flex-start;
-  color: #888;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 14px 16px 0;
-  transition: color 0.15s;
+/* Must be explicit: a canvas is a replaced element, so `inset: 0` with
+   `width: auto` sizes it to its backing store instead of stretching it. */
+#scene {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
 }
-.back-link:hover { color: #4a9eff; }
 
+/* Everything non-interactive must pass pointer events through, and the slots
+   must be transparent — the 3D views render into their rects from behind. */
 #game-wrap {
-  width: 100%;
-  max-width: 460px;
-  padding: 10px 16px 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-}
-
-#header {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.level-label {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: #9a9ab0;
-  text-transform: uppercase;
-}
-
-#target-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  max-width: 480px;
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.section-label {
-  font-size: 11px;
+.back-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  color: #9aa4d0;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #cfd6ff; }
+
+.level-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #8888a0;
+  color: #a8b0e0;
+  background: rgba(20,22,44,0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(150,160,230,0.28);
+  padding: 6px 15px;
+  border-radius: 20px;
 }
 
-#target-wrap {
-  border-radius: 16px;
-  padding: 14px;
-  background: #5e5e8a;
-  border: 1px solid #8a8ac0;
+.section-label, .cands-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #7f88b8;
 }
 
-#target-svg { display: block; width: 220px; height: 200px; }
+/* The 3D target renders into this rect. */
+#target-slot {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 150px;
+}
 
 #hint-row {
-  font-size: 12px;
-  color: #8888a0;
+  font-size: 0.86rem;
+  color: #b9c0e8;
   text-align: center;
-  line-height: 1.5;
-  max-width: 280px;
-}
-
-#candidates-section { width: 100%; }
-
-.cands-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #8888a0;
-  text-align: center;
-  margin-bottom: 12px;
+  line-height: 1.35;
 }
 
 #candidates {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.cand-btn {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Transparent on purpose: its own top-down 3D view is rendered underneath. */
+.cand-btn {
+  position: relative;
+  flex: 1 1 0;
+  max-width: 130px;
+  aspect-ratio: 1;
+  min-width: 72px;
+  min-height: 72px;
+  background: transparent;
+  border: 2px solid rgba(150,160,230,0.3);
   border-radius: 14px;
-  padding: 10px 6px;
-  border: 2px solid #8a8ac0;
-  background: #5e5e8a;
-  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
   touch-action: manipulation;
+  padding: 0;
 }
-
-.cand-btn svg { display: block; width: 100%; height: auto; }
-
-.cand-letter {
-  font-size: 13px;
-  font-weight: 700;
-  color: #8888a0;
-  transition: color 0.15s;
-}
-
+.cand-btn:hover { border-color: rgba(180,190,255,0.6); }
+.cand-btn:active { transform: translateY(3px); }
 .cand-btn.correct {
   border-color: #00D48C;
-  background: rgba(0,212,140,0.12);
+  box-shadow: 0 0 22px rgba(0,212,140,0.55);
 }
-.cand-btn.correct .cand-letter { color: #00D48C; }
-
 .cand-btn.wrong {
   border-color: #FF5722;
-  background: rgba(255,87,34,0.1);
+  box-shadow: 0 0 18px rgba(255,87,34,0.5);
 }
-.cand-btn.wrong .cand-letter { color: #FF5722; }
+.cand-letter {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #cfd6ff;
+  background: #12142a;
+  border: 1px solid rgba(150,160,230,0.35);
+  border-radius: 10px;
+  padding: 2px 9px;
+}
 
 #feedback {
-  min-height: 22px;
-  font-size: 15px;
-  font-weight: 600;
+  min-height: 1.4em;
+  font-size: 0.95rem;
+  font-weight: 800;
   text-align: center;
 }
 
 #complete-overlay {
-  display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.92);
+  z-index: 100;
+  display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  z-index: 20;
-  padding: 20px;
+  gap: 14px;
+  background: rgba(8,8,15,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   text-align: center;
+  padding: 20px;
 }
 #complete-overlay.show { display: flex; }
-#complete-overlay .co-title {
-  font-size: 34px;
-  font-weight: 800;
-  color: #00D48C;
-  text-shadow: 0 0 24px rgba(0,212,140,0.6);
+.co-title {
+  font-size: clamp(1.7rem, 7vw, 2.6rem);
+  font-weight: 900;
+  color: #FFE040;
+  animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
 }
-#complete-overlay .co-sub { font-size: 14px; color: #9a9ab0; max-width: 300px; }
+.co-sub {
+  font-size: 1rem;
+  color: #b9c0e8;
+  animation: popIn 0.45s 0.15s cubic-bezier(0.34,1.56,0.64,1) both;
+}
 #complete-overlay button {
-  background: linear-gradient(135deg, #4a9eff, #0066cc);
-  color: #fff;
+  min-height: 52px;
+  padding: 15px 36px;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   border: none;
   border-radius: 14px;
-  padding: 16px 48px;
-  font-size: 17px;
-  font-weight: 700;
+  background: linear-gradient(180deg, #6d7bf5, #4a56c8);
+  color: #fff;
   cursor: pointer;
-  margin-top: 10px;
-  touch-action: manipulation;
+  box-shadow: 0 5px 0 #333c96, 0 6px 18px rgba(70,80,200,0.45);
+  animation: popIn 0.45s 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
 }
-#complete-overlay button:active { transform: scale(0.97); }
+#complete-overlay button:active { transform: translateY(5px); box-shadow: 0 0 0 rgba(0,0,0,0); }
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
 
 .confetti-p {
   position: fixed;
@@ -194,31 +225,37 @@ body {
   animation: cfall linear forwards;
 }
 @keyframes cfall {
-  to { transform: translateY(110vh) rotate(var(--spin)); opacity: 0; }
+  to { transform: translateY(112vh) rotate(var(--spin)); opacity: 0; }
 }
+
+#load-err {
+  display: none;
+  max-width: 22rem;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #ff9090;
+}
+#load-err.on { display: block; }
 </style>
 </head>
 <body>
 
+<canvas id="scene"></canvas>
+
 <a href="/" class="back-link">&larr; All Games</a>
 
 <div id="game-wrap">
-  <div id="header">
-    <span class="level-label">Level <span id="level-num">1</span> / <span id="level-total">5</span></span>
-  </div>
+  <span class="level-label">Level <span id="level-num">1</span> / <span id="level-total">5</span></span>
 
-  <div id="target-section">
-    <span class="section-label">The pyramid</span>
-    <div id="target-wrap">
-      <svg id="target-svg" viewBox="0 0 220 200"></svg>
-    </div>
-    <div id="hint-row">Seen from directly above, which of these matches?</div>
-  </div>
+  <span class="section-label">The pyramid</span>
+  <div id="target-slot"></div>
+  <p id="load-err">Couldn&rsquo;t load the 3D engine. Reload the page &mdash; if you&rsquo;re offline, open the game once while connected so it can be cached.</p>
+  <div id="hint-row">Seen from directly above, which of these matches?</div>
 
-  <div id="candidates-section">
-    <div class="cands-label">Top-down view</div>
-    <div id="candidates"></div>
-  </div>
+  <span class="cands-label">Top-down view</span>
+  <div id="candidates"></div>
 
   <div id="feedback"></div>
 </div>
@@ -226,11 +263,11 @@ body {
 <div id="complete-overlay">
   <div class="co-title">Complete! &#127881;</div>
   <div class="co-sub">You matched all 5 pyramids correctly.</div>
-  <button onclick="startGame()">Play Again</button>
+  <button id="btnAgain">Play Again</button>
 </div>
 
-<script>
-'use strict';
+<script type="module">
+import * as THREE from '/vendor/three.module.min.js';
 
 // ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ─────────────
 
@@ -291,11 +328,10 @@ function juiceBurst(x, y, colors, opts) {
   }
 }
 
-// ── Colorblind-safe, high-contrast palette (Okabe-Ito inspired) ────────────
-// A pyramid has 4 faces: North (top), East (right), South (bottom), West (left)
-// in the top-down view. The 3D view always looks at the pyramid from the same
-// corner, so it always shows exactly the West (screen-left) and South
-// (screen-right) faces.
+// ── Palette and levels (unchanged — the colour data *is* the puzzle) ─────────
+// A pyramid has 4 faces: North (-z), East (+x), South (+z), West (-x). The
+// target camera sits so exactly the West and South faces are visible, matching
+// the original 2D art; the candidates are the same pyramid from directly above.
 
 const C = {
   white:  '#F5F5F5',
@@ -308,10 +344,6 @@ const C = {
   cyan:   '#4FC3F7'
 };
 
-// Each level's `solution` gives the full N/E/S/W color assignment; the 3D
-// view only ever renders W and S. `decoys` are two hand-crafted wrong
-// alternatives. Positions of [solution, ...decoys] are shuffled at render
-// time — that's the only randomness in the game.
 const LEVELS = [
   {
     solution: { top: C.blue,   right: C.red,    bottom: C.green,  left: C.white },
@@ -350,33 +382,296 @@ const LEVELS = [
   }
 ];
 
-// ── Rendering ────────────────────────────────────────────────────────────────
-
-function pyramidSVG(faces) {
-  // Apex at top; West face on screen-left, South face on screen-right.
-  return (
-    '<polygon points="110,15 25,175 110,175" fill="' + faces.left + '"/>' +
-    '<polygon points="110,15 110,175 195,175" fill="' + faces.bottom + '"/>' +
-    '<ellipse cx="110" cy="180" rx="88" ry="10" fill="rgba(0,0,0,0.35)"/>' +
-    '<polygon points="110,15 25,175 110,175" fill="none" stroke="#0d0d1a" stroke-width="3" stroke-linejoin="round"/>' +
-    '<polygon points="110,15 110,175 195,175" fill="none" stroke="#0d0d1a" stroke-width="3" stroke-linejoin="round"/>' +
-    '<line x1="110" y1="15" x2="110" y2="175" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>'
-  );
+// The target only ever shows its West (`left`) and South (`bottom`) faces, so a
+// decoy matching the solution on both is indistinguishable and the level is
+// unsolvable. Nothing else checks that, and it is invisible in the data — so
+// audit at boot. Silent unless something is wrong.
+function auditLevels() {
+  const problems = [];
+  LEVELS.forEach((lv, i) => {
+    const n = i + 1, sol = lv.solution;
+    const keys = ['top', 'right', 'bottom', 'left'];
+    if (keys.some((k) => !sol[k])) problems.push('level ' + n + ': solution is missing a face');
+    if (lv.decoys.length !== 2) problems.push('level ' + n + ': expected 2 decoys, got ' + lv.decoys.length);
+    lv.decoys.forEach((d, j) => {
+      if (keys.some((k) => !d[k])) problems.push('level ' + n + ' decoy ' + (j + 1) + ': missing a face');
+      if (d.left === sol.left && d.bottom === sol.bottom) {
+        problems.push('level ' + n + ' decoy ' + (j + 1) +
+          ': matches the solution on both visible faces — AMBIGUOUS, no way to tell them apart');
+      }
+      if (keys.every((k) => d[k] === sol[k])) {
+        problems.push('level ' + n + ' decoy ' + (j + 1) + ': identical to the solution');
+      }
+    });
+    if (lv.decoys.length === 2 && keys.every((k) => lv.decoys[0][k] === lv.decoys[1][k])) {
+      problems.push('level ' + n + ': the two decoys are identical to each other');
+    }
+  });
+  if (problems.length) console.error('[vantage] level audit failed:\n  ' + problems.join('\n  '));
 }
 
-function topDownSVG(faces) {
-  return (
-    '<polygon points="5,5 95,5 50,50" fill="' + faces.top + '"/>' +
-    '<polygon points="95,5 95,95 50,50" fill="' + faces.right + '"/>' +
-    '<polygon points="95,95 5,95 50,50" fill="' + faces.bottom + '"/>' +
-    '<polygon points="5,95 5,5 50,50" fill="' + faces.left + '"/>' +
-    '<rect x="5" y="5" width="90" height="90" fill="none" stroke="#0d0d1a" stroke-width="3"/>' +
-    '<line x1="5" y1="5" x2="95" y2="95" stroke="#0d0d1a" stroke-width="3"/>' +
-    '<line x1="95" y1="5" x2="5" y2="95" stroke="#0d0d1a" stroke-width="3"/>'
-  );
+// ── Geometry ─────────────────────────────────────────────────────────────────
+
+const S = 1;            // base half-width
+const H = 1.25;         // apex height
+const PLATE = 1.08;     // base plate half-width
+const EDGE = 0.045;     // edge cage thickness
+
+// Camera vantage, in degrees. Polar is measured from straight up, so 0 is
+// directly overhead and 90 is at the horizon.
+const POLAR_VIEW = 68;
+const AZIM_VIEW = 135;  // puts West on screen-left and South on screen-right
+const POLAR_TOP = 0;
+const AZIM_TOP = 90;    // at polar 0 this puts North at the top of the frame
+const SWAY = 8;         // idle oscillation; verified not to reveal a third face
+
+const APEX = new THREE.Vector3(0, H, 0);
+const CORNER = {
+  NW: new THREE.Vector3(-S, 0, -S),
+  NE: new THREE.Vector3(S, 0, -S),
+  SE: new THREE.Vector3(S, 0, S),
+  SW: new THREE.Vector3(-S, 0, S)
+};
+// Winding is apex -> B -> A so the normal points outward; reversed and the
+// faces light from the inside.
+const FACE = {
+  top:    ['NE', 'NW'],   // North
+  right:  ['SE', 'NE'],   // East
+  bottom: ['SW', 'SE'],   // South
+  left:   ['NW', 'SW']    // West
+};
+
+function faceGeometry(a, b) {
+  const g = new THREE.BufferGeometry();
+  const A = CORNER[a], B = CORNER[b];
+  g.setAttribute('position', new THREE.Float32BufferAttribute(
+    [APEX.x, APEX.y, APEX.z, A.x, A.y, A.z, B.x, B.y, B.z], 3));
+  g.computeVertexNormals();
+  return g;
 }
 
-// ── Game state ──────────────────────────────────────────────────────────────
+// ── Renderer / scene ─────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.autoClear = false;   // regions are composited by hand
+
+const bgScene = new THREE.Scene();
+bgScene.background = new THREE.Color(0x08080f);
+bgScene.fog = new THREE.Fog(0x08080f, 12, 46);
+const drifters = [];   // declared here: buildBackdrop() below fills it
+
+const pyrScene = new THREE.Scene();
+
+// All four side faces share the same |normal.y|, so a light straight overhead
+// shades them identically. That is the whole reason for this rig: the game is
+// colour matching, and per-face shading would make two identical colours look
+// different between the target and a candidate.
+pyrScene.add(new THREE.AmbientLight(0xffffff, 0.62));
+const flat = new THREE.DirectionalLight(0xffffff, 0.6);
+flat.position.set(0, 1, 0);
+pyrScene.add(flat);
+
+// ── The pyramid (one instance, recoloured per view) ──────────────────────────
+
+const pyramid = new THREE.Group();
+pyrScene.add(pyramid);
+
+const faceMats = {};
+for (const key of Object.keys(FACE)) {
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  faceMats[key] = mat;
+  pyramid.add(new THREE.Mesh(faceGeometry(...FACE[key]), mat));
+}
+
+const darkMat = new THREE.MeshBasicMaterial({ color: 0x0b0b16 });
+const plateMat = new THREE.MeshLambertMaterial({ color: 0x2a2c46 });
+
+const plate = new THREE.Mesh(new THREE.BoxGeometry(PLATE * 2, 0.07, PLATE * 2), plateMat);
+plate.position.y = -0.035;
+pyramid.add(plate);
+
+// Edge cage: thin dark bars along all eight edges. A LineSegments outline is
+// locked to 1px on WebGL, which disappears at this scale.
+const UNIT = new THREE.BoxGeometry(1, 1, 1);
+const _q = new THREE.Quaternion();
+const _fwd = new THREE.Vector3(0, 0, 1);
+
+function addBar(a, b) {
+  const seg = new THREE.Vector3().subVectors(b, a);
+  const bar = new THREE.Mesh(UNIT, darkMat);
+  bar.position.copy(a).addScaledVector(seg, 0.5);
+  bar.quaternion.copy(_q.setFromUnitVectors(_fwd, seg.clone().normalize()));
+  bar.scale.set(EDGE, EDGE, seg.length());
+  pyramid.add(bar);
+}
+const RING = ['NW', 'NE', 'SE', 'SW'];
+RING.forEach((k, i) => {
+  addBar(CORNER[k], CORNER[RING[(i + 1) % 4]]);
+  addBar(CORNER[k], APEX);
+});
+
+// Soft contact shadow, faked. A real shadow map from a straight-down light
+// would land exactly under the pyramid and be invisible anyway.
+const shadowTex = (() => {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  const rg = g.createRadialGradient(64, 64, 2, 64, 64, 62);
+  rg.addColorStop(0, 'rgba(0,0,0,0.55)');
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = rg;
+  g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const contact = new THREE.Mesh(
+  new THREE.PlaneGeometry(4.4, 4.4),
+  new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })
+);
+contact.rotation.x = -Math.PI / 2;
+contact.position.y = -0.08;
+pyramid.add(contact);
+
+function setFaces(faces) {
+  faceMats.top.color.set(faces.top);
+  faceMats.right.color.set(faces.right);
+  faceMats.bottom.color.set(faces.bottom);
+  faceMats.left.color.set(faces.left);
+}
+
+// Bounding radius about the pyramid's centre, for framing.
+const FOCUS = new THREE.Vector3(0, 0.5, 0);
+const RADIUS = Math.max(
+  FOCUS.distanceTo(APEX),
+  ...Object.values(CORNER).map((c) => FOCUS.distanceTo(c)),
+  Math.hypot(PLATE, 0.5, PLATE)
+);
+
+// ── Background: a dark studio the pyramid sits in ────────────────────────────
+
+const bgCam = new THREE.PerspectiveCamera(38, 1, 0.5, 90);
+bgCam.position.set(-4.4, 3.4, 6.2);
+bgCam.lookAt(0, 0.2, 0);
+
+(function buildBackdrop() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#0a0a14';
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(120,132,220,0.30)';
+  g.lineWidth = 2;
+  g.strokeRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(120,132,220,0.10)';
+  g.lineWidth = 1;
+  for (let i = 32; i < 256; i += 32) {
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.stroke();
+    g.beginPath(); g.moveTo(0, i); g.lineTo(256, i); g.stroke();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.repeat.set(20, 20);
+  tex.anisotropy = 4;
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120),
+    new THREE.MeshBasicMaterial({ map: tex, fog: true }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -2.6;
+  bgScene.add(floor);
+
+  // Pool of light under where the pyramid appears to stand.
+  const pool = document.createElement('canvas');
+  pool.width = pool.height = 128;
+  const pg = pool.getContext('2d');
+  const rg = pg.createRadialGradient(64, 64, 2, 64, 64, 62);
+  rg.addColorStop(0, 'rgba(120,140,255,0.30)');
+  rg.addColorStop(0.5, 'rgba(90,105,220,0.10)');
+  rg.addColorStop(1, 'rgba(0,0,0,0)');
+  pg.fillStyle = rg;
+  pg.fillRect(0, 0, 128, 128);
+  const poolTex = new THREE.CanvasTexture(pool);
+  poolTex.colorSpace = THREE.SRGBColorSpace;
+  const spot = new THREE.Mesh(new THREE.PlaneGeometry(20, 20),
+    new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  spot.rotation.x = -Math.PI / 2;
+  spot.position.y = -2.58;
+  bgScene.add(spot);
+
+  // Drifting wireframe solids, kept dim so they never compete with the faces.
+  const wire = new THREE.LineBasicMaterial({ color: 0x4a54a8, transparent: true, opacity: 0.5, fog: true });
+  const shapes = [
+    new THREE.OctahedronGeometry(1),
+    new THREE.TetrahedronGeometry(1),
+    new THREE.BoxGeometry(1.2, 1.2, 1.2)
+  ];
+  let seed = 7;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 14; i++) {
+    const m = new THREE.LineSegments(
+      new THREE.EdgesGeometry(shapes[i % shapes.length]), wire);
+    const a = rnd() * Math.PI * 2, r = 9 + rnd() * 16;
+    m.position.set(Math.cos(a) * r, -1.6 + rnd() * 7, Math.sin(a) * r - 4);
+    const sc = 0.5 + rnd() * 1.5;
+    m.scale.setScalar(sc);
+    m.userData.spin = (rnd() - 0.5) * 0.3;
+    m.userData.bob = rnd() * Math.PI * 2;
+    drifters.push(m);
+    bgScene.add(m);
+  }
+})();
+
+// ── Cameras for the framed views ─────────────────────────────────────────────
+
+const targetCam = new THREE.PerspectiveCamera(30, 1, 0.5, 60);
+const candCams = [0, 1, 2].map(() => new THREE.OrthographicCamera(-2, 2, 2, -2, 0.1, 60));
+
+// Place a camera from spherical coords. `up` is derived analytically rather
+// than left to lookAt, which degenerates when the camera passes over the pole
+// during the reveal.
+function placeSpherical(cam, polarDeg, azimDeg, dist) {
+  const p = THREE.MathUtils.degToRad(polarDeg), a = THREE.MathUtils.degToRad(azimDeg);
+  const sp = Math.sin(p), cp = Math.cos(p);
+  cam.position.set(sp * Math.cos(a), cp, sp * Math.sin(a)).multiplyScalar(dist).add(FOCUS);
+  cam.up.set(-cp * Math.cos(a), sp, -cp * Math.sin(a));
+  if (cam.up.lengthSq() < 1e-8) cam.up.set(0, 0, -1);
+  cam.up.normalize();
+  cam.lookAt(FOCUS);
+  cam.updateMatrixWorld(true);
+}
+
+function frameOrtho(cam, half, aspect) {
+  if (aspect >= 1) {
+    cam.top = half; cam.bottom = -half;
+    cam.left = -half * aspect; cam.right = half * aspect;
+  } else {
+    cam.left = -half; cam.right = half;
+    cam.top = half / aspect; cam.bottom = -half / aspect;
+  }
+  cam.updateProjectionMatrix();
+}
+
+// Distance that fits the bounding sphere in the narrower of the two fovs.
+function fitDistance(cam, aspect) {
+  const fovY = THREE.MathUtils.degToRad(cam.fov);
+  const fovX = 2 * Math.atan(Math.tan(fovY / 2) * aspect);
+  return RADIUS / Math.sin(Math.min(fovX, fovY) / 2) * 1.04;
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let level = 1, puzzle = null, locked = false;
+const LEVEL_COUNT = LEVELS.length;
+
+// Reveal: swings the target camera from the oblique vantage to directly
+// overhead, so the pyramid turns into the top-down diagram just picked.
+let reveal = null;
+
+const feedbackEl = document.getElementById('feedback');
+const candWrap = document.getElementById('candidates');
+let candBtns = [];
 
 function shuffle(a) {
   a = [...a];
@@ -386,9 +681,6 @@ function shuffle(a) {
   }
   return a;
 }
-
-let level = 1, puzzle = null, locked = false;
-const LEVEL_COUNT = LEVELS.length;
 
 function startGame() {
   level = 1;
@@ -404,42 +696,33 @@ function nextPuzzle() {
     { faces: data.decoys[0], correct: false },
     { faces: data.decoys[1], correct: false }
   ]);
-  puzzle = { solution: data.solution, alts, correctIdx: alts.findIndex(a => a.correct) };
+  puzzle = { solution: data.solution, alts, correctIdx: alts.findIndex((a) => a.correct) };
   locked = false;
+  reveal = null;
   document.getElementById('level-num').textContent = level;
-  renderPuzzle();
+  buildCandidates();
   setFeedback('', '');
 }
 
-function renderPuzzle() {
-  document.getElementById('target-svg').innerHTML = pyramidSVG(puzzle.solution);
-
-  const container = document.getElementById('candidates');
-  container.innerHTML = '';
-
-  puzzle.alts.forEach((alt, i) => {
-    const btn = document.createElement('div');
+function buildCandidates() {
+  candWrap.innerHTML = '';
+  candBtns = puzzle.alts.map((alt, i) => {
+    const btn = document.createElement('button');
     btn.className = 'cand-btn';
-
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 100 100');
-    svg.innerHTML = topDownSVG(alt.faces);
-
-    const lbl = document.createElement('div');
+    btn.setAttribute('aria-label', 'Option ' + String.fromCharCode(65 + i));
+    const lbl = document.createElement('span');
     lbl.className = 'cand-letter';
     lbl.textContent = String.fromCharCode(65 + i);
-
-    btn.appendChild(svg);
     btn.appendChild(lbl);
     btn.addEventListener('click', () => pick(i, btn));
-    container.appendChild(btn);
+    candWrap.appendChild(btn);
+    return btn;
   });
 }
 
 function setFeedback(msg, color) {
-  const el = document.getElementById('feedback');
-  el.textContent = msg;
-  el.style.color = color;
+  feedbackEl.textContent = msg;
+  feedbackEl.style.color = color;
 }
 
 function pick(idx, btn) {
@@ -448,20 +731,16 @@ function pick(idx, btn) {
   if (idx === puzzle.correctIdx) {
     locked = true;
     btn.classList.add('correct');
-    setFeedback('Correct! ✓', '#00D48C');
+    setFeedback('Correct — watch it from above', '#00D48C');
     juiceSquash(btn);
     const rect = btn.getBoundingClientRect();
     juiceBurst(rect.left + rect.width / 2, rect.top + rect.height / 2,
       [puzzle.solution.top, puzzle.solution.right, puzzle.solution.bottom, puzzle.solution.left]);
-
+    reveal = { t0: performance.now(), dur: 1250 };
     setTimeout(() => {
-      if (level >= LEVEL_COUNT) {
-        showComplete();
-      } else {
-        level++;
-        nextPuzzle();
-      }
-    }, 900);
+      if (level >= LEVEL_COUNT) showComplete();
+      else { level++; nextPuzzle(); }
+    }, 2050);
   } else {
     btn.classList.add('wrong');
     juiceShake(btn);
@@ -475,8 +754,6 @@ function showComplete() {
   spawnConfetti();
 }
 
-// ── Confetti ─────────────────────────────────────────────────────────────────
-
 const CC = [C.orange, C.cyan, C.green, C.yellow, C.blue, C.red, C.purple, C.white];
 
 function spawnConfetti() {
@@ -488,25 +765,119 @@ function spawnConfetti() {
       const h = Math.random() < 0.5 ? w : w * (1.3 + Math.random() * 0.9);
       const dur = 1.5 + Math.random() * 1.8;
       el.style.cssText =
-        `left:${Math.random()*100}vw;` +
-        `width:${w}px;height:${h}px;` +
-        `border-radius:${Math.random()<0.5?'50%':'2px'};` +
-        `background:${CC[Math.floor(Math.random()*CC.length)]};` +
-        `--spin:${Math.random()*760-380}deg;` +
-        `animation-duration:${dur}s;`;
+        `left:${Math.random() * 100}vw;width:${w}px;height:${h}px;` +
+        `border-radius:${Math.random() < 0.5 ? '50%' : '2px'};` +
+        `background:${CC[Math.floor(Math.random() * CC.length)]};` +
+        `--spin:${Math.random() * 760 - 380}deg;animation-duration:${dur}s;`;
       document.body.appendChild(el);
-      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, (dur+0.4)*1000);
+      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + 0.4) * 1000);
     }, i * 16);
   }
 }
 
-// ── PWA ────────────────────────────────────────────────────────────────────
+document.getElementById('btnAgain').addEventListener('click', startGame);
+
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  let dpr = Math.min(2, window.devicePixelRatio || 1);
+  const budget = 4.2e6;
+  if (w * h * dpr * dpr > budget) dpr = Math.sqrt(budget / (w * h));
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(w, h, false);
+  bgCam.aspect = w / h;
+  bgCam.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+
+// DOM rects are top-left origin; GL viewports are bottom-left.
+function useRegion(rect) {
+  const y = window.innerHeight - rect.bottom;
+  renderer.setViewport(rect.left, y, rect.width, rect.height);
+  renderer.setScissor(rect.left, y, rect.width, rect.height);
+}
+
+// ── Render loop ──────────────────────────────────────────────────────────────
+
+const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const targetSlot = document.getElementById('target-slot');
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const t = now / 1000;
+
+  for (const d of drifters) {
+    d.rotation.y += d.userData.spin * 0.006;
+    d.rotation.x += d.userData.spin * 0.004;
+    d.position.y += Math.sin(t * 0.5 + d.userData.bob) * 0.0016;
+  }
+
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+  renderer.clear();
+  renderer.render(bgScene, bgCam);
+  renderer.setScissorTest(true);
+
+  // Target view.
+  const tRect = targetSlot.getBoundingClientRect();
+  if (tRect.width > 4 && tRect.height > 4 && puzzle) {
+    let polar = POLAR_VIEW, azim = AZIM_VIEW + Math.sin(t * 0.55) * SWAY;
+    if (reveal) {
+      const p = Math.min(1, (now - reveal.t0) / reveal.dur);
+      const e = easeInOut(p);
+      polar = POLAR_VIEW + (POLAR_TOP - POLAR_VIEW) * e;
+      azim = azim + (AZIM_TOP - azim) * e;
+    }
+    const aspect = tRect.width / tRect.height;
+    targetCam.aspect = aspect;
+    targetCam.updateProjectionMatrix();
+    placeSpherical(targetCam, polar, azim, fitDistance(targetCam, aspect));
+    useRegion(tRect);
+    renderer.clearDepth();
+    setFaces(puzzle.solution);
+    renderer.render(pyrScene, targetCam);
+  }
+
+  // Candidate views, each straight down onto its own colouring.
+  if (puzzle) {
+    for (let i = 0; i < candBtns.length; i++) {
+      const r = candBtns[i].getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) continue;
+      const cam = candCams[i];
+      frameOrtho(cam, PLATE * Math.SQRT2 * 1.06, r.width / r.height);
+      placeSpherical(cam, POLAR_TOP, AZIM_TOP, 12);
+      useRegion(r);
+      renderer.clearDepth();
+      setFaces(puzzle.alts[i].faces);
+      renderer.render(pyrScene, cam);
+    }
+  }
+
+  renderer.setScissorTest(false);
+}
+
+// ── PWA / boot ───────────────────────────────────────────────────────────────
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
-
+resize();
 startGame();
+requestAnimationFrame(frame);
+window.__vantageReady = true;
+setTimeout(auditLevels, 0);
+</script>
+<script>
+// The views are drawn entirely by the module script above; if the engine fails
+// to load the page would otherwise just sit blank.
+setTimeout(function () {
+  if (!window.__vantageReady) {
+    document.getElementById('scene').style.display = 'none';
+    document.getElementById('target-slot').style.display = 'none';
+    document.getElementById('load-err').classList.add('on');
+  }
+}, 6000);
 </script>
 </body>
 </html>

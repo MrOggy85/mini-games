@@ -64,13 +64,14 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 ## 3D / three.js
 
 Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
-Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`.
+Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`, `vantage`.
 `games/glide/index.html` is the reference implementation; `trace` additionally shows a
 variable-size board, per-instance tile colours and a swept path tube; `guide-the-way`
 shows a full-viewport animated environment behind a board framed into a DOM-defined
 slot; `warehouse-keeper` adds procedural canvas textures, an env-mapped glossy board
 and a fogged landscape; `circuits` adds instanced beads and lightning bolts driven off
-a BFS over the puzzle graph.
+a BFS over the puzzle graph; `vantage` renders four separate camera views into
+DOM-defined rects on one canvas via scissored viewports.
 
 Each game keeps its own palette — the 3D treatment is a rendering change, not a
 re-theme. `glide`/`trace` stay dark and neon; `guide-the-way` stays bright and
