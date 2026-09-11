@@ -64,14 +64,16 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 ## 3D / three.js
 
 Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
-Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`, `vantage`.
+Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`, `vantage`,
+`circuits`, and the portal page (`/index.html`).
 `games/glide/index.html` is the reference implementation; `trace` additionally shows a
 variable-size board, per-instance tile colours and a swept path tube; `guide-the-way`
 shows a full-viewport animated environment behind a board framed into a DOM-defined
 slot; `warehouse-keeper` adds procedural canvas textures, an env-mapped glossy board
 and a fogged landscape; `circuits` adds instanced beads and lightning bolts driven off
 a BFS over the puzzle graph; `vantage` renders four separate camera views into
-DOM-defined rects on one canvas via scissored viewports.
+DOM-defined rects on one canvas via scissored viewports; the portal uses a
+pixel-mapped camera to line glossy tile slabs up with the DOM grid that defines them.
 
 Each game keeps its own palette — the 3D treatment is a rendering change, not a
 re-theme. `glide`/`trace` stay dark and neon; `guide-the-way` stays bright and
@@ -135,6 +137,40 @@ Conventions for a 3D game:
 ## Portal Page
 
 The root `index.html` is the portal/index that links to all games. When a new game is added, its link must be added here.
+
+It is also a three.js page: each card is a glossy extruded slab with a hand-built 3D
+icon that idles on its own loop. Two patterns are specific to it, and both are worth
+knowing before editing it:
+
+- **The camera is pixel-mapped, so `fitCamera()` is deliberately absent.** The camera
+  sits at `dist = (innerHeight / 2) / tan(fov / 2)` looking down -Z, which makes
+  **1 world unit = 1 CSS pixel on the z = 0 plane** (world `x = pageX`,
+  `y = -pageY`). A slab built at a DOM rect's size with its front face on `z = 0`
+  therefore lines up with that rect exactly, with nothing to iterate. The
+  measure-don't-predict rule above is about fitting a board into a slot; this is an
+  analytic identity. Consequences: world-unit quantities are in pixels, so
+  `shadow.normalBias` is ~1 (not 0.02); icons are authored in a 1x1 unit square and
+  scaled to the measured art box; and anything standing proud of a slab must keep
+  `z > 0` or it sinks into its own tile.
+- **The grid is sized to the viewport and the page does not scroll.** The canvas is
+  `position: fixed`, so a scrolled page would drift the DOM labels away from the
+  tiles behind them on an iOS momentum flick — the same reason `guide-the-way` sets
+  `overflow: hidden`. `layout()` picks the column count by scoring every count from
+  2 to 6 against the art square it would yield. This is tuned for ~11-12 games: a
+  13th shrinks every tile, and past ~16 the grid needs pagination instead of
+  more rows.
+
+- **The tile rim carries the contrast, not the face.** The portal is the one bright
+  page here, which inverts the failure mode in **Color & Contrast** above: a pale
+  face on a warm page is only ~1.4:1, so flat colour cannot delineate a tile. Each
+  slab is therefore built with two materials — `ExtrudeGeometry` emits group 0 for
+  the front/back caps and group 1 for the bevel and side walls — and the rim colour
+  is held at >= 3:1 against the backdrop gradient's darkest stop. Changing a face
+  colour, a rim colour or the backdrop means re-checking all three together.
+
+The 11 inline card SVGs are kept as the no-WebGL fallback. Today's flat card styling
+is the CSS default; the module adds a `webgl` class to `<html>` once it has rendered,
+which strips the card background and hides the SVGs.
 
 ## Juice Toolkit
 
