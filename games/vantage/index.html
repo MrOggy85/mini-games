@@ -262,7 +262,7 @@ body {
 
 <div id="complete-overlay">
   <div class="co-title">Complete! &#127881;</div>
-  <div class="co-sub">You matched all 5 pyramids correctly.</div>
+  <div class="co-sub">You matched every pyramid correctly.</div>
   <button id="btnAgain">Play Again</button>
 </div>
 
@@ -378,6 +378,61 @@ const LEVELS = [
     decoys: [
       { top: C.yellow, right: C.white,  bottom: C.blue,   left: C.green },
       { top: C.blue,   right: C.green,  bottom: C.white,  left: C.yellow }
+    ]
+  },
+  // From here the decoys are permutations of the solution's *own* four colours,
+  // so all three diagrams share a palette and only position tells them apart.
+  // 6-7: one decoy is the left/right mirror, so one visible face settles it.
+  {
+    solution: { top: C.purple, right: C.green,  bottom: C.red,    left: C.blue },
+    decoys: [
+      { top: C.purple, right: C.blue,   bottom: C.red,    left: C.green },
+      { top: C.blue,   right: C.purple, bottom: C.green,  left: C.red }
+    ]
+  },
+  {
+    solution: { top: C.orange, right: C.white,  bottom: C.green,  left: C.yellow },
+    decoys: [
+      { top: C.orange, right: C.yellow, bottom: C.green,  left: C.white },
+      { top: C.yellow, right: C.orange, bottom: C.white,  left: C.green }
+    ]
+  },
+  // 8-12: mirror pair. One decoy matches the solution's West face and one
+  // matches its South, so neither visible face alone is enough — you have to
+  // read both.
+  {
+    solution: { top: C.green,  right: C.orange, bottom: C.cyan,   left: C.yellow },
+    decoys: [
+      { top: C.green,  right: C.yellow, bottom: C.cyan,   left: C.orange },
+      { top: C.cyan,   right: C.orange, bottom: C.green,  left: C.yellow }
+    ]
+  },
+  {
+    solution: { top: C.cyan,   right: C.purple, bottom: C.blue,   left: C.yellow },
+    decoys: [
+      { top: C.cyan,   right: C.yellow, bottom: C.blue,   left: C.purple },
+      { top: C.blue,   right: C.purple, bottom: C.cyan,   left: C.yellow }
+    ]
+  },
+  {
+    solution: { top: C.orange, right: C.white,  bottom: C.red,    left: C.blue },
+    decoys: [
+      { top: C.orange, right: C.blue,   bottom: C.red,    left: C.white },
+      { top: C.red,    right: C.white,  bottom: C.orange, left: C.blue }
+    ]
+  },
+  {
+    solution: { top: C.blue,   right: C.yellow, bottom: C.orange, left: C.green },
+    decoys: [
+      { top: C.blue,   right: C.green,  bottom: C.orange, left: C.yellow },
+      { top: C.orange, right: C.yellow, bottom: C.blue,   left: C.green }
+    ]
+  },
+  {
+    solution: { top: C.purple, right: C.blue,   bottom: C.yellow, left: C.white },
+    decoys: [
+      { top: C.purple, right: C.white,  bottom: C.yellow, left: C.blue },
+      { top: C.yellow, right: C.blue,   bottom: C.purple, left: C.white }
     ]
   }
 ];

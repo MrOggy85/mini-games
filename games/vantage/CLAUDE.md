@@ -64,3 +64,22 @@ the `innerHeight - rect.bottom` flip in `useRegion`.
 This is why the candidate buttons must stay `background: transparent` — their 3D
 content is rendered *behind* them. They keep the border, the letter label and
 the hit target.
+
+## Difficulty grading
+
+What the puzzle actually asks depends on which of the two visible faces you have
+to consult, which `auditLevels()` does not judge:
+
+| Grade | Meaning |
+|---|---|
+| 0 | either visible face alone identifies the solution |
+| 1 | one specific face does it; the other is ambiguous |
+| 2 | neither alone is enough — both must be read |
+
+Grade 2 comes from a **mirror pair**: one decoy is the solution's left/right
+mirror (matches `bottom`, differs in `left`), the other is its top/bottom mirror
+(matches `left`, differs in `bottom`). Build both from the solution's own four
+colours and all three diagrams share a palette, so only position separates them.
+That requires the solution's four colours to be distinct.
+
+Current spread over 12 levels: four grade 0, three grade 1, five grade 2.
