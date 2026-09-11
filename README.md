@@ -1,3 +1,3 @@
 # Mini Games
 
-<img width="834" height="839" alt="image" src="https://github.com/user-attachments/assets/385971db-bc14-4469-85a9-54e290f188a1" />
+<img width="1208" height="1080" alt="mini-games-portal" src="https://github.com/user-attachments/assets/90843e47-8026-4a47-8c9f-40b3b763e26e" />
