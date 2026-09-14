@@ -446,6 +446,29 @@ html.webgl .games a:focus-visible {
       <span class="card-name">Flag Quiz</span>
     </a>
 
+    <a href="https://sweden.mroggy85.deno.net/" data-game="sweden">
+      <div class="card-art">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Sweden: a Dala horse in front of a small Swedish flag -->
+          <!-- Flag. Cross is 5:2:9 across and 4:2:4 down, so it sits off-centre. -->
+          <rect x="3" y="3.9" width="23.5" height="15.1" rx="1.8" fill="#005293"/>
+          <rect x="10.4" y="3.9" width="2.9" height="15.1" fill="#fecc02"/>
+          <rect x="3" y="9.9" width="23.5" height="3" fill="#fecc02"/>
+          <!-- Horse. Same outline as iconSweden(), mapped x*84+40 / 45.88-y*84. -->
+          <path d="M73.6,22.4 Q73.6,10.6 66,8.9 L63.5,2.2 L57.6,10.6 Q48.4,13.1 41.7,24.9
+                   Q29.1,23.6 16.5,26.1 Q6.4,27.8 4.7,44.2 L12.3,40.8 L14.8,77.8 L27.4,77.8
+                   L29.1,53.4 Q38.3,58.5 45.9,56 L45.9,77.8 L58.5,77.8 L59.3,44.2
+                   Q62.7,35 61.8,25.7 Q67.7,26.1 73.6,22.4 Z" fill="#c4392b"/>
+          <!-- Kurbits painting: harness stroke and rump rosette -->
+          <path d="M41.7,29.1 Q49.2,36.6 46.7,47.6" fill="none" stroke="#fecc02" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="24.9" cy="35" r="4.6" fill="#fecc02"/>
+          <circle cx="24.9" cy="35" r="2" fill="#005293"/>
+          <circle cx="64.4" cy="16.5" r="2.2" fill="#2b1a14"/>
+        </svg>
+      </div>
+      <span class="card-name">Sweden</span>
+    </a>
+
   </div>
 </div>
 
@@ -477,6 +500,9 @@ const GAMES = {
   'warehouse-keeper': { face: 0xfff3e0, rim: 0x8a4f0e, burst: ['#c17817', '#8a4f0e', '#4a90e2'] },
   'circuits':         { face: 0x12142b, rim: 0x080a18, burst: ['#ffd93d', '#ffe27a', '#c7cbe8'] },
   'flag-quiz':        { face: 0x12142b, rim: 0x080a18, burst: ['#ff6b6b', '#ffb3b3', '#e8eaff'] },
+  // Off-site (Deno Deploy), so nothing here is in sw.js and the tile dead-ends
+  // offline. It is otherwise an ordinary anchor and needs no special casing.
+  'sweden':           { face: 0xeef4ff, rim: 0x005293, burst: ['#005293', '#fecc02', '#ffffff'] },
 };
 
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -707,7 +733,7 @@ scene.add(fillLight, fillLight.target);
 // origin, growing forward from z = 0, and is scaled to the measured art box at
 // layout time — so an icon is resolution independent. Each returns an
 // `update(t)` driving its own idle loop; `t` is seconds, offset per tile so the
-// eleven idles never march in step.
+// tiles' idles never march in step.
 // ---------------------------------------------------------------------------
 function iconMemory() {
   const g = new THREE.Group();
@@ -1255,6 +1281,109 @@ function iconFlagQuiz() {
   };
 }
 
+function iconSweden() {
+  const g = new THREE.Group();
+  // A Dala horse, not another flag: flag-quiz already owns the pole-and-banner
+  // silhouette. The flag chip is only here to disambiguate "horse" into
+  // "Sweden", so it stays small and parks in the one corner the horse leaves free.
+  const red = mat(0xc4392b, { roughness: 0.38 });
+  const gold = mat(0xfecc02, { roughness: 0.3 });
+  const blue = mat(0x005293, { roughness: 0.3 });
+  const ink = mat(0x2b1a14, { roughness: 0.5 });
+
+  const flag = new THREE.Group();
+  flag.position.set(-0.30, 0.34, 0.1);
+  g.add(flag);
+  const FW = 0.28, FH = 0.18;
+  const field = new THREE.Mesh(chipGeo(FW, FH, 0.05, 0.022, 0.008), blue);
+  field.castShadow = true;
+  flag.add(field);
+  // The cross is 5:2:9 across, so the vertical bar sits 1/8 of the width toward
+  // the hoist; 4:2:4 down leaves the horizontal bar centred.
+  const barV = new THREE.Mesh(chipGeo(FW * 2 / 16, FH, 0.012, 0.004, 0.003), gold);
+  barV.position.set(-FW / 8, 0, 0.05);
+  flag.add(barV);
+  const barH = new THREE.Mesh(chipGeo(FW, FH * 2 / 10, 0.012, 0.004, 0.003), gold);
+  barH.position.set(0, 0, 0.05);
+  flag.add(barH);
+
+  // Silhouette, nose-first and clockwise, hooves on y = -0.38. The back is kept
+  // almost flat (the control point sits barely above the withers): arch it more
+  // and the concave withers corner opens into a visible notch at tile size.
+  const shape = new THREE.Shape();
+  shape.moveTo(0.40, 0.28);
+  shape.quadraticCurveTo(0.40, 0.42, 0.31, 0.44);      // muzzle up to the forehead
+  shape.lineTo(0.28, 0.52);                            // ear
+  shape.lineTo(0.21, 0.42);
+  shape.quadraticCurveTo(0.10, 0.39, 0.02, 0.25);      // crest of the neck
+  shape.quadraticCurveTo(-0.13, 0.265, -0.28, 0.235);  // back
+  shape.quadraticCurveTo(-0.40, 0.215, -0.42, 0.02);   // rump into the tail
+  shape.lineTo(-0.33, 0.06);
+  shape.lineTo(-0.30, -0.38);                          // hind leg
+  shape.lineTo(-0.15, -0.38);
+  shape.lineTo(-0.13, -0.09);
+  shape.quadraticCurveTo(-0.02, -0.15, 0.07, -0.12);   // belly
+  shape.lineTo(0.07, -0.38);                           // front leg
+  shape.lineTo(0.22, -0.38);
+  shape.lineTo(0.23, 0.02);
+  shape.quadraticCurveTo(0.27, 0.13, 0.26, 0.24);      // chest into the throat
+  shape.quadraticCurveTo(0.33, 0.235, 0.40, 0.28);     // jaw back out to the nose
+
+  // Pivot on the hoof line, so the idle reads as a rocking horse and not a spin.
+  const HOOF = -0.45;
+  const rock = new THREE.Group();
+  rock.position.set(0, HOOF, 0.02);
+  g.add(rock);
+  const horse = new THREE.Group();
+  horse.position.set(0, -HOOF, 0);
+  rock.add(horse);
+
+  const D = 0.16;
+  const bodyGeo = flatExtrude(shape, D);
+  bodyGeo.translate(0, -0.07, 0);   // centre the silhouette in the 1x1 art box
+  const body = new THREE.Mesh(bodyGeo, red);
+  body.castShadow = true;
+  horse.add(body);
+
+  // Kurbits painting, laid on the front face at z = D. Coordinates are the
+  // shape's, shifted by the same -0.07.
+  const harness = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.02, 0.13, D),
+      new THREE.Vector3(0.11, 0.04, D),
+      new THREE.Vector3(0.08, -0.09, D),
+    ]), 24, 0.024, 8, false),
+    gold
+  );
+  horse.add(harness);
+  const rosette = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 16), gold);
+  rosette.rotation.x = Math.PI / 2;
+  rosette.position.set(-0.18, 0.06, D + 0.01);
+  horse.add(rosette);
+  const pip = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.03, 12), blue);
+  pip.rotation.x = Math.PI / 2;
+  pip.position.set(-0.18, 0.06, D + 0.025);
+  horse.add(pip);
+  const eye = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.03, 12), ink);
+  eye.rotation.x = Math.PI / 2;
+  eye.position.set(0.29, 0.28, D + 0.01);
+  horse.add(eye);
+
+  return {
+    group: g,
+    update(t) {
+      // Rocks on the spot with a hop each cycle. The hop stays small: the ears
+      // already reach y = 0.45, so 0.05 is all the headroom the art box has.
+      const p = saw(t, 3.4);
+      const hop = p < 0.26 ? Math.sin((p / 0.26) * Math.PI) : 0;
+      rock.rotation.z = Math.sin(t * 1.8) * 0.08;
+      rock.position.y = HOOF + hop * 0.05;
+      flag.rotation.y = Math.sin(t * 1.1) * 0.3;
+      flag.position.y = 0.34 + Math.sin(t * 1.6) * 0.012;
+    },
+  };
+}
+
 const BUILDERS = {
   'memory': iconMemory,
   'sliding-puzzle': iconSlidingPuzzle,
@@ -1267,6 +1396,7 @@ const BUILDERS = {
   'warehouse-keeper': iconWarehouseKeeper,
   'circuits': iconCircuits,
   'flag-quiz': iconFlagQuiz,
+  'sweden': iconSweden,
 };
 
 // ---------------------------------------------------------------------------

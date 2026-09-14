@@ -17,6 +17,12 @@ Every game page must include:
   - Styled as subtle gray text, top-left aligned, turns blue on hover
 - When adding a new game, also add a link to it on the portal page (`/index.html`) in the `.games` div
 
+A portal tile may also point at a game hosted elsewhere (`Sweden` →
+`https://sweden.mroggy85.deno.net/`). Such a tile is an ordinary anchor and needs
+the same `GAMES` entry, `BUILDERS` icon and fallback SVG as a local one, but it has
+no directory, no manifest, no `icon.svg` and no `sw.js` entry — and it dead-ends
+when the PWA is offline.
+
 ## Target Devices
 
 Games are designed for **iPad and iPhone**. All UI must be touch-friendly with appropriately sized tap targets.
@@ -156,9 +162,9 @@ knowing before editing it:
   `position: fixed`, so a scrolled page would drift the DOM labels away from the
   tiles behind them on an iOS momentum flick — the same reason `guide-the-way` sets
   `overflow: hidden`. `layout()` picks the column count by scoring every count from
-  2 to 6 against the art square it would yield. This is tuned for ~11-12 games: a
-  13th shrinks every tile, and past ~16 the grid needs pagination instead of
-  more rows.
+  2 to 6 against the art square it would yield. This is tuned for ~11-12 tiles,
+  and there are now 12: a 13th shrinks every tile, and past ~16 the grid needs
+  pagination instead of more rows.
 
 - **The tile rim carries the contrast, not the face.** The portal is the one bright
   page here, which inverts the failure mode in **Color & Contrast** above: a pale
@@ -168,7 +174,7 @@ knowing before editing it:
   is held at >= 3:1 against the backdrop gradient's darkest stop. Changing a face
   colour, a rim colour or the backdrop means re-checking all three together.
 
-The 11 inline card SVGs are kept as the no-WebGL fallback. Today's flat card styling
+The inline card SVGs (one per tile) are kept as the no-WebGL fallback. Today's flat card styling
 is the CSS default; the module adds a `webgl` class to `<html>` once it has rendered,
 which strips the card background and hides the SVGs.
 
