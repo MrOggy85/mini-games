@@ -1597,6 +1597,18 @@ for (const t of tiles) {
   });
 }
 
+// Coming back from a game is a bfcache restore on every browser that has one:
+// no script re-runs, so `navigating` would still be latched and every tile would
+// swallow its own click. Clear the latch and the pressed pose here, not on load.
+window.addEventListener('pageshow', () => {
+  navigating = false;
+  for (const t of tiles) {
+    t.pressTarget = 0; t.press = 0;
+    t.hoverTarget = 0; t.hover = 0; t.hx = 0; t.hy = 0;
+  }
+  needsLayout = true;
+});
+
 window.addEventListener('resize', () => { needsLayout = true; });
 window.addEventListener('orientationchange', () => { needsLayout = true; });
 document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
