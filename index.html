@@ -2,94 +2,165 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#fff2d8">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Mini Games</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
 body {
-  background: radial-gradient(ellipse at top, #fff5e6 0%, #fff8f0 60%, #ffecd8 100%);
-  min-height: 100vh;
+  /* Matches the 3D backdrop plane, so the pre-init and no-WebGL states look the same. */
+  background: radial-gradient(ellipse at top, #fff2d8 0%, #ffe4bd 60%, #f2cb9c 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   color: #2d1a00;
+  /* The grid is sized to the viewport. A scrolled page would desync the DOM
+     labels from the tiles drawn in the fixed canvas behind them. */
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  user-select: none;
+  -webkit-user-select: none;
 }
+
+/* Must be explicit: a canvas is a replaced element, so `inset: 0` with
+   `width: auto` sizes it to its backing store instead of stretching it. */
+#scene {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  /* All input is the DOM anchors above; the canvas is purely visual. */
+  pointer-events: none;
+}
+
 .container {
-  text-align: center;
-  padding: 2.5rem 1.5rem 3rem;
-  max-width: 780px;
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  max-width: 920px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  padding:
+    calc(env(safe-area-inset-top) + clamp(0.5rem, 2.4vmin, 1.6rem))
+    calc(env(safe-area-inset-right) + clamp(0.6rem, 2vmin, 1.4rem))
+    calc(env(safe-area-inset-bottom) + clamp(0.6rem, 2vmin, 1.2rem))
+    calc(env(safe-area-inset-left) + clamp(0.6rem, 2vmin, 1.4rem));
+  /* Only the anchors take taps; everything else lets them through. */
+  pointer-events: none;
 }
 h1 {
-  font-size: 3rem;
+  font-size: clamp(1.45rem, 6.4vmin, 3rem);
   font-weight: 900;
-  color: #ff6b35;
+  /* Darkened from #ff6b35, which only reached 2.3:1 on the deeper backdrop. */
+  color: #e0521c;
   letter-spacing: -1px;
-  margin-bottom: 0.4rem;
+  line-height: 1.05;
+  flex: 0 0 auto;
 }
 .subtitle {
-  font-size: 1.05rem;
-  color: #c07840;
+  font-size: clamp(0.7rem, 2.5vmin, 1.05rem);
+  color: #8a4f1a;
   font-weight: 500;
-  margin-bottom: 2.5rem;
+  margin: clamp(0.1rem, 0.6vmin, 0.4rem) 0 clamp(0.5rem, 2.2vmin, 1.6rem);
+  flex: 0 0 auto;
 }
+
 .games {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 1.2rem;
+  /* --cols is set by layout() from the viewport aspect; the fallback keeps the
+     grid sane if the module never runs. */
+  grid-template-columns: repeat(var(--cols, 3), 1fr);
+  grid-auto-rows: 1fr;
+  gap: clamp(0.35rem, 1.5vmin, 1rem);
 }
 .games a {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
   border-radius: 20px;
   background: white;
   box-shadow: 0 4px 16px rgba(0,0,0,0.09);
   text-decoration: none;
   overflow: hidden;
   color: #2d1a00;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
-}
-.games a:hover {
-  transform: translateY(-5px) scale(1.03);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
-}
-.games a:active {
-  transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .card-art {
-  width: 100%;
-  aspect-ratio: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14%;
+  padding: 10%;
 }
 .card-art svg {
   width: 100%;
   height: 100%;
+  max-height: 100%;
 }
 .card-name {
-  padding: 0.6rem 0.5rem 0.8rem;
-  font-size: 0.92rem;
+  /* Fixed two-line box so a wrapped name ("Warehouse Keeper") leaves the same
+     art area as a short one — otherwise the 3D icons come out different sizes. */
+  flex: 0 0 auto;
+  min-height: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.3rem clamp(0.2rem, 1vmin, 0.6rem);
+  font-size: clamp(0.6rem, 1.9vmin, 0.95rem);
   font-weight: 800;
-  text-align: center;
   letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+
+/* --- Flat fallback only (no WebGL): today's card look, incl. hover/press. --- */
+html:not(.webgl) .games a:hover {
+  transform: translateY(-5px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+}
+html:not(.webgl) .games a:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* --- WebGL live: the 3D slab is the card, so the DOM keeps only the label. --- */
+html.webgl .games a {
+  background: none;
+  box-shadow: none;
+  transition: none;
+}
+html.webgl .card-art svg { display: none; }
+/* Dark-faced slabs need light label text to clear 3:1 against them. */
+html.webgl .games a.dark { color: #eef0ff; }
+html.webgl .games a:focus-visible {
+  outline: 3px solid #c2410c;
+  outline-offset: 2px;
 }
 </style>
 </head>
 <body>
+<canvas id="scene"></canvas>
 <div class="container">
   <h1>Mini Games</h1>
   <p class="subtitle">Tap a game to play!</p>
   <div class="games">
 
-    <a href="/games/memory/">
-      <div class="card-art" style="background:#fff0f0;">
+    <a href="/games/memory/" data-game="memory">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Memory: 4 cards in a 2x2 grid — 2 face-down, 2 face-up (matching suns) -->
           <!-- Face-down card top-left -->
@@ -127,8 +198,8 @@ h1 {
       <span class="card-name">Memory</span>
     </a>
 
-    <a href="/games/sliding-puzzle/">
-      <div class="card-art" style="background:#fff5e6;">
+    <a href="/games/sliding-puzzle/" data-game="sliding-puzzle">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Sliding Puzzle: 3x3 grid with numbered tiles, one empty slot -->
           <!-- Row 1 -->
@@ -160,8 +231,8 @@ h1 {
       <span class="card-name">Sliding Puzzle</span>
     </a>
 
-    <a href="/games/glide/">
-      <div class="card-art" style="background:#fffbe6;">
+    <a href="/games/glide/" data-game="glide">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Glide: sliding block puzzle (Rush Hour style) -->
           <rect x="1" y="1" width="78" height="78" rx="10" fill="#f9f5e0" stroke="#ddd08a" stroke-width="1.5"/>
@@ -187,8 +258,8 @@ h1 {
       <span class="card-name">Glide</span>
     </a>
 
-    <a href="/games/trace/">
-      <div class="card-art" style="background:#f9f0ff;">
+    <a href="/games/trace/" data-game="trace">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Trace: connect all dots by drawing a continuous path -->
           <!-- Traced path (snake through 3x3 grid) -->
@@ -214,8 +285,8 @@ h1 {
       <span class="card-name">Trace</span>
     </a>
 
-    <a href="/games/vantage/">
-      <div class="card-art" style="background:#1a1a3e;">
+    <a href="/games/vantage/" data-game="vantage" class="dark">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Vantage: 3D perspective corridor with vanishing point -->
           <!-- Outer walls/edges -->
@@ -239,8 +310,8 @@ h1 {
       <span class="card-name">Vantage</span>
     </a>
 
-    <a href="/games/sudoku/">
-      <div class="card-art" style="background:#f0fff4;">
+    <a href="/games/sudoku/" data-game="sudoku">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Sudoku: 4x4 grid with some numbers (simplified representation) -->
           <rect x="2" y="2" width="76" height="76" rx="8" fill="white" stroke="#27ae60" stroke-width="2.5"/>
@@ -266,8 +337,8 @@ h1 {
       <span class="card-name">Sudoku</span>
     </a>
 
-    <a href="/games/guide-the-way/">
-      <div class="card-art" style="background:#f0faff;">
+    <a href="/games/guide-the-way/" data-game="guide-the-way">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Guide the Way: robot with directional command arrows -->
           <!-- Up arrow -->
@@ -299,8 +370,8 @@ h1 {
       <span class="card-name">Guide the Way</span>
     </a>
 
-    <a href="/games/sequence/">
-      <div class="card-art" style="background:#f4f0ff;">
+    <a href="/games/sequence/" data-game="sequence">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Sequence: a row of colored dots being watched/recalled in order -->
           <circle cx="14" cy="40" r="11" fill="#e74c3c"/>
@@ -320,8 +391,8 @@ h1 {
       <span class="card-name">Sequence</span>
     </a>
 
-    <a href="/games/warehouse-keeper/">
-      <div class="card-art" style="background:#fff3e0;">
+    <a href="/games/warehouse-keeper/" data-game="warehouse-keeper">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Warehouse Keeper: crate pushed onto a goal marker -->
           <!-- Floor tile with goal marker (destination) -->
@@ -339,8 +410,8 @@ h1 {
       <span class="card-name">Warehouse Keeper</span>
     </a>
 
-    <a href="/games/circuits/">
-      <div class="card-art" style="background:#12142b;">
+    <a href="/games/circuits/" data-game="circuits" class="dark">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Circuits: wire path bending into a glowing lightbulb -->
           <path d="M6,40 L30,40 L30,20 L50,20" fill="none" stroke="#ffd93d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -362,8 +433,8 @@ h1 {
       <span class="card-name">Circuits</span>
     </a>
 
-    <a href="/games/flag-quiz/">
-      <div class="card-art" style="background:#12142b;">
+    <a href="/games/flag-quiz/" data-game="flag-quiz" class="dark">
+      <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Flag Quiz: a waving flag on a pole -->
           <rect x="14" y="6" width="5" height="68" rx="2.5" fill="#c7cbe8"/>
@@ -377,10 +448,1110 @@ h1 {
 
   </div>
 </div>
+
+<script type="module">
+import * as THREE from '/vendor/three.module.min.js';
+
+// ---------------------------------------------------------------------------
+// Per-game look. `face` is the slab's front and deliberately reuses each card's
+// old .card-art background, so the portal's colour identity survives the move
+// to 3D. `rim` is the extruded side wall, drawn from that game's own accent.
+//
+// The rim is load-bearing, not decoration: a pale face on a warm page is only
+// ~1.4:1, so flat colour cannot delineate a tile. Each rim is instead >= 3:1
+// against the backdrop's darkest stop, which is what keeps a tile's silhouette
+// readable on a dimmed screen. Re-check with a contrast calculator before
+// changing either these or the backdrop gradient.
+//
+// `burst` is the tap-particle palette, picked from that game's own artwork.
+// ---------------------------------------------------------------------------
+const GAMES = {
+  'memory':           { face: 0xfff0f0, rim: 0xb8453e, burst: ['#ff6b6b', '#ffd93d', '#ffffff'] },
+  'sliding-puzzle':   { face: 0xfff5e6, rim: 0x9c5c0c, burst: ['#ffa726', '#ffd88a', '#ffffff'] },
+  'glide':            { face: 0xfffbe6, rim: 0x8a6f1e, burst: ['#e74c3c', '#3498db', '#2ecc71'] },
+  'trace':            { face: 0xf9f0ff, rim: 0x6b3e86, burst: ['#9b59b6', '#d5c0ea', '#ffffff'] },
+  'vantage':          { face: 0x1a1a3e, rim: 0x0c0c22, burst: ['#6666cc', '#ffd93d', '#8888ee'] },
+  'sudoku':           { face: 0xf0fff4, rim: 0x1d7c46, burst: ['#27ae60', '#a3d9ae', '#ffe27a'] },
+  'guide-the-way':    { face: 0xf0faff, rim: 0x16707c, burst: ['#22a6b3', '#f9ca24', '#ffffff'] },
+  'sequence':         { face: 0xf4f0ff, rim: 0x4a3475, burst: ['#e74c3c', '#3498db', '#f9ca24'] },
+  'warehouse-keeper': { face: 0xfff3e0, rim: 0x8a4f0e, burst: ['#c17817', '#8a4f0e', '#4a90e2'] },
+  'circuits':         { face: 0x12142b, rim: 0x080a18, burst: ['#ffd93d', '#ffe27a', '#c7cbe8'] },
+  'flag-quiz':        { face: 0x12142b, rim: 0x080a18, burst: ['#ff6b6b', '#ffb3b3', '#e8eaff'] },
+};
+
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------------------------------------------------------------------------
+// Renderer. World units are CSS pixels (see placeCamera), so anything tuned in
+// world units — shadow bias, light distances, the far plane — is in pixels too.
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffe4bd);
+
+const FOV = 28;
+const BACKDROP_Z = -220;
+const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 100);
+
+// ---------------------------------------------------------------------------
+// A tiny procedural warm sky, run through PMREM, used as an environment map on
+// the tiles only. Direct lights alone can't make a pale face read as glossy —
+// you get a hard specular dot on a flat diffuse. Deliberately not
+// scene.environment, which would flatten the backdrop's gradient too.
+// ---------------------------------------------------------------------------
+let ENV = null;
+(function buildEnv() {
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 64;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.42, '#fff3e0');
+  grad.addColorStop(0.58, '#ffe2c4');
+  grad.addColorStop(1, '#d9b894');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 64);
+  const sun = g.createRadialGradient(36, 13, 1, 36, 13, 24);
+  sun.addColorStop(0, 'rgba(255,255,255,1)');
+  sun.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = sun;
+  g.fillRect(0, 0, 128, 64);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  ENV = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose();
+  tex.dispose();
+})();
+
+function mat(color, opts) {
+  return new THREE.MeshStandardMaterial(Object.assign({
+    color, roughness: 0.3, metalness: 0.06, envMap: ENV, envMapIntensity: 0.45,
+  }, opts || {}));
+}
+
+// ---------------------------------------------------------------------------
+// Geometry helpers. Nothing from three/examples is vendored, so rounded solids
+// come from ExtrudeGeometry over a rounded-rect Shape.
+// ---------------------------------------------------------------------------
+function roundedPath(p, w, h, r) {
+  const x = -w / 2, y = -h / 2;
+  r = Math.min(r, w / 2, h / 2);
+  p.moveTo(x + r, y);
+  p.lineTo(x + w - r, y);
+  p.quadraticCurveTo(x + w, y, x + w, y + r);
+  p.lineTo(x + w, y + h - r);
+  p.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  p.lineTo(x + r, y + h);
+  p.quadraticCurveTo(x, y + h, x, y + h - r);
+  p.lineTo(x, y + r);
+  p.quadraticCurveTo(x, y, x + r, y);
+  return p;
+}
+function roundedRect(w, h, r) {
+  return roundedPath(new THREE.Shape(), w, h, r);
+}
+
+// Beveled plate facing +Z with its FRONT face on z = 0 and its body running
+// back to z = -depth. ExtrudeGeometry extrudes along +Z and the bevel adds
+// `bevel` at both ends, so the profile and depth are inset by 2*bevel to get
+// exact outer dimensions, then the whole thing is shifted forward.
+function plateGeo(w, h, depth, r, bevel) {
+  const geo = new THREE.ExtrudeGeometry(
+    roundedRect(w - 2 * bevel, h - 2 * bevel, Math.max(0.001, r - bevel)),
+    {
+      depth: depth - 2 * bevel,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 2,
+      curveSegments: 6,
+    }
+  );
+  geo.translate(0, 0, -(depth - bevel));
+  return geo;
+}
+// Same solid, but sitting on z = 0 and growing forward — what icon parts want,
+// since they stand proud of the slab face.
+function chipGeo(w, h, depth, r, bevel) {
+  const geo = plateGeo(w, h, depth, r, bevel);
+  geo.translate(0, 0, depth);
+  return geo;
+}
+function starShape(points, rOuter, rInner) {
+  const s = new THREE.Shape();
+  for (let i = 0; i < points * 2; i++) {
+    const a = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 ? rInner : rOuter;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
+  }
+  s.closePath();
+  return s;
+}
+function flatExtrude(shape, depth) {
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 6 });
+}
+const easeInOut = (p) => p * p * (3 - 2 * p);
+const saw = (t, period) => (t % period) / period;
+
+// ---------------------------------------------------------------------------
+// Backdrop. A real lit plane rather than scene.background, so the tiles cast
+// actual shadows onto the page and read as objects floating above it instead of
+// stickers printed on it.
+// ---------------------------------------------------------------------------
+const backdrop = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshStandardMaterial({
+    map: (() => {
+      const cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 256;
+      const g = cv.getContext('2d');
+      // Same stops as the CSS body gradient. Deeper than the old near-white
+      // page on purpose: the pale tile faces and their rims need something to
+      // read against (see the contrast note on GAMES).
+      const grad = g.createRadialGradient(128, 0, 8, 128, 40, 300);
+      grad.addColorStop(0, '#fff2d8');
+      grad.addColorStop(0.6, '#ffe4bd');
+      grad.addColorStop(1, '#f2cb9c');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 256, 256);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    })(),
+    roughness: 0.95,
+    metalness: 0,
+  })
+);
+backdrop.position.z = BACKDROP_Z;
+backdrop.receiveShadow = true;
+scene.add(backdrop);
+
+// ---------------------------------------------------------------------------
+// Dim animated background: soft warm bokeh drifting between the backdrop and
+// the tiles. Self-lit, so MeshBasicMaterial — cheaper and brighter than driving
+// an emissive PBR material. One InstancedMesh, so one draw call for all of it.
+// ---------------------------------------------------------------------------
+const PUFFS = 28;
+const puffMesh = new THREE.InstancedMesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial({
+    map: (() => {
+      const cv = document.createElement('canvas');
+      cv.width = 64; cv.height = 64;
+      const g = cv.getContext('2d');
+      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.45, 'rgba(255,236,210,0.45)');
+      grad.addColorStop(1, 'rgba(255,236,210,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 64, 64);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    })(),
+    transparent: true,
+    opacity: 0.22,
+    depthWrite: false,
+  }),
+  PUFFS
+);
+puffMesh.castShadow = false;
+puffMesh.receiveShadow = false;
+// Instances are rewritten every frame and wrap around the page, so an
+// instance-derived bounding sphere would be stale.
+puffMesh.frustumCulled = false;
+scene.add(puffMesh);
+
+const puffs = [];
+for (let i = 0; i < PUFFS; i++) {
+  puffs.push({
+    u: Math.random(), v: Math.random(),
+    size: 0.12 + Math.random() * 0.3,
+    z: -180 + Math.random() * 130,
+    vx: (Math.random() - 0.5) * 0.012,
+    vy: (Math.random() - 0.5) * 0.008,
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Light rig: bright and warm, since the portal keeps its light theme. One
+// shadow-casting directional, refit to the viewport in layout().
+// ---------------------------------------------------------------------------
+scene.add(new THREE.HemisphereLight(0xffffff, 0xffe0bd, 0.5));
+
+const keyLight = new THREE.DirectionalLight(0xfff6e8, 0.78);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+// World units are CSS pixels, so the defaults (tuned for ~1-unit tiles) are
+// orders of magnitude too small here.
+keyLight.shadow.bias = -0.0006;
+// Kept small enough not to erase the icon's contact shadow, which is cast from
+// only a few pixels above the slab face.
+keyLight.shadow.normalBias = 1.2;
+scene.add(keyLight, keyLight.target);
+
+const fillLight = new THREE.DirectionalLight(0xd9e6ff, 0.2);
+scene.add(fillLight, fillLight.target);
+
+// ---------------------------------------------------------------------------
+// Icon builders. Each authors its geometry in a 1x1 unit square centred on the
+// origin, growing forward from z = 0, and is scaled to the measured art box at
+// layout time — so an icon is resolution independent. Each returns an
+// `update(t)` driving its own idle loop; `t` is seconds, offset per tile so the
+// eleven idles never march in step.
+// ---------------------------------------------------------------------------
+function iconMemory() {
+  const g = new THREE.Group();
+  const red = mat(0xff6b6b, { roughness: 0.26 });
+  const white = mat(0xfffafa, { roughness: 0.22 });
+  const gold = mat(0xffd93d, { roughness: 0.3 });
+  const cardGeo = chipGeo(0.33, 0.44, 0.06, 0.055, 0.012);
+
+  const left = new THREE.Mesh(cardGeo, red);
+  left.position.set(-0.19, -0.01, 0.01);
+  left.rotation.z = 0.1;
+  left.castShadow = true;
+  g.add(left);
+
+  // The right card flips on Y to reveal the sun mounted on its back face.
+  const flip = new THREE.Group();
+  flip.position.set(0.19, 0.01, 0.13);
+  const body = new THREE.Mesh(cardGeo, white);
+  body.castShadow = true;
+  flip.add(body);
+  const facing = new THREE.Mesh(chipGeo(0.27, 0.38, 0.02, 0.045, 0.008), red);
+  facing.position.z = 0.06;
+  flip.add(facing);
+  const rays = new THREE.Mesh(flatExtrude(starShape(8, 0.14, 0.08), 0.02), gold);
+  rays.position.z = -0.03;
+  flip.add(rays);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.03, 20), gold);
+  disc.rotation.x = Math.PI / 2;
+  disc.position.z = -0.035;
+  flip.add(disc);
+  g.add(flip);
+
+  return {
+    group: g,
+    update(t) {
+      // Flip over, hold on the sun, flip back, hold face-down.
+      const p = saw(t, 5.2);
+      const a = p < 0.19 ? p / 0.19 : p < 0.5 ? 1 : p < 0.69 ? 1 - (p - 0.5) / 0.19 : 0;
+      const e = easeInOut(a);
+      flip.rotation.y = Math.PI * e;
+      flip.position.z = 0.13 + Math.sin(e * Math.PI) * 0.07;
+    },
+  };
+}
+
+function iconSlidingPuzzle() {
+  const g = new THREE.Group();
+  const tray = new THREE.Mesh(chipGeo(0.78, 0.78, 0.045, 0.1, 0.014), mat(0xffe1b5, { roughness: 0.45 }));
+  g.add(tray);
+  // A dark inlay where the hole is, instead of the flat art's dashed outline —
+  // in 3D an empty slot reads as a recess, not a dotted line. Sits just on top
+  // of the tray face (0.045), or the tray would swallow it.
+  const socket = new THREE.Mesh(chipGeo(0.3, 0.3, 0.012, 0.06, 0.005), mat(0xc07a28, { roughness: 0.7 }));
+  socket.position.z = 0.045;
+  g.add(socket);
+
+  const cubeGeo = chipGeo(0.3, 0.3, 0.13, 0.055, 0.016);
+  const cubeMat = mat(0xffa726, { roughness: 0.24 });
+  const cubes = [0, 1, 2].map(() => {
+    const m = new THREE.Mesh(cubeGeo, cubeMat);
+    m.position.z = 0.045;
+    m.castShadow = true;
+    g.add(m);
+    return m;
+  });
+
+  // Ring order TL, TR, BR, BL. Each move slides the cube behind the hole into
+  // it, so the hole walks the ring and the three cubes cycle forever. The cubes
+  // are identical, so which mesh plays which slot doesn't matter.
+  const RING = [[-0.17, 0.17], [0.17, 0.17], [0.17, -0.17], [-0.17, -0.17]];
+  const PER = 1.15;
+
+  return {
+    group: g,
+    update(t) {
+      const n = Math.floor(t / PER);
+      const p = easeInOut(Math.min(1, (t % PER) / PER / 0.65));
+      const hole = ((2 - n) % 4 + 4) % 4;
+      const from = (hole + 3) % 4;
+      const rest = [0, 1, 2, 3].filter((s) => s !== hole && s !== from);
+      cubes[0].position.x = RING[rest[0]][0]; cubes[0].position.y = RING[rest[0]][1];
+      cubes[1].position.x = RING[rest[1]][0]; cubes[1].position.y = RING[rest[1]][1];
+      const a = RING[from], b = RING[hole];
+      cubes[2].position.x = a[0] + (b[0] - a[0]) * p;
+      cubes[2].position.y = a[1] + (b[1] - a[1]) * p;
+      // The socket sits where the mover is vacating, revealed as it leaves.
+      socket.position.x = a[0];
+      socket.position.y = a[1];
+    },
+  };
+}
+
+function iconGlide() {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(chipGeo(0.92, 0.82, 0.04, 0.1, 0.014), mat(0xf6efc9, { roughness: 0.5 })));
+  const barGeo = (w) => chipGeo(w, 0.19, 0.11, 0.07, 0.018);
+  const make = (geo, color, x, y) => {
+    const m = new THREE.Mesh(geo, mat(color, { roughness: 0.22 }));
+    m.position.set(x, y, 0.04);
+    m.castShadow = true;
+    g.add(m);
+    return m;
+  };
+  make(barGeo(0.5), 0xe74c3c, -0.16, 0.26);
+  make(barGeo(0.42), 0x3498db, 0.16, 0.0);
+  const green = make(barGeo(0.3), 0x2ecc71, -0.25, -0.26);
+
+  return {
+    group: g,
+    update(t) {
+      // Slide right to the exit, then glide back.
+      const p = saw(t, 4.4);
+      const a = p < 0.34 ? easeInOut(p / 0.34) : p < 0.55 ? 1 : p < 0.85 ? 1 - easeInOut((p - 0.55) / 0.3) : 0;
+      green.position.x = -0.25 + a * 0.58;
+    },
+  };
+}
+
+function iconTrace() {
+  const g = new THREE.Group();
+  const purple = mat(0x9b59b6, { roughness: 0.24 });
+  const S = 0.29;
+  const nodes = [
+    [-S, S], [0, S], [S, S], [S, 0], [0, 0], [-S, 0], [-S, -S], [0, -S],
+  ].map(([x, y]) => new THREE.Vector3(x, y, 0.055));
+  const curve = new THREE.CatmullRomCurve3(nodes, false, 'catmullrom', 0.4);
+
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 96, 0.032, 8, false), purple);
+  tube.castShadow = true;
+  g.add(tube);
+
+  const dots = new THREE.InstancedMesh(new THREE.SphereGeometry(0.052, 14, 10), purple, nodes.length);
+  dots.castShadow = true;
+  const _o = new THREE.Object3D();
+  nodes.forEach((n, i) => { _o.position.copy(n); _o.updateMatrix(); dots.setMatrixAt(i, _o.matrix); });
+  dots.instanceMatrix.needsUpdate = true;
+  g.add(dots);
+
+  const beadMat = mat(0xffe27a, { roughness: 0.2, emissive: 0xffc93d, emissiveIntensity: 0.5 });
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.082, 16, 12), beadMat);
+  bead.castShadow = true;
+  g.add(bead);
+
+  const _p = new THREE.Vector3();
+  return {
+    group: g,
+    update(t) {
+      // A fingertip running the solved path, pausing briefly at the end.
+      const p = saw(t, 4.6);
+      const u = Math.min(1, p / 0.82);
+      curve.getPointAt(u, _p);
+      bead.position.copy(_p);
+      bead.position.z += 0.05;
+      const pulse = 0.5 + Math.sin(t * 5) * 0.25;
+      beadMat.emissiveIntensity = pulse;
+      bead.scale.setScalar(1 + Math.sin(t * 5) * 0.07);
+    },
+  };
+}
+
+function iconVantage() {
+  const g = new THREE.Group();
+  // A stepped pyramid, which is what the game actually asks you to read from
+  // several angles — so a slow sweep of that angle is the honest idle.
+  const spin = new THREE.Group();
+  // Stood off the slab face, because tilting a 0.7-wide plate dips its far
+  // corner by halfDiag * sin(tilt) — at the amplitudes below that is ~0.17,
+  // which would otherwise bury the corner inside the slab.
+  spin.position.z = 0.15;
+  g.add(spin);
+  const steps = [
+    { w: 0.7, d: 0.07, c: 0x33338a },
+    { w: 0.5, d: 0.07, c: 0x4444aa },
+    { w: 0.32, d: 0.07, c: 0x5555c0 },
+  ];
+  let z = 0;
+  for (const s of steps) {
+    const m = new THREE.Mesh(chipGeo(s.w, s.w, s.d, 0.05, 0.014), mat(s.c, { roughness: 0.3 }));
+    m.position.z = z;
+    m.castShadow = true;
+    spin.add(m);
+    z += s.d;
+  }
+  const apexMat = mat(0xffd93d, { roughness: 0.25, emissive: 0xffb300, emissiveIntensity: 0.6 });
+  const apex = new THREE.Mesh(new THREE.SphereGeometry(0.1, 18, 14), apexMat);
+  apex.position.z = z + 0.06;
+  apex.castShadow = true;
+  spin.add(apex);
+
+  return {
+    group: g,
+    update(t) {
+      // Oscillate rather than spin: a full rotation would read as a turntable,
+      // not as "look at this from another vantage".
+      spin.rotation.y = Math.sin(t * 0.5) * 0.25;
+      spin.rotation.x = Math.sin(t * 0.37 + 1) * 0.1;
+      apexMat.emissiveIntensity = 0.5 + Math.sin(t * 2.2) * 0.25;
+      apex.scale.setScalar(1 + Math.sin(t * 2.2) * 0.06);
+    },
+  };
+}
+
+function iconSudoku() {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(chipGeo(0.86, 0.86, 0.05, 0.1, 0.016), mat(0x27ae60, { roughness: 0.35 })));
+
+  const CELLS = 9;
+  const cells = new THREE.InstancedMesh(
+    chipGeo(0.24, 0.24, 0.06, 0.04, 0.012),
+    mat(0xffffff, { roughness: 0.22 }),
+    CELLS
+  );
+  cells.castShadow = true;
+  const _o = new THREE.Object3D();
+  const idx = [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const i = r * 3 + c;
+      _o.position.set((c - 1) * 0.27, (1 - r) * 0.27, 0.045);
+      _o.updateMatrix();
+      cells.setMatrixAt(i, _o.matrix);
+      idx.push(r + c);
+    }
+  }
+  cells.instanceMatrix.needsUpdate = true;
+  g.add(cells);
+
+  const base = new THREE.Color(0xffffff);
+  const hot = new THREE.Color(0xffe27a);
+  const _col = new THREE.Color();
+  for (let i = 0; i < CELLS; i++) cells.setColorAt(i, base);
+  cells.instanceColor.needsUpdate = true;
+
+  return {
+    group: g,
+    update(t) {
+      // A diagonal wave of cells filling in.
+      for (let i = 0; i < CELLS; i++) {
+        const k = Math.max(0, Math.sin(t * 1.5 - idx[i] * 0.9));
+        _col.copy(base).lerp(hot, k * k);
+        cells.setColorAt(i, _col);
+      }
+      cells.instanceColor.needsUpdate = true;
+    },
+  };
+}
+
+function iconGuideTheWay() {
+  const g = new THREE.Group();
+  const teal = mat(0x22a6b3, { roughness: 0.25 });
+  const dark = mat(0x14707c, { roughness: 0.3 });
+  const white = mat(0xffffff, { roughness: 0.2 });
+
+  const bot = new THREE.Group();
+  g.add(bot);
+
+  const head = new THREE.Mesh(chipGeo(0.42, 0.3, 0.2, 0.09, 0.022), teal);
+  head.position.set(0, 0.14, 0);
+  head.castShadow = true;
+  bot.add(head);
+
+  const body = new THREE.Mesh(chipGeo(0.36, 0.28, 0.17, 0.06, 0.02), teal);
+  body.position.set(0, -0.16, 0);
+  body.castShadow = true;
+  bot.add(body);
+
+  const eyeGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.04, 16);
+  const pupGeo = new THREE.CylinderGeometry(0.028, 0.028, 0.05, 14);
+  for (const x of [-0.1, 0.1]) {
+    const e = new THREE.Mesh(eyeGeo, white);
+    e.rotation.x = Math.PI / 2;
+    e.position.set(x, 0.17, 0.2);
+    bot.add(e);
+    const p = new THREE.Mesh(pupGeo, dark);
+    p.rotation.x = Math.PI / 2;
+    p.position.set(x, 0.17, 0.22);
+    bot.add(p);
+  }
+
+  // Half-torus smile, and the belly panel from the flat art.
+  const smile = new THREE.Mesh(
+    new THREE.TorusGeometry(0.075, 0.014, 8, 18, Math.PI),
+    white
+  );
+  smile.rotation.z = Math.PI;
+  smile.position.set(0, 0.09, 0.2);
+  bot.add(smile);
+
+  const bellyMat = mat(0xf9ca24, { roughness: 0.25, emissive: 0xf9ca24, emissiveIntensity: 0.4 });
+  const belly = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 16), bellyMat);
+  belly.rotation.x = Math.PI / 2;
+  belly.position.set(0, -0.16, 0.18);
+  bot.add(belly);
+
+  // Four command arrows around the robot, instanced so the pulse is one draw
+  // call; the pulse rides instanceColor, which multiplies the material colour.
+  const arrowShape = (() => {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0.11);
+    s.lineTo(-0.09, 0.0);
+    s.lineTo(-0.035, 0.0);
+    s.lineTo(-0.035, -0.09);
+    s.lineTo(0.035, -0.09);
+    s.lineTo(0.035, 0.0);
+    s.lineTo(0.09, 0.0);
+    s.closePath();
+    return s;
+  })();
+  const arrows = new THREE.InstancedMesh(
+    flatExtrude(arrowShape, 0.05),
+    mat(0xffffff, { roughness: 0.3 }),
+    4
+  );
+  arrows.castShadow = true;
+  const _o = new THREE.Object3D();
+  // The shape points at +Y, so each arrow just rotates to face outward. 0.38
+  // keeps the 0.11-long tip inside the 0.5 half-width of the art box.
+  const AP = [[0, 0.38], [0.38, 0], [0, -0.38], [-0.38, 0]];
+  AP.forEach(([x, y], i) => {
+    _o.position.set(x, y, 0.01);
+    _o.rotation.set(0, 0, Math.atan2(y, x) - Math.PI / 2);
+    _o.updateMatrix();
+    arrows.setMatrixAt(i, _o.matrix);
+  });
+  arrows.instanceMatrix.needsUpdate = true;
+  _o.rotation.set(0, 0, 0);
+  g.add(arrows);
+
+  const dim = new THREE.Color(0xc79a1a);
+  const lit = new THREE.Color(0xffe066);
+  const _col = new THREE.Color();
+  for (let i = 0; i < 4; i++) arrows.setColorAt(i, dim);
+  arrows.instanceColor.needsUpdate = true;
+
+  return {
+    group: g,
+    update(t) {
+      // Bob, plus a hop on every cycle, while the arrows light in sequence.
+      const p = saw(t, 3.0);
+      const hop = p < 0.3 ? Math.sin((p / 0.3) * Math.PI) : 0;
+      bot.position.y = Math.sin(t * 1.6) * 0.016 + hop * 0.1;
+      bot.rotation.z = Math.sin(t * 1.6) * 0.03;
+      bellyMat.emissiveIntensity = 0.3 + Math.sin(t * 4) * 0.22;
+      for (let i = 0; i < 4; i++) {
+        const k = Math.max(0, Math.sin(t * 2.4 - i * 1.2));
+        _col.copy(dim).lerp(lit, k * k);
+        arrows.setColorAt(i, _col);
+      }
+      arrows.instanceColor.needsUpdate = true;
+    },
+  };
+}
+
+function iconSequence() {
+  const g = new THREE.Group();
+  const bar = new THREE.Mesh(chipGeo(0.66, 0.05, 0.03, 0.025, 0.008), mat(0x6a4ba0, { roughness: 0.5 }));
+  bar.position.z = 0.01;
+  g.add(bar);
+
+  const geo = new THREE.SphereGeometry(0.14, 20, 14);
+  const COLORS = [0xe74c3c, 0x3498db, 0xf9ca24];
+  const dots = COLORS.map((c, i) => {
+    const m = mat(c, { roughness: 0.2, emissive: c, emissiveIntensity: 0 });
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.position.set((i - 1) * 0.28, 0, 0.16);
+    mesh.castShadow = true;
+    g.add(mesh);
+    return { mesh, m, baseZ: 0.16 };
+  });
+
+  return {
+    group: g,
+    update(t) {
+      // Lights up 1-2-3, then all dim — the pattern you have to memorise.
+      const p = saw(t, 2.6);
+      dots.forEach((d, i) => {
+        const start = i * 0.22;
+        const k = p > start && p < start + 0.2 ? Math.sin(((p - start) / 0.2) * Math.PI) : 0;
+        d.mesh.position.z = d.baseZ + k * 0.1;
+        d.mesh.scale.setScalar(1 + k * 0.14);
+        d.m.emissiveIntensity = k * 0.65;
+      });
+    },
+  };
+}
+
+function iconWarehouseKeeper() {
+  const g = new THREE.Group();
+
+  const HALF = 0.15;
+  const FLOOR = -0.22;          // y the crate sits on
+  const LAND_X = 0.07;          // where it ends up after one roll
+
+  const goal = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 10, 24), mat(0x4a90e2, { roughness: 0.25 }));
+  // z clears the torus tube radius (0.028), or the ring would sink into the slab.
+  goal.position.set(LAND_X, FLOOR + HALF, 0.032);
+  goal.castShadow = true;
+  g.add(goal);
+
+  // Pivot on the crate's bottom-right edge, so rotating it -90 degrees about Z
+  // tips the crate end over end one full cell to the right.
+  const pivot = new THREE.Group();
+  pivot.position.set(-0.08, FLOOR, 0);
+  g.add(pivot);
+  const crate = new THREE.Group();
+  crate.position.set(-HALF, HALF, 0);
+  pivot.add(crate);
+
+  const box = new THREE.Mesh(chipGeo(HALF * 2, HALF * 2, HALF * 2, 0.03, 0.014), mat(0xc17817, { roughness: 0.55 }));
+  box.castShadow = true;
+  crate.add(box);
+
+  // X bracing on the front face: one bar, placed twice at +/-45 degrees.
+  // Mirroring with a negative scale would invert the winding and light it wrong.
+  const barGeo = flatExtrude(roundedRect(HALF * 2.6, 0.05, 0.02), 0.012);
+  const braceMat = mat(0x8a4f0e, { roughness: 0.6 });
+  for (const rot of [Math.PI / 4, -Math.PI / 4]) {
+    const m = new THREE.Mesh(barGeo, braceMat);
+    m.rotation.z = rot;
+    m.position.z = HALF * 2 - 0.001;
+    crate.add(m);
+  }
+
+  return {
+    group: g,
+    update(t) {
+      const p = saw(t, 3.6);
+      // Roll one step onto the goal, rest there, shrink out, then pop back at
+      // the start. The rotation resets inside the hidden window.
+      const roll = p < 0.34 ? easeInOut(p / 0.34) : 1;
+      const out = p > 0.70 ? Math.min(1, (p - 0.70) / 0.1) : 0;
+      const back = p > 0.88 ? Math.min(1, (p - 0.88) / 0.12) : 0;
+      pivot.rotation.z = (p < 0.8 ? -roll : 0) * Math.PI / 2;
+      const s = p < 0.8 ? 1 - out : easeInOut(back);
+      crate.scale.setScalar(Math.max(0.001, s));
+      goal.rotation.z = t * 0.6;
+      goal.scale.setScalar(1 + Math.sin(t * 2) * 0.05);
+    },
+  };
+}
+
+function iconCircuits() {
+  const g = new THREE.Group();
+  // Stood off the face by more than the bulb's radius, so the sphere doesn't
+  // sink half of itself into the slab.
+  const inner = new THREE.Group();
+  inner.position.z = 0.12;
+  g.add(inner);
+  const gold = mat(0xffd93d, { roughness: 0.22, metalness: 0.25 });
+
+  const pts = [
+    new THREE.Vector3(-0.4, -0.16, 0.05),
+    new THREE.Vector3(-0.12, -0.16, 0.05),
+    new THREE.Vector3(-0.12, 0.14, 0.05),
+    new THREE.Vector3(0.08, 0.14, 0.05),
+  ];
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3);
+  const wire = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, 0.034, 8, false), gold);
+  wire.castShadow = true;
+  inner.add(wire);
+
+  const term = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), gold);
+  term.position.copy(pts[0]);
+  term.castShadow = true;
+  inner.add(term);
+
+  const baseMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.07, 0.1, 14),
+    mat(0xc7cbe8, { roughness: 0.3, metalness: 0.45 })
+  );
+  baseMesh.rotation.z = -Math.PI / 2;
+  baseMesh.position.set(0.13, 0.14, 0.05);
+  baseMesh.castShadow = true;
+  inner.add(baseMesh);
+
+  const bulbMat = mat(0xffe27a, { roughness: 0.15, emissive: 0xffc400, emissiveIntensity: 0.3 });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 20, 16), bulbMat);
+  bulb.position.set(0.3, 0.14, 0.05);
+  bulb.castShadow = true;
+  inner.add(bulb);
+
+  const beadMat = new THREE.MeshBasicMaterial({ color: 0xfff6c8 });
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.055, 14, 10), beadMat);
+  inner.add(bead);
+
+  const _p = new THREE.Vector3();
+  return {
+    group: g,
+    update(t) {
+      // A charge runs the wire and the bulb flares as it lands.
+      const p = saw(t, 2.6);
+      const u = Math.min(1, p / 0.7);
+      curve.getPointAt(u, _p);
+      bead.position.copy(_p);
+      bead.visible = u < 1;
+      const arrive = p > 0.62 ? Math.min(1, (p - 0.62) / 0.14) : 0;
+      const decay = p > 0.76 ? Math.min(1, (p - 0.76) / 0.24) : 0;
+      const glow = arrive * (1 - decay);
+      bulbMat.emissiveIntensity = 0.25 + glow * 1.5;
+      bulb.scale.setScalar(1 + glow * 0.1);
+    },
+  };
+}
+
+function iconFlagQuiz() {
+  const g = new THREE.Group();
+  const steel = mat(0xc7cbe8, { roughness: 0.3, metalness: 0.4 });
+
+  // The flag's wave reaches ~0.085 either side of its plane, so the whole
+  // assembly stands off the slab face by more than that.
+  const Z = 0.12;
+
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.82, 12), steel);
+  pole.position.set(-0.3, -0.03, Z);
+  pole.castShadow = true;
+  g.add(pole);
+
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(0.048, 16, 12), mat(0xe8eaff, { roughness: 0.2, metalness: 0.3 }));
+  finial.position.set(-0.3, 0.42, Z);
+  finial.castShadow = true;
+  g.add(finial);
+
+  const FW = 0.54, FH = 0.32;
+  const flagGeo = new THREE.PlaneGeometry(FW, FH, 16, 8);
+  const flag = new THREE.Mesh(flagGeo, mat(0xff6b6b, { roughness: 0.4, side: THREE.DoubleSide }));
+  flag.position.set(-0.3 + FW / 2, 0.22, Z);
+  flag.castShadow = true;
+  g.add(flag);
+
+  const basePos = Float32Array.from(flagGeo.attributes.position.array);
+
+  return {
+    group: g,
+    update(t) {
+      // Travelling sine along the flag, pinned at the pole edge (u = 0).
+      const pos = flagGeo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = basePos[i * 3], y = basePos[i * 3 + 1];
+        const u = (x + FW / 2) / FW;
+        pos.setZ(i, Math.sin(u * 7 - t * 3.2) * 0.07 * u + Math.sin(y * 6 + t * 2) * 0.015 * u);
+      }
+      pos.needsUpdate = true;
+      flagGeo.computeVertexNormals();
+    },
+  };
+}
+
+const BUILDERS = {
+  'memory': iconMemory,
+  'sliding-puzzle': iconSlidingPuzzle,
+  'glide': iconGlide,
+  'trace': iconTrace,
+  'vantage': iconVantage,
+  'sudoku': iconSudoku,
+  'guide-the-way': iconGuideTheWay,
+  'sequence': iconSequence,
+  'warehouse-keeper': iconWarehouseKeeper,
+  'circuits': iconCircuits,
+  'flag-quiz': iconFlagQuiz,
+};
+
+// ---------------------------------------------------------------------------
+// Build one tile per anchor. The DOM owns the layout and the hit testing; the
+// 3D side only mirrors the rects it measures.
+// ---------------------------------------------------------------------------
+const BASE_TILT = -0.07;   // every slab leans its top back a little, so the
+                           // bottom side face and bevel catch the key light
+const PLACEHOLDER = new THREE.PlaneGeometry(1, 1);   // until layout() knows the size
+const tiles = [];
+for (const el of document.querySelectorAll('.games a')) {
+  const slug = el.dataset.game;
+  const cfg = GAMES[slug];
+  const group = new THREE.Group();
+  // ExtrudeGeometry emits two material groups: 0 is the front/back caps, 1 is
+  // the bevel and side walls — so the rim is a second material, not a decal.
+  const slab = new THREE.Mesh(PLACEHOLDER, [
+    mat(cfg.face, { roughness: 0.17, metalness: 0.06, envMapIntensity: 0.55 }),
+    mat(cfg.rim, { roughness: 0.3, metalness: 0.1, envMapIntensity: 0.35 }),
+  ]);
+  slab.castShadow = true;
+  slab.receiveShadow = true;
+  group.add(slab);
+
+  const icon = BUILDERS[slug]();
+  group.add(icon.group);
+  scene.add(group);
+
+  tiles.push({
+    el, slug, cfg, group, slab, icon,
+    art: el.querySelector('.card-art'),
+    phase: Math.random() * 40,
+    press: 0, pressTarget: 0,
+    hover: 0, hoverTarget: 0,
+    hx: 0, hy: 0,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Layout. World units are CSS pixels on the z = 0 plane, so a slab built at a
+// rect's size and placed at its centre lines up with that rect exactly — there
+// is nothing to iterate, unlike the games' fitCamera().
+// ---------------------------------------------------------------------------
+let W = 1, H = 1, camDist = 1;
+let slabGeo = null;
+let needsLayout = true;
+
+function pickColumns() {
+  const rect = document.querySelector('.games').getBoundingClientRect();
+  const gap = parseFloat(getComputedStyle(document.querySelector('.games')).gap) || 10;
+  const n = tiles.length;
+  let best = 3, bestScore = -1;
+  for (let c = 2; c <= 6; c++) {
+    const r = Math.ceil(n / c);
+    const cw = (rect.width - (c - 1) * gap) / c;
+    const ch = (rect.height - (r - 1) * gap) / r;
+    if (cw <= 0 || ch <= 0) continue;
+    // Tiles are ~1.15x taller than wide once the label band is included, so
+    // score by the art square each option would actually yield.
+    const score = Math.min(cw, ch / 1.15);
+    if (score > bestScore) { bestScore = score; best = c; }
+  }
+  return best;
+}
+
+function placeCamera() {
+  camDist = (H / 2) / Math.tan(THREE.MathUtils.degToRad(FOV) / 2);
+  camera.aspect = W / H;
+  camera.position.set(W / 2, -H / 2, camDist);
+  // Near/far must bracket the icons (just in front of z = 0) and the backdrop.
+  // Deriving far from the camera distance alone would clip the backdrop once a
+  // small viewport pulls the camera in close.
+  camera.near = Math.max(1, camDist * 0.4);
+  camera.far = camDist - BACKDROP_Z + 400;
+  camera.lookAt(W / 2, -H / 2, 0);
+  camera.updateProjectionMatrix();
+}
+
+function layout() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+
+  let dpr = Math.min(2, window.devicePixelRatio || 1);
+  const budget = 4.2e6;
+  if (W * H * dpr * dpr > budget) dpr = Math.sqrt(budget / (W * H));
+  renderer.setPixelRatio(dpr);
+  // Third arg false: don't let three write inline CSS over the fixed canvas.
+  renderer.setSize(W, H, false);
+
+  placeCamera();
+
+  document.querySelector('.games').style.setProperty('--cols', pickColumns());
+
+  // Backdrop, scaled to cover the frustum at its own depth.
+  const halfH = (H / 2) * ((camDist - BACKDROP_Z) / camDist) * 1.2;
+  backdrop.scale.set(halfH * 2 * camera.aspect, halfH * 2, 1);
+  backdrop.position.set(W / 2, -H / 2, BACKDROP_Z);
+
+  // Key light from the upper left, far enough out that the whole page is inside
+  // one orthographic shadow frustum.
+  const half = Math.max(W, H) * 0.78 + 140;
+  keyLight.target.position.set(W / 2, -H / 2, 0);
+  keyLight.position.set(W / 2 - half * 0.5, -H / 2 + half * 0.8, 1400);
+  const sc = keyLight.shadow.camera;
+  sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half;
+  sc.near = 10; sc.far = 4200;
+  sc.updateProjectionMatrix();
+  fillLight.position.set(W / 2 + half, -H / 2 - half * 0.4, 700);
+  fillLight.target.position.set(W / 2, -H / 2, 0);
+
+  // All grid cells are 1fr, so every slab is the same size — one shared geometry.
+  const r0 = tiles[0].el.getBoundingClientRect();
+  const depth = Math.max(10, Math.min(26, r0.width * 0.16));
+  if (slabGeo) slabGeo.dispose();
+  slabGeo = plateGeo(r0.width, r0.height, depth, Math.min(20, r0.width * 0.16), 2.2);
+  for (const t of tiles) t.slab.geometry = slabGeo;
+
+  for (const t of tiles) {
+    const r = t.el.getBoundingClientRect();
+    const a = t.art.getBoundingClientRect();
+    t.cx = r.left + r.width / 2;
+    t.cy = r.top + r.height / 2;
+    t.group.position.set(t.cx, -t.cy, 0);
+    t.group.rotation.x = BASE_TILT;
+
+    // Guarded: a viewport short enough to squeeze the art box to nothing would
+    // otherwise give the icon a zero scale.
+    const s = Math.max(1, Math.min(a.width, a.height) * 0.9);
+    t.icon.group.scale.setScalar(s);
+    t.icon.group.position.set(
+      a.left + a.width / 2 - t.cx,
+      -(a.top + a.height / 2 - t.cy),
+      4     // just proud of the slab face, so the contact shadow stays tight
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tap feedback. Navigation stays on the anchors, so keyboard and accessibility
+// come free and there is no raycasting or collider silhouette to get wrong.
+// ---------------------------------------------------------------------------
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 4 + Math.random() * 4;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function (particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.3)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function () {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
+
+const canHover = window.matchMedia('(hover: hover)').matches;
+let navigating = false;
+
+for (const t of tiles) {
+  t.el.addEventListener('pointerdown', () => { t.pressTarget = 1; });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+    t.el.addEventListener(ev, () => { t.pressTarget = 0; });
+  }
+  if (canHover) {
+    t.el.addEventListener('pointerenter', () => { t.hoverTarget = 1; });
+    t.el.addEventListener('pointerleave', () => { t.hoverTarget = 0; t.hx = 0; t.hy = 0; });
+    t.el.addEventListener('pointermove', (e) => {
+      const r = t.el.getBoundingClientRect();
+      t.hx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      t.hy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+    });
+  }
+  t.el.addEventListener('click', (e) => {
+    if (navigating) { e.preventDefault(); return; }
+    // Let modified clicks (new tab, etc.) behave normally.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    navigating = true;
+    t.pressTarget = 1;
+    const r = t.el.getBoundingClientRect();
+    juiceBurst(r.left + r.width / 2, r.top + r.height * 0.42, t.cfg.burst, { count: 16, spread: 80 });
+    setTimeout(() => { window.location.href = t.el.getAttribute('href'); }, 160);
+  });
+}
+
+window.addEventListener('resize', () => { needsLayout = true; });
+window.addEventListener('orientationchange', () => { needsLayout = true; });
+document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+// ---------------------------------------------------------------------------
+// Render loop.
+// ---------------------------------------------------------------------------
+const _o = new THREE.Object3D();
+let last = performance.now();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  if (needsLayout) { needsLayout = false; layout(); }
+
+  const t = now / 1000;
+
+  // Bokeh drift. Positions are kept in normalised page space, so a resize
+  // rescales them instead of stranding one off screen. Under reduced motion the
+  // drift and breathing stop but the puffs still get placed.
+  for (let i = 0; i < PUFFS; i++) {
+    const p = puffs[i];
+    if (!REDUCED) {
+      p.u = (p.u + p.vx * dt + 1) % 1;
+      p.v = (p.v + p.vy * dt + 1) % 1;
+    }
+    const spread = 1.35;
+    _o.position.set(
+      (p.u - 0.5) * W * spread + W / 2,
+      (p.v - 0.5) * H * spread - H / 2,
+      p.z
+    );
+    const s = p.size * Math.max(W, H) * (REDUCED ? 1 : 1 + Math.sin(t * 0.4 + p.phase) * 0.08);
+    _o.scale.set(s, s, 1);
+    _o.updateMatrix();
+    puffMesh.setMatrixAt(i, _o.matrix);
+  }
+  puffMesh.instanceMatrix.needsUpdate = true;
+
+  // Press and hover are exponential approaches, so they're frame-rate
+  // independent (unlike `x *= 0.9`).
+  const k = 1 - Math.pow(0.0008, dt);
+  for (const tl of tiles) {
+    tl.press += (tl.pressTarget - tl.press) * k;
+    tl.hover += (tl.hoverTarget - tl.hover) * k;
+
+    tl.group.position.z = -14 * tl.press + 10 * tl.hover;
+    // Uniform, so the icon standing on the slab doesn't shear in z.
+    tl.group.scale.setScalar(1 - 0.04 * tl.press + 0.02 * tl.hover);
+    tl.group.rotation.x = BASE_TILT - tl.hy * 0.12 * tl.hover;
+    tl.group.rotation.y = tl.hx * 0.14 * tl.hover;
+
+    tl.icon.update(REDUCED ? 0 : t + tl.phase);
+  }
+
+  renderer.render(scene, camera);
+}
+
+layout();
+// Render once before handing the page over, so switching to the 3D styling
+// never exposes a blank canvas. Then remeasure: dropping the flat card
+// background and the fallback SVGs changes nothing about the box sizes, but the
+// rects were taken before the class landed.
+renderer.render(scene, camera);
+document.documentElement.classList.add('webgl');
+window.__portalReady = true;
+needsLayout = true;
+requestAnimationFrame(frame);
+</script>
+
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
+// If the module never runs (old browser, no WebGL, parse error), drop the canvas
+// and leave the flat SVG cards — which are the default styling — in place.
+setTimeout(function () {
+  if (!window.__portalReady) {
+    var c = document.getElementById('scene');
+    if (c) c.style.display = 'none';
+    document.documentElement.classList.remove('webgl');
+  }
+}, 6000);
 </script>
 </body>
 </html>
