@@ -1128,7 +1128,13 @@ window.__glideReady = true;
 </script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    // The browser only looks for a new worker on navigation, so a home-screen
+    // app left open for days never sees a deploy. Nudge it when it comes forward.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update();
+    });
+  });
 }
 // The board is drawn entirely by the module script above; if the engine fails
 // to load the page would otherwise just sit blank.

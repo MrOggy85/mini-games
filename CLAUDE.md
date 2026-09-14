@@ -46,7 +46,8 @@ The site must work as a PWA ("Add to Home Screen") and function fully offline. E
   - `<link rel="manifest" href="...">` pointing to its own manifest (use absolute paths, e.g. `/games/memory/manifest.json`)
   - `<meta name="apple-mobile-web-app-capable" content="yes">`
   - `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`
-  - Service worker registration: `navigator.serviceWorker.register('/sw.js')`
+  - Service worker registration: `navigator.serviceWorker.register('/sw.js')`, followed by a
+    `reg.update()` on `visibilitychange` (see **Update strategy**)
   - `<link rel="icon" href=".../icon.svg" type="image/svg+xml">` and `<link rel="apple-touch-icon" href=".../apple-touch-icon.png">`
 - Each game is a **self-contained single HTML file** — no per-game JS/CSS files. The only permitted external dependency is a shared library under `/vendor/` (see **3D / three.js**), which every game imports from the same path so the browser caches one copy
 - Non-`games/` paths are only deployed if whitelisted in `.assetsignore` — root-level assets need an explicit `!` entry there, or they 404 and break the service worker install
@@ -55,6 +56,38 @@ The site must work as a PWA ("Add to Home Screen") and function fully offline. E
   2. Create `/games/<name>/icon.svg`, then run `make icons`
   3. Add the game's paths to the `GAMES` array in `/sw.js`
   4. Bump the `CACHE_NAME` version in `/sw.js`
+
+### Update strategy
+
+Offline has to work, but a stale install is the worse failure — a device should
+never be stuck on an old deploy. `sw.js` splits the two goals by request type:
+
+- **Navigations are network-first.** Every page is a self-contained single HTML
+  file, so the page *is* the app: a fresh navigation response is a fresh game,
+  with no cache bump involved. After `NAV_TIMEOUT` (4s) it paints from cache
+  instead, and the response still lands in the cache when it arrives — a bad
+  connection must not hang the splash screen.
+- **Everything else is stale-while-revalidate**, refreshed at most once per
+  worker instance (the worker is torn down when idle, so that works out to about
+  once per launch). This is what lets `/vendor/` and the icons follow a deploy
+  without a `CACHE_NAME` bump.
+- A 5xx or a captive portal's interception page never displaces a good cached
+  copy; only an `ok` response is cached or returned in preference to one.
+- The install list is split into `CORE` (via `addAll` — if the engine or the
+  portal can't be cached, fail the install and keep the working previous
+  version) and `EXTRA` (via `allSettled`). `addAll` is all-or-nothing, so one
+  404 in a flat list would abort the whole install: the new worker never
+  activates, the old cache is never purged, and the device silently stays on the
+  previous deploy. That is the failure mode the `.assetsignore` note above is
+  about.
+- Install requests use `cache: 'reload'` so a version change fetches the bytes
+  that were just deployed rather than whatever the HTTP cache still holds.
+- Each page calls `reg.update()` when it becomes visible. The browser otherwise
+  only looks for a new worker on navigation, so a home-screen app left open for
+  days would never check.
+
+So `CACHE_NAME` now only needs bumping when the asset **list** changes (a new
+game, a new icon), not when an existing file's contents change.
 
 ### Icons
 

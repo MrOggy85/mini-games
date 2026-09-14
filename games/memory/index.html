@@ -690,7 +690,13 @@ document.addEventListener('click', function(e) {
 </div>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    // The browser only looks for a new worker on navigation, so a home-screen
+    // app left open for days never sees a deploy. Nudge it when it comes forward.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update();
+    });
+  });
 }
 _updateToggle();
 if (!(window.AudioContext || window.webkitAudioContext)) _showAudioWarning();
