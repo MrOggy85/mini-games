@@ -272,6 +272,12 @@ knowing before editing it:
   `shadow.normalBias` is ~1 (not 0.02); icons are authored in a 1x1 unit square and
   scaled to the measured art box; and anything standing proud of a slab must keep
   `z > 0` or it sinks into its own tile.
+- **It is the heaviest page here, and the one most likely to be left open.** 13 slabs,
+  13 hand-built icons and a 2048² shadow map. Uncapped it measured 9,700 draw calls a
+  second just to animate some slow idle loops. The loop now runs the idle animation at
+  30fps, refreshes the shadow map on alternate frames (the icons move slowly enough that
+  the lag is invisible, but not while a press spring is running), and under reduced motion
+  stops drawing entirely — 3,741 draws/s normally, 0 at idle under reduced motion.
 - **The grid is sized to the viewport and the page does not scroll.** The canvas is
   `position: fixed`, so a scrolled page would drift the DOM labels away from the
   tiles behind them on an iOS momentum flick — the same reason `guide-the-way` sets

@@ -1725,16 +1725,71 @@ document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: fal
 
 // ---------------------------------------------------------------------------
 // Render loop.
+//
+// This is the heaviest page in the project — 13 slabs, 13 hand-built icons and
+// a 2048-square shadow map — and, being the landing page, the one most likely
+// to be left sitting open. Uncapped it measured 120fps and 9,700 draw calls a
+// second on a 120Hz display, all of it to animate some slow idle loops.
+//
+// So: the idle animation runs at 30, not at whatever the display offers, and
+// under reduced motion — where the icons and the bokeh are already frozen —
+// the loop stops drawing altogether until something asks for a frame.
 // ---------------------------------------------------------------------------
 const _o = new THREE.Object3D();
 let last = performance.now();
 
+// `- 4` because rAF ticks every ~16.7ms at 60Hz: testing against a bare 33.3ms
+// is missed by two ticks as often as not and the loop waits for a third,
+// landing at 22fps rather than 30. One more than half a frame of slack makes
+// two ticks qualify, and still resolves to 30 on a 120Hz display.
+const IDLE_MS = 1000 / 30 - 4;
+
+// Under REDUCED the page draws only when something has asked it to. Any input
+// can start a press or hover spring, and a resize needs a relayout, so both
+// paths poke this. The capture phase means it lands before the handlers do.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 400));
+}
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'pointerenter', 'pointerleave', 'pointermove', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
+
+// The shadow map is redrawn every frame by default, at one extra draw call per
+// caster — half of this page's 81 draws per frame. The icons do move, but
+// slowly enough that refreshing their shadows on alternate frames is invisible.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
+let shadowParity = 0;
+
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // A spring still converging needs every frame it can get, so taps stay crisp
+  // even though the idle loop is throttled.
+  let springing = false;
+  for (const tl of tiles) {
+    if (Math.abs(tl.pressTarget - tl.press) > 0.002 || Math.abs(tl.hoverTarget - tl.hover) > 0.002) {
+      springing = true;
+      break;
+    }
+  }
+
+  if (REDUCED) {
+    if (!springing && !needsLayout && now >= dirtyUntil) return;
+  } else if (!springing && now - last < IDLE_MS) {
+    return;
+  }
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
-  if (needsLayout) { needsLayout = false; layout(); }
+  if (needsLayout) { needsLayout = false; layout(); invalidate(); }
+
+  // Alternate frames, except while a spring is running — a tile lifting toward
+  // the camera moves its shadow far enough for the lag to show.
+  shadowParity ^= 1;
+  if (springing || shadowParity) renderer.shadowMap.needsUpdate = true;
 
   const t = now / 1000;
 
@@ -1761,11 +1816,16 @@ function frame(now) {
   puffMesh.instanceMatrix.needsUpdate = true;
 
   // Press and hover are exponential approaches, so they're frame-rate
-  // independent (unlike `x *= 0.9`).
+  // independent (unlike `x *= 0.9`). Snapped once they are within the same
+  // epsilon the `springing` test above uses: an asymptotic approach never
+  // actually arrives, so without this the page would count itself as animating
+  // forever and never drop to the idle rate.
   const k = 1 - Math.pow(0.0008, dt);
   for (const tl of tiles) {
     tl.press += (tl.pressTarget - tl.press) * k;
     tl.hover += (tl.hoverTarget - tl.hover) * k;
+    if (Math.abs(tl.pressTarget - tl.press) <= 0.002) tl.press = tl.pressTarget;
+    if (Math.abs(tl.hoverTarget - tl.hover) <= 0.002) tl.hover = tl.hoverTarget;
 
     tl.group.position.z = -14 * tl.press + 10 * tl.hover;
     // Uniform, so the icon standing on the slab doesn't shear in z.
