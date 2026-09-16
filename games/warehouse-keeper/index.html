@@ -238,6 +238,14 @@ body > * { position: relative; z-index: 1; }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* The 3D side reads this same query in JS (see REDUCED); this covers the DOM.
+   Nothing is hidden — the win panel still appears, it just doesn't spring in. */
+@media (prefers-reduced-motion: reduce) {
+  .win-emoji, .win-title, .win-sub, .feedback-msg.pop { animation: none; }
+  .btn, .dpad-btn { transition: none; }
+  .btn:active, .dpad-btn:active { transform: none; }
+}
+
 #settingsBtn {
   position: fixed; top: 12px; right: 14px; z-index: 200;
   background: rgba(255,255,255,0.85); border: none; border-radius: 50%;
@@ -402,12 +410,22 @@ const C = {
 
 // ── Renderer / scene ─────────────────────────────────────────────────────────
 
+// Decorative motion goes; motion the player caused stays. Here that is the
+// drifting clouds, the pulsing goal rings and the keeper's idle breathing. A
+// pushed crate still slides — the whole point of a Sokoban move is watching
+// where the crate ends up.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.shadowMap.enabled = true;
 // PCF, not PCFSoft: three deprecated PCFSoft and the renderer silently falls
 // back to this on the first shadow render anyway, with a console warning.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+// Otherwise redrawn every frame at one draw call per caster, and this scene has
+// a lot of them. Refreshed explicitly in the render loop instead.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.haze);
@@ -1081,7 +1099,18 @@ function stepTweens(now) {
 
 let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
-function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); }
+
+// Treat the scene as changed until this timestamp, for anything the loop can't
+// see for itself. Under REDUCED it also decides whether to draw at all.
+// Capture phase, so it lands before the handlers.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 300));
+}
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
 
 function toScreen(v) {
   const p = v.clone().project(camera);
@@ -1203,6 +1232,7 @@ function layout() {
   if (key !== lastWorldKey) {
     lastWorldKey = key;
     buildWorld(rect);
+    cloudsPlaced = false;   // a rebuilt landscape needs one more placement pass
   }
 }
 
@@ -1419,6 +1449,7 @@ function shakeCrate(mesh, dx, dy) {
 }
 
 function dustAt(x, y, colors) {
+  if (REDUCED) return;
   const s = toScreen(new THREE.Vector3(cellX(x), TILE_H, cellZ(y)));
   juiceBurst(s.x, s.y, colors, { count: 10, spread: 46, duration: 420 });
 }
@@ -1667,20 +1698,50 @@ document.addEventListener('touchstart', onFirstTouch, { once: true });
 
 let last = performance.now();
 
+// `- 4` of slack because rAF ticks every ~16.7ms at 60Hz: a bare 33.3ms
+// threshold is missed by two ticks as often as not and the loop waits for a
+// third, landing at 22fps rather than 30.
+const IDLE_MS = 1000 / 30 - 4;
+let cloudsPlaced = false;
+
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // Sampled before stepTweens so the frame a move lands on still counts.
+  const animating = tweens.length > 0 || shakeAmt > 0.0005 || needsLayout;
+
+  if (REDUCED) {
+    // Clouds are parked, the rings hold and the keeper stands still, so between
+    // moves there is nothing left that would draw a different picture.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  const t = now / 1000;
+  const t = REDUCED ? 0 : now / 1000;
 
   if (needsLayout) { needsLayout = false; layout(); }
   stepTweens(now);
 
-  for (const c of clouds) {
-    c.x += c.speed * dt;
-    if (c.x - c.span > cloudRect.x1) c.x = cloudRect.x0 - c.span;
+  if (animating || tweens.length > 0 || now < dirtyUntil || !REDUCED) {
+    renderer.shadowMap.needsUpdate = true;
   }
-  updateClouds();
+
+  // Clouds drift below the board (see CLAUDE.md), so they never occlude play —
+  // which also means parking them under REDUCED costs the scene nothing but the
+  // drift. They still get placed once.
+  if (!REDUCED || !cloudsPlaced) {
+    cloudsPlaced = true;
+    if (!REDUCED) {
+      for (const c of clouds) {
+        c.x += c.speed * dt;
+        if (c.x - c.span > cloudRect.x1) c.x = cloudRect.x0 - c.span;
+      }
+    }
+    updateClouds();
+  }
 
   for (const gr of goalRings) {
     const filled = !!getBoxAt(gr.x, gr.y);
