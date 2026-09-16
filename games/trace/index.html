@@ -311,6 +311,12 @@ const CLR_E = 0xffcb8c;
 
 // ── Renderer / scene ─────────────────────────────────────────────────────────
 
+// Decorative motion goes; motion the player caused stays. Here that is the
+// floating labels, the throb on the path-head ring, the win burst and the
+// camera shake. The path itself still draws and the win wave still runs — the
+// player asked for both.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const canvas = document.getElementById('gc');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -318,6 +324,10 @@ renderer.shadowMap.enabled = true;
 // PCF, not PCFSoft: three deprecated PCFSoft and the renderer silently falls
 // back to this on the first shadow render anyway, with a console warning.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+// Otherwise redrawn every frame at one draw call per caster, even though this
+// board is still between drags. Refreshed explicitly in the render loop.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(26, 1, 1, 200);
@@ -558,16 +568,30 @@ function targetColor(r, c, out) {
 }
 
 // Writes per-instance colour + height. `snap` skips the easing on a fresh level.
+// Returns true while any cell is still easing. Both eases are exponential, so
+// they approach their targets without ever arriving — snapping inside an
+// epsilon is what lets the board ever report itself settled, which is what the
+// render loop needs before it can stop drawing.
 function syncCells(snap, dt) {
   const k = snap ? 1 : 1 - Math.pow(0.001, dt);
+  let moving = false;
   for (let r = 0; r < lv.R; r++) {
     for (let c = 0; c < lv.C; c++) {
       const i = idxOf(r, c);
       targetColor(r, c, _col);
       if (cellFlash[i] > 0.001) _col.lerp(C_WHITE, cellFlash[i] * 0.75);
       const lift = (vis[r][c] ? TILE_LIFT : 0) + cellFlash[i] * 0.16;
-      cellColor[i].lerp(_col, k);
-      cellLift[i] += (lift - cellLift[i]) * k;
+
+      const dCol = Math.abs(cellColor[i].r - _col.r)
+        + Math.abs(cellColor[i].g - _col.g)
+        + Math.abs(cellColor[i].b - _col.b);
+      if (dCol < 0.003) cellColor[i].copy(_col);
+      else { cellColor[i].lerp(_col, k); moving = true; }
+
+      const dLift = lift - cellLift[i];
+      if (Math.abs(dLift) < 0.0005) cellLift[i] = lift;
+      else { cellLift[i] += dLift * k; moving = true; }
+
       _obj.position.set(cellX(c), cellLift[i], cellZ(r));
       _obj.updateMatrix();
       tiles.setMatrixAt(i, _obj.matrix);
@@ -576,6 +600,7 @@ function syncCells(snap, dt) {
   }
   tiles.instanceMatrix.needsUpdate = true;
   tiles.instanceColor.needsUpdate = true;
+  return moving;
 }
 
 // ── Path tube ────────────────────────────────────────────────────────────────
@@ -755,7 +780,19 @@ window.addEventListener('resize', layout);
 
 let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
-function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); }
+
+// Treat the scene as changed until this timestamp, for anything the render
+// loop cannot see for itself — a new level, a reset. Under REDUCED it also
+// decides whether there is any reason to draw. Capture phase so it lands
+// before the handlers; every state change here starts as an input.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 250));
+}
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'pointermove', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
 
 function toScreen(v) {
   const p = v.clone().project(camera);
@@ -870,12 +907,31 @@ document.getElementById('next-btn').addEventListener('click', () => startLevel(l
 // ── Render loop ──────────────────────────────────────────────────────────────
 
 let last = performance.now();
+let boardMoving = true;   // set from syncCells; true until the board settles
+
+// `- 4` of slack because rAF ticks every ~16.7ms at 60Hz: a bare 33.3ms
+// threshold is missed by two ticks as often as not and the loop waits for a
+// third, landing at 22fps rather than 30.
+const IDLE_MS = 1000 / 30 - 4;
 
 function frame(now) {
   requestAnimationFrame(frame);
+
+  const animating = boardMoving || won || shakeAmt > 0.0005;
+
+  if (REDUCED) {
+    // Labels don't float and the head ring doesn't throb, so a settled board
+    // has nothing left to draw.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const t = now / 1000;
+
+  if (animating || now < dirtyUntil) renderer.shadowMap.needsUpdate = true;
 
   // Win wave: a bright pulse runs along the path in draw order.
   if (won) {
@@ -888,30 +944,36 @@ function frame(now) {
     }
     if (!winBurst && head >= path.length) {
       winBurst = true;
-      const e = toScreen(new THREE.Vector3(cellX(lv.end[1]), PATH_Y, cellZ(lv.end[0])));
-      juiceBurst(e.x, e.y, ['#8adfff', '#5dffb0', '#ffcb8c'], { count: 26, spread: 110 });
+      if (!REDUCED) {
+        const e = toScreen(new THREE.Vector3(cellX(lv.end[1]), PATH_Y, cellZ(lv.end[0])));
+        juiceBurst(e.x, e.y, ['#8adfff', '#5dffb0', '#ffcb8c'], { count: 26, spread: 110 });
+      }
       shake(0.10);
     }
   }
   for (let i = 0; i < cellFlash.length; i++) {
     if (cellFlash[i] > 0) cellFlash[i] = Math.max(0, cellFlash[i] - dt * 1.5);
   }
-  syncCells(false, dt);
+  boardMoving = syncCells(false, dt);
 
   // Markers ride the height of the tile they sit on.
   const sLift = cellLift[idxOf(lv.start[0], lv.start[1])];
   const eLift = cellLift[idxOf(lv.end[0], lv.end[1])];
   ringS.position.set(cellX(lv.start[1]), TILE_H + sLift + 0.02, cellZ(lv.start[0]));
   ringE.position.set(cellX(lv.end[1]), TILE_H + eLift + 0.02, cellZ(lv.end[0]));
-  labelS.position.set(ringS.position.x, TILE_H + sLift + 0.62 + Math.sin(t * 1.7) * 0.04, ringS.position.z);
-  labelE.position.set(ringE.position.x, TILE_H + eLift + 0.62 + Math.sin(t * 1.7 + 1.6) * 0.04, ringE.position.z);
+  const bobS = REDUCED ? 0 : Math.sin(t * 1.7) * 0.04;
+  const bobE = REDUCED ? 0 : Math.sin(t * 1.7 + 1.6) * 0.04;
+  labelS.position.set(ringS.position.x, TILE_H + sLift + 0.62 + bobS, ringS.position.z);
+  labelE.position.set(ringE.position.x, TILE_H + eLift + 0.62 + bobE, ringE.position.z);
 
   // Pulsing ring on the path head, hidden once it reaches the end marker.
   const [hr, hc] = path[path.length-1];
   const atEnd = hr === lv.end[0] && hc === lv.end[1];
   headRing.visible = !won && !atEnd;
   if (headRing.visible) {
-    const amp = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 / 0.7);
+    // The head ring is wayfinding, not decoration, so it stays visible under
+    // REDUCED — parked at the top of its throb rather than cycling.
+    const amp = REDUCED ? 1 : 0.5 + 0.5 * Math.sin(t * Math.PI * 2 / 0.7);
     headRing.position.set(cellX(hc), PATH_Y + 0.02, cellZ(hr));
     headRing.scale.setScalar(1 + 0.18 * amp);
     headRing.material.opacity = 0.35 + 0.45 * amp;
