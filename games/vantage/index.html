@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/games/vantage/manifest.json">
@@ -232,8 +233,9 @@ body {
    Nothing is hidden — the complete overlay still appears, it just doesn't
    spring in. */
 @media (prefers-reduced-motion: reduce) {
-  .complete-overlay h2, .complete-overlay p, .complete-overlay button { animation: none; }
-  .cand, .btn, #feedback { transition: none; }
+  .co-title, .co-sub, #complete-overlay button { animation: none; }
+  .cand-btn { transition: border-color 0.15s, box-shadow 0.15s; }
+  .cand-btn:active, #complete-overlay button:active { transform: none; }
 }
 
 #load-err {

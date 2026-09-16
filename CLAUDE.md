@@ -62,7 +62,12 @@ The site must work as a PWA ("Add to Home Screen") and function fully offline. E
 - `/games/<name>/manifest.json` — each game has its own manifest (own name, start_url, theme_color)
 - Each HTML page must include:
   - `<link rel="manifest" href="...">` pointing to its own manifest (use absolute paths, e.g. `/games/memory/manifest.json`)
-  - `<meta name="apple-mobile-web-app-capable" content="yes">`
+  - `<meta name="mobile-web-app-capable" content="yes">` **and**
+    `<meta name="apple-mobile-web-app-capable" content="yes">` — both, not one. Chrome
+    deprecated the apple-prefixed spelling and warns on every page that only has it; iOS
+    needs the apple one before 16.4. From 16.4 on, iOS qualifies a page as a Home Screen
+    web app from the manifest's `display: standalone` instead, so on a current iPad these
+    metas are belt-and-braces either way.
   - `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`
   - Service worker registration: `navigator.serviceWorker.register('/sw.js')`, followed by a
     `reg.update()` on `visibilitychange` (see **Update strategy**)
