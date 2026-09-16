@@ -291,6 +291,15 @@ h1 {
   .tagline { display: none; }
 }
 
+/* The 3D side reads this same query in JS (see REDUCED). Here it only has to
+   cover the DOM: the result panel's scale-from-0.4 pops, and the transitions.
+   Nothing is hidden — the panel still appears, it just doesn't spring. */
+@media (prefers-reduced-motion: reduce) {
+  .win-stars, .win-title, .win-sub, .win-btns { animation: none; }
+  .btn, .level-tile, .toast, .back-link { transition: none; }
+  .btn:active, .level-tile:active { transform: none; }
+}
+
 /* Six buttons wrap to a second row on a phone, which costs more height than the
    "Undo" word is worth. Drop the label and tighten the pills instead — the 44px
    touch-target floor is kept. */
@@ -977,6 +986,15 @@ function haptic(ms) {
   try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
 }
 
+// ── Motion preference ────────────────────────────────────────────────────────
+// Decorative motion goes; motion the player *caused* stays. A slide still
+// slides, because a block teleporting between cells is worse feedback rather
+// than gentler feedback. What stops is everything the board does on its own:
+// drifting dust, the breathing exit marker, hint pulses, squash, confetti,
+// camera shake. With all of that off the scene is genuinely static between
+// inputs, which is what lets the render loop stop drawing entirely.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // ── Renderer / scene ─────────────────────────────────────────────────────────
 
 const canvas = document.getElementById('scene');
@@ -1337,14 +1355,25 @@ function stepTweens(now) {
 
 let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
-const shake = (a) => { shakeAmt = Math.max(shakeAmt, a); };
+const shake = (a) => { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); };
 
-// Keep refreshing the shadow map until this timestamp. For changes that aren't
-// a tween and aren't a drag — a rebuilt board, a selection lift — and so aren't
-// visible to the render loop's own animating check.
-let shadowHold = 0;
-function touchShadow(ms) {
-  shadowHold = Math.max(shadowHold, performance.now() + (ms || 200));
+// Treat the scene as changed until this timestamp. Covers everything the render
+// loop's own animating check cannot see for itself: a rebuilt board, the 0.012
+// lift on a newly selected block, a hint appearing and expiring. Drives the
+// shadow map refresh, and under REDUCED — where nothing animates on its own —
+// whether there is any reason to draw a frame at all.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 200));
+}
+
+// Blanket net, in the capture phase so it lands before any handler. Every state
+// change in this game originates in an input, so this catches all of them
+// without an enumerated list of call sites to keep in sync — and a missed call
+// site is exactly what would strand a stale frame on screen once REDUCED stops
+// the loop drawing continuously.
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
 }
 
 // ── Game state ───────────────────────────────────────────────────────────────
@@ -1647,9 +1676,11 @@ function loadLevel(idx) {
   updateHUD();
   // A rebuilt board is a shadow change the render loop's animating check can't
   // see on its own; the pop-in tweens cover the rest.
-  touchShadow(500);
+  invalidate(500);
+  motesPlaced = false;   // a different grid size moves the dust box
 
   // Staggered pop-in, so a new board reads as "set out" rather than snapping on.
+  if (REDUCED) return;
   meshes.forEach((mesh, i) => {
     mesh.scale.setScalar(0.01);
     setTimeout(() => {
@@ -1734,6 +1765,7 @@ function animateTo(i, to, dur) {
     game.vis[i] = to;
     syncMesh(i, 0);
     // Squash and stretch on landing: brief, because this is a calm game.
+    if (REDUCED) return;
     tween('sq' + i, 180, (e, p) => {
       const k = Math.sin(p * Math.PI);
       meshes[i].scale.set(1 + 0.05 * k, 1 - 0.1 * k, 1 + 0.05 * k);
@@ -1803,6 +1835,7 @@ function triggerWin(coalesce) {
   }, easeIn);
 
   // Burst at the gap as it crosses the threshold.
+  if (REDUCED) return;
   setTimeout(() => {
     const s = toScreen(new THREE.Vector3(game.lv.w / 2 + RIM, BLOCK_H / 2, exitZ()));
     juiceBurst(s.x, s.y, ['#ffc25c', '#e8664a', '#fff1dc'], { count: 20, spread: 96 });
@@ -1838,6 +1871,9 @@ function finishWin() {
 
 const CC = ['#ffc25c', '#e8664a', '#dcb075', '#fff1dc', '#c89a5e', '#f0a03c'];
 function spawnConfetti() {
+  // Seventy pieces falling the height of the screen is the single largest piece
+  // of motion in the game; the result panel already says you won.
+  if (REDUCED) return;
   for (let i = 0; i < 70; i++) {
     setTimeout(() => {
       const el = document.createElement('div');
@@ -2193,12 +2229,18 @@ window.addEventListener('orientationchange', () => setTimeout(layout, 120));
 const _o = new THREE.Object3D();
 let last = performance.now();
 let lastSel = -1;
+let motesPlaced = false;
 
 // Nothing on this board moves unless the player moves it, so a held position
 // does not need sixty redraws a second. Full rate while a finger is down or a
-// tween is running; half rate otherwise, which is plenty for drifting dust and
-// a breathing arrow and roughly halves the idle GPU load on a battery device.
-const IDLE_MS = 1000 / 30;
+// tween is running; 30 otherwise, which is plenty for drifting dust and a
+// breathing arrow and roughly halves the idle GPU load on a battery device.
+//
+// The 4ms of slack is not a fudge. rAF ticks every ~16.7ms on a 60Hz display,
+// so a bare 33.3ms threshold is missed by two ticks (33.4ms) as often as not
+// and the loop waits for a third — measured 22fps against an intended 30.
+// Testing under one more than half a frame makes two ticks qualify reliably.
+const IDLE_MS = 1000 / 30 - 4;
 
 function frame(now) {
   requestAnimationFrame(frame);
@@ -2208,7 +2250,14 @@ function frame(now) {
   // where the target is hidden on the win, would never make it into the shadow
   // map and would leave a shadow behind.
   const animating = !!drag || tweens.length > 0 || shakeAmt > 0.0005;
-  if (!animating && now - last < IDLE_MS) return;
+
+  if (REDUCED) {
+    // Fully on demand: with the decorative motion off there is nothing to draw
+    // between inputs, so don't.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
 
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
@@ -2216,24 +2265,30 @@ function frame(now) {
 
   stepTweens(now);
 
-  if (game.sel !== lastSel) { lastSel = game.sel; touchShadow(); }
-  if (animating || tweens.length > 0 || now < shadowHold) renderer.shadowMap.needsUpdate = true;
+  if (game.sel !== lastSel) { lastSel = game.sel; invalidate(); }
+  if (animating || tweens.length > 0 || now < dirtyUntil) renderer.shadowMap.needsUpdate = true;
 
   // Dust, in a box over the tray. Positions are normalised so a level of a
   // different size rescales them instead of stranding motes off the board.
-  if (game.lv) {
+  // Under REDUCED they are still placed — just once, and then never moved, so
+  // the room keeps its depth without anything drifting. `motesPlaced` is what
+  // stops this running every frame for no change.
+  if (game.lv && !(REDUCED && motesPlaced)) {
+    motesPlaced = true;
     const W = game.lv.w + 2 * RIM, H = game.lv.h + 2 * RIM;
     for (let i = 0; i < MOTES; i++) {
       const m = motes[i];
-      m.u = (m.u + m.vx * dt * 0.1 + 1) % 1;
-      m.v = (m.v + m.vy * dt * 0.1 + 1) % 1;
+      if (!REDUCED) {
+        m.u = (m.u + m.vx * dt * 0.1 + 1) % 1;
+        m.v = (m.v + m.vy * dt * 0.1 + 1) % 1;
+      }
       _o.position.set(
         (m.u - 0.5) * W * 1.2,
-        m.y + Math.sin(t * 0.5 + m.phase) * 0.12,
+        m.y + (REDUCED ? 0 : Math.sin(t * 0.5 + m.phase) * 0.12),
         (m.v - 0.5) * H * 1.2
       );
       _o.quaternion.copy(camera.quaternion);
-      const s = m.size * (1 + Math.sin(t * 1.1 + m.phase) * 0.2);
+      const s = m.size * (REDUCED ? 1 : 1 + Math.sin(t * 1.1 + m.phase) * 0.2);
       _o.scale.set(s, s, s);
       _o.updateMatrix();
       moteMesh.setMatrixAt(i, _o.matrix);
@@ -2249,7 +2304,9 @@ function frame(now) {
   if (Math.abs(dimTarget - dimAmt) < 0.002) dimAmt = dimTarget;
 
   const hintOn = hintMove && now < hintUntil;
-  const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+  // A hint still has to be *findable* under REDUCED, so it stays lit — it just
+  // sits at the top of the pulse instead of throbbing.
+  const pulse = REDUCED ? 1 : 0.5 + 0.5 * Math.sin(t * 6);
 
   for (let i = 0; i < meshes.length; i++) {
     const mesh = meshes[i];
@@ -2276,8 +2333,10 @@ function frame(now) {
     }
   }
 
-  // Exit marker breathes so the gap is findable at a glance.
-  if (exitArrow) {
+  // Exit marker breathes so the gap is findable at a glance. Under REDUCED it
+  // is parked at full brightness instead — still the most conspicuous thing on
+  // the board, just not moving.
+  if (exitArrow && !REDUCED) {
     const breathe = Math.sin(t * 1.8);
     exitArrow.position.y = 0.02 + breathe * 0.012;
     exitArrow.material.color.setHex(C.gold).multiplyScalar(0.9 + 0.1 * breathe);

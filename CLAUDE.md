@@ -233,6 +233,21 @@ Conventions for a 3D game:
   lands never reaches the shadow map and leaves a shadow behind.
 - **A static board doesn't need 60fps.** `unblock-me` renders at 30 unless a finger is down or
   a tween is running. Idle animation (dust, a pulsing marker) still reads fine at half rate.
+  Test the elapsed time against `1000/30 - 4`, not `1000/30`: rAF ticks every ~16.7ms, so a
+  bare threshold is missed by two ticks as often as not and the loop waits for a third —
+  measured 22fps against an intended 30.
+- **Honour `prefers-reduced-motion`.** Read it once into a `REDUCED` const and gate the motion
+  the page makes *on its own* — drifting scenery, idle bobs, pulses, confetti, particle bursts,
+  squash, camera shake. Motion the player caused stays: a piece that teleports instead of
+  sliding is worse feedback, not gentler. Mirror it in CSS for the DOM overlays. The payoff is
+  also performance: with nothing animating by itself the scene is genuinely static between
+  inputs, so the loop can stop drawing entirely (measured on `unblock-me`: 28 rendered fps and
+  419 draw calls/s at idle, down to **0 and 0**).
+- **On-demand rendering needs an invalidation net.** Enumerating the call sites that should
+  request a frame is how a stale frame eventually ends up on screen. Every state change in
+  these games starts as an input, so one capture-phase listener for
+  `pointerdown`/`pointerup`/`pointercancel`/`keydown`/`click` covers all of them with nothing
+  to keep in sync.
 - Tune light intensities so a fully lit top face lands at roughly the material's own color —
   otherwise the **Color & Contrast** rules above can't be checked against a hex value.
 - Meshes aren't tappable targets on their own. Give each interactive piece an oversized

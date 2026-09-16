@@ -111,12 +111,26 @@ A puzzle board is static between inputs, and the render loop leans on that.
   6.4k. The `animating` flag is sampled **before** `stepTweens`, so the frame in
   which a slide finishes still refreshes — otherwise the piece lands and leaves
   its shadow at the old cell.
-- `shadowHold` / `touchShadow()` exist for changes the loop cannot see by
-  itself: a rebuilt board, and the 0.012 lift on a newly selected block. The
-  selection case is handled by comparing `game.sel` against `lastSel` in the
-  loop rather than by calling `touchShadow()` from each input path, so there is
-  no call site to forget.
+- `dirtyUntil` / `invalidate()` exist for changes the loop cannot see by
+  itself: a rebuilt board, the 0.012 lift on a newly selected block, a hint
+  appearing and expiring. Rather than call `invalidate()` from every input path
+  — where one forgotten site strands a stale frame once reduced motion stops the
+  continuous redraw — a single capture-phase listener on `pointerdown`,
+  `pointerup`, `pointercancel`, `keydown` and `click` covers the lot, since
+  every state change here starts as an input. The `game.sel` vs `lastSel`
+  comparison in the loop is a second backstop.
 - Idle frames are capped at 30fps. Full rate resumes while dragging or tweening.
+  `IDLE_MS` is `1000/30 - 4` and the slack is load-bearing: rAF ticks every
+  ~16.7ms, so a bare 33.3ms threshold is missed by two ticks (33.4ms) as often
+  as not and the loop waits for a third. Measured on a real GPU: 22fps before
+  the slack, 28 after.
+- **`prefers-reduced-motion` turns the loop fully on-demand.** With the dust,
+  the breathing marker, the pulses, the squash, the confetti and the burst all
+  gated off, nothing changes between inputs — so `frame()` returns early unless
+  a tween or drag is live or `dirtyUntil` is still in the future. Measured
+  idle: 28 fps / 419 draws per second normally, **0 / 0** under reduced motion.
+  Slides, the win fly-out and the result panel all stay: the player caused
+  those, and a block teleporting between cells is worse feedback, not gentler.
 - The boot audit is deferred to `requestIdleCallback` **with a `timeout`**. The
   timeout is not optional: this page runs an uninterrupted rAF loop, so the
   browser may never report an idle period and the audit would be starved for the
