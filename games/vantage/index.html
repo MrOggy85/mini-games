@@ -228,6 +228,14 @@ body {
   to { transform: translateY(112vh) rotate(var(--spin)); opacity: 0; }
 }
 
+/* The 3D side reads this same query in JS (see REDUCED); this covers the DOM.
+   Nothing is hidden — the complete overlay still appears, it just doesn't
+   spring in. */
+@media (prefers-reduced-motion: reduce) {
+  .complete-overlay h2, .complete-overlay p, .complete-overlay button { animation: none; }
+  .cand, .btn, #feedback { transition: none; }
+}
+
 #load-err {
   display: none;
   max-width: 22rem;
@@ -507,6 +515,23 @@ function faceGeometry(a, b) {
 
 // ── Renderer / scene ─────────────────────────────────────────────────────────
 
+// Decorative motion goes; motion the player caused stays. Here that is the
+// drifting backdrop solids and the idle sway on the target view. The reveal
+// swing is kept: the player earned it, and it is the answer being shown.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Treat the scene as changed until this timestamp. Under REDUCED — where
+// nothing moves on its own — this is what decides whether to draw at all.
+// Capture phase, so it lands before the handlers; every state change here
+// starts as an input or a resize.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 400));
+}
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
+
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.autoClear = false;   // regions are composited by hand
@@ -757,6 +782,10 @@ function nextPuzzle() {
   document.getElementById('level-num').textContent = level;
   buildCandidates();
   setFeedback('', '');
+  // Reached on a timer after a correct answer, not from the click itself, so
+  // the capture-phase invalidate has long since lapsed. The new candidate
+  // buttons also need a frame to be composited into.
+  invalidate(600);
 }
 
 function buildCandidates() {
@@ -787,10 +816,12 @@ function pick(idx, btn) {
     locked = true;
     btn.classList.add('correct');
     setFeedback('Correct — watch it from above', '#00D48C');
-    juiceSquash(btn);
-    const rect = btn.getBoundingClientRect();
-    juiceBurst(rect.left + rect.width / 2, rect.top + rect.height / 2,
-      [puzzle.solution.top, puzzle.solution.right, puzzle.solution.bottom, puzzle.solution.left]);
+    if (!REDUCED) {
+      juiceSquash(btn);
+      const rect = btn.getBoundingClientRect();
+      juiceBurst(rect.left + rect.width / 2, rect.top + rect.height / 2,
+        [puzzle.solution.top, puzzle.solution.right, puzzle.solution.bottom, puzzle.solution.left]);
+    }
     reveal = { t0: performance.now(), dur: 1250 };
     setTimeout(() => {
       if (level >= LEVEL_COUNT) showComplete();
@@ -798,7 +829,7 @@ function pick(idx, btn) {
     }, 2050);
   } else {
     btn.classList.add('wrong');
-    juiceShake(btn);
+    if (!REDUCED) juiceShake(btn);
     setFeedback('Not quite — try again', '#FF5722');
     setTimeout(() => btn.classList.remove('wrong'), 500);
   }
@@ -812,6 +843,9 @@ function showComplete() {
 const CC = [C.orange, C.cyan, C.green, C.yellow, C.blue, C.red, C.purple, C.white];
 
 function spawnConfetti() {
+  // Sixty-five pieces falling the height of the screen; the overlay already
+  // says you finished.
+  if (REDUCED) return;
   for (let i = 0; i < 65; i++) {
     setTimeout(() => {
       const el = document.createElement('div');
@@ -835,6 +869,9 @@ document.getElementById('btnAgain').addEventListener('click', startGame);
 // ── Layout ───────────────────────────────────────────────────────────────────
 
 function resize() {
+  // The regions are read from DOM rects every frame, so a resize has to force
+  // at least one more of them.
+  invalidate();
   const w = window.innerWidth, h = window.innerHeight;
   let dpr = Math.min(2, window.devicePixelRatio || 1);
   const budget = 4.2e6;
@@ -859,14 +896,37 @@ function useRegion(rect) {
 const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
 const targetSlot = document.getElementById('target-slot');
 
+// Five render passes a frame — the backdrop, the target view, and one per
+// candidate — and four of those five draw a colouring that cannot change until
+// the puzzle does. At the display rate that came to 3,600 draw calls a second
+// to show a still picture. `- 4` of slack because rAF ticks every ~16.7ms at
+// 60Hz: a bare 33.3ms threshold is missed by two ticks as often as not.
+const IDLE_MS = 1000 / 30 - 4;
+let last = performance.now();
+
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // The reveal swing is a real animation and gets every frame it asks for.
+  const animating = !!reveal;
+
+  if (REDUCED) {
+    // Nothing drifts and nothing sways, so between answers there is nothing to
+    // redraw — and the canvas keeps what was last composited into it.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
+  last = now;
+
   const t = now / 1000;
 
-  for (const d of drifters) {
-    d.rotation.y += d.userData.spin * 0.006;
-    d.rotation.x += d.userData.spin * 0.004;
-    d.position.y += Math.sin(t * 0.5 + d.userData.bob) * 0.0016;
+  if (!REDUCED) {
+    for (const d of drifters) {
+      d.rotation.y += d.userData.spin * 0.006;
+      d.rotation.x += d.userData.spin * 0.004;
+      d.position.y += Math.sin(t * 0.5 + d.userData.bob) * 0.0016;
+    }
   }
 
   renderer.setScissorTest(false);
@@ -878,7 +938,7 @@ function frame(now) {
   // Target view.
   const tRect = targetSlot.getBoundingClientRect();
   if (tRect.width > 4 && tRect.height > 4 && puzzle) {
-    let polar = POLAR_VIEW, azim = AZIM_VIEW + Math.sin(t * 0.55) * SWAY;
+    let polar = POLAR_VIEW, azim = AZIM_VIEW + (REDUCED ? 0 : Math.sin(t * 0.55) * SWAY);
     if (reveal) {
       const p = Math.min(1, (now - reveal.t0) / reveal.dur);
       const e = easeInOut(p);
