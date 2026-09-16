@@ -217,6 +217,14 @@ canvas {
   border-radius: 50%; background: #fff; transition: left 0.2s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4); pointer-events: none;
 }
+
+/* The 3D side reads this same query in JS (see REDUCED). There are no keyframe
+   animations here; the only DOM motion is the settings toggle's sliding thumb,
+   which jumps instead. The colour transitions are left alone — a 150ms tint is
+   not the kind of motion this query is about. */
+@media (prefers-reduced-motion: reduce) {
+  .s-toggle .thumb { transition: none; }
+}
 </style>
 </head>
 <body>

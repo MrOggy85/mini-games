@@ -236,18 +236,42 @@ Conventions for a 3D game:
   Test the elapsed time against `1000/30 - 4`, not `1000/30`: rAF ticks every ~16.7ms, so a
   bare threshold is missed by two ticks as often as not and the loop waits for a third —
   measured 22fps against an intended 30.
-- **Honour `prefers-reduced-motion`.** Read it once into a `REDUCED` const and gate the motion
-  the page makes *on its own* — drifting scenery, idle bobs, pulses, confetti, particle bursts,
-  squash, camera shake. Motion the player caused stays: a piece that teleports instead of
-  sliding is worse feedback, not gentler. Mirror it in CSS for the DOM overlays. The payoff is
-  also performance: with nothing animating by itself the scene is genuinely static between
-  inputs, so the loop can stop drawing entirely (measured on `unblock-me`: 28 rendered fps and
-  419 draw calls/s at idle, down to **0 and 0**).
+- **Honour `prefers-reduced-motion`.** Every three.js page here does. Read it once into a
+  `REDUCED` const and gate the motion the page makes *on its own* — drifting scenery, idle
+  bobs, pulses, confetti, particle bursts, squash, camera shake. Motion the player caused
+  stays: a piece that teleports instead of sliding is worse feedback, not gentler. Mirror it
+  in CSS for the DOM overlays, and check for `infinite` animations there — `guide-the-way` had
+  two that would otherwise have run regardless of what the canvas was doing.
+  - **Freeze, don't delete, anything that carries state.** `circuits` says "this wire is live"
+    with travelling beads and `trace` marks the path head with a throb; those stay on screen,
+    parked at a fixed phase. Setting the animation clock to `0` under `REDUCED` does this for
+    free for any loop written against absolute time — but not for one that *accumulates*
+    (`x += speed * dt`), which has to be skipped by hand. Both kinds usually exist on the same
+    page.
+  - The payoff is also performance: with nothing animating by itself the scene is genuinely
+    static between inputs, so the loop can stop drawing entirely.
 - **On-demand rendering needs an invalidation net.** Enumerating the call sites that should
   request a frame is how a stale frame eventually ends up on screen. Every state change in
   these games starts as an input, so one capture-phase listener for
   `pointerdown`/`pointerup`/`pointercancel`/`keydown`/`click` covers all of them with nothing
-  to keep in sync.
+  to keep in sync. Anything that outlives its input still needs an explicit `invalidate(ms)`:
+  a hint glow, a level rebuilt on a timer.
+
+Measured in Chrome on a real GPU at an iPad viewport, idling, before → after:
+
+| Page | draws/s | reduced motion |
+|---|---|---|
+| portal | 9,697 → 3,741 | 0 |
+| vantage | 3,610 → 1,769 | 0 |
+| guide-the-way | 3,546 → 1,692 | 0 |
+| warehouse-keeper | 2,399 → 1,145 | 0 |
+| glide | 2,290 → 845 | 0 |
+| circuits | 1,994 → 780 | 0 |
+| trace | 601 → 201 | 0 |
+| unblock-me | 419 → 419 (already capped) | 0 |
+
+Count draw calls, not fps, when checking this: `gl.clear` fires twice on a frame that also
+redraws the shadow map, so a clear-based frame counter reads double.
 - Tune light intensities so a fully lit top face lands at roughly the material's own color —
   otherwise the **Color & Contrast** rules above can't be checked against a hex value.
 - Meshes aren't tappable targets on their own. Give each interactive piece an oversized
