@@ -138,13 +138,47 @@ Each game keeps its own palette — the 3D treatment is a rendering change, not 
 re-theme. `glide`/`trace` stay dark and neon; `guide-the-way` stays bright and
 playful, so it uses a lighter light rig and pastel surfaces.
 
+### Where to look things up
+
+three.js moves fast and renames things between releases, so **check the docs
+rather than recalling the API** — several things this project relies on (the
+shadow map type, colour management defaults) changed in releases that a model's
+training data may predate.
+
+- **API reference** — <https://threejs.org/docs/>. The site is a hash-routed SPA,
+  so a plain fetch of `/docs/` only returns the index. Individual pages render at
+  `https://threejs.org/docs/#api/en/<section>/<ClassName>`; to fetch one as text,
+  read `docs/api/en/<section>/<ClassName>.html` from the GitHub repo instead.
+- **Manual** — <https://threejs.org/manual/>. Article slugs are listed in
+  `https://threejs.org/manual/list.json`, and the pages themselves are at
+  `https://threejs.org/manual/pages/<slug>.html` (note `pages/`, which is easy to
+  guess wrong). The ones that bear on this project: `rendering-on-demand`,
+  `how-to-dispose-of-objects`, `cleanup`, `color-management`, `shadows`,
+  `optimize-lots-of-objects`.
+- **Migration guide** — the single most useful page when bumping `THREE_VERSION`.
+  It is a GitHub wiki, so fetch the raw markdown:
+  `https://raw.githubusercontent.com/wiki/mrdoob/three.js/Migration-Guide.md`
+  (the rendered `github.com/mrdoob/three.js/wiki/...` URL returns 403 to fetchers).
+  Read the entries between the version we ship and the one being moved to before
+  running `make vendor`.
+
 three.js is **vendored, not loaded from a CDN** — a CDN request breaks offline play:
 
 - `/vendor/three.module.min.js` + `/vendor/three.core.min.js` (the module build imports the
   core build by relative path, so both files must exist and both must be in `sw.js`)
 - Import with an absolute path: `import * as THREE from '/vendor/three.module.min.js';`
   inside a `<script type="module">`
-- Refresh with `make vendor` (bump `THREE_VERSION` in the `Makefile`); never hand-edit `vendor/`
+- Refresh with `make vendor` (bump `THREE_VERSION` in the `Makefile`); never hand-edit `vendor/`.
+  **Read the migration guide first** — see *Where to look things up* above.
+- **We minify three ourselves.** r186 removed every `.min.js` from the npm package, so
+  `make vendor` runs `tools/vendor-three.mjs`, which minifies `build/three.*.js` with esbuild,
+  rewrites the `./three.core.js` import to the `.min.js` filename, and asserts both before
+  writing. Shipping the raw builds would take the engine from 194 KB to 419 KB gzipped — and
+  these are `CORE` assets in `sw.js`, downloaded before the PWA can work offline at all.
+- **The build is downlevelled to `safari15`.** r184+ uses ES2022 class static blocks, which
+  Safari only parses from 16.4; on anything older the module throws a `SyntaxError` and the page
+  never renders. Upstream closed this as *Won't fix* (mrdoob/three.js#34134). Lowering them
+  costs 70 bytes gzipped, so it stays on regardless of which iPad is in the room
 - Only the core module is vendored — nothing from `three/examples/`. Anything from `addons`
   (`RoundedBoxGeometry`, `OrbitControls`, postprocessing) has to be written by hand instead.
   Rounded/beveled solids come from `ExtrudeGeometry` over a rounded-rect `Shape`.
@@ -187,9 +221,10 @@ Conventions for a 3D game:
   to drive an emissive PBR material, and it still respects fog.
 - Budget for iPhone/iPad: `setPixelRatio(Math.min(2, devicePixelRatio))`, one shadow-casting
   `DirectionalLight` at 1024², no postprocessing, `InstancedMesh` for repeated board tiles.
-- **`PCFSoftShadowMap` is deprecated** in the vendored three. Setting it does nothing except
-  log a warning — the renderer falls back to `PCFShadowMap` on the first shadow render. Every
-  page names `PCFShadowMap` directly: the same picture, minus the warning.
+- **`PCFSoftShadowMap` is deprecated.** Setting it does nothing except log a warning — the
+  renderer falls back to `PCFShadowMap` on the first shadow render. Every page names
+  `PCFShadowMap` directly: the same picture, minus the warning. This is not a quality
+  downgrade; per the r186 migration notes, "Use PCFShadowMap which is now soft as well."
 - **The shadow map is redrawn every frame by default**, even when nothing has moved, at one
   extra draw call per caster. For a board whose pieces sit still between inputs that is nearly
   every frame: `unblock-me` sets `shadowMap.autoUpdate = false` and raises `needsUpdate` only

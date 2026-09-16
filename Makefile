@@ -1,6 +1,9 @@
 .PHONY: serve icons vendor verify
 
-THREE_VERSION = 0.185.1
+THREE_VERSION = 0.186.0
+# Pinned so `make vendor` is reproducible. Only used at vendor time; nothing
+# esbuild produces depends on it being the latest.
+ESBUILD_VERSION = 0.28.2
 
 serve:
 	python3 -m http.server 8000
@@ -15,9 +18,11 @@ icons:
 	npm install --no-save --no-package-lock sharp
 	node tools/render-icons.js
 
-# Refresh the checked-in three.js build in vendor/
+# Refresh the checked-in three.js build in vendor/.
+# three stopped publishing minified builds in r186, so we minify them ourselves —
+# see tools/vendor-three.mjs for why that is a node script and not two `cp`s.
+# Read the migration guide between the old and new THREE_VERSION first; the URL
+# is in CLAUDE.md under "Where to look things up".
 vendor:
-	npm install --no-save --no-package-lock three@$(THREE_VERSION)
-	cp node_modules/three/build/three.module.min.js vendor/three.module.min.js
-	cp node_modules/three/build/three.core.min.js vendor/three.core.min.js
-	cp node_modules/three/LICENSE vendor/three.LICENSE
+	npm install --no-save --no-package-lock three@$(THREE_VERSION) esbuild@$(ESBUILD_VERSION)
+	node tools/vendor-three.mjs
