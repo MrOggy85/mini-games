@@ -226,6 +226,15 @@ h1 {
 @keyframes cfall {
   to { transform: translateY(110vh) rotate(var(--spin)); opacity: 0; }
 }
+
+/* The 3D side reads this same query in JS (see REDUCED); this only has to cover
+   the DOM. Nothing is hidden — the win panel still appears, it just doesn't
+   spring in. */
+@media (prefers-reduced-motion: reduce) {
+  .win-star, .win-title, .win-sub, .btn-next { animation: none; }
+  .btn, .toast { transition: none; }
+  .btn:active { transform: none; }
+}
 </style>
 </head>
 <body>
@@ -335,6 +344,12 @@ const TILE_COLOR = 0x78849f;
 
 // ── Renderer / scene ─────────────────────────────────────────────────────────
 
+// Decorative motion goes; motion the player caused stays. Here that means the
+// idle float, the hint pulse, the landing squash, the travel lean, confetti,
+// the exit burst and the camera shake — but a tapped block still slides, since
+// teleporting it would be worse feedback rather than gentler feedback.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -342,6 +357,10 @@ renderer.shadowMap.enabled = true;
 // PCF, not PCFSoft: three deprecated PCFSoft and the renderer silently falls
 // back to this on the first shadow render anyway, with a console warning.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+// The shadow map is otherwise redrawn every frame at one draw call per caster,
+// which is most of this scene. Refreshed explicitly in the render loop instead.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(26, 1, 1, 200);
@@ -583,7 +602,22 @@ function stepTweens(now) {
 let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
 
-function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); }
+
+// Treat the scene as changed until this timestamp — for anything the render
+// loop's own "is a tween running" check can't see, such as a rebuilt board or a
+// hint being requested. Under REDUCED, where nothing animates on its own, this
+// is also what decides whether there is any reason to draw at all.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 250));
+}
+// Capture phase, so it lands before the handlers. Every state change in this
+// game starts as an input, so one listener covers them all and there is no list
+// of call sites to keep in sync.
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
 
 // ── Game state ───────────────────────────────────────────────────────────────
 
@@ -799,7 +833,9 @@ function initLevel(lvl) {
   game.init = data.bs.map((b) => ({ id: b.id, r: b.r, c: b.c, d: b.d, ci: b.ci }));
   buildBlocks();
   updateHUD();
+  invalidate(600);
   // Staggered pop-in so a new level reads as "dealt" rather than snapping on.
+  if (REDUCED) return;
   let i = 0;
   for (const mesh of meshById.values()) {
     const delay = i++ * 55;
@@ -890,7 +926,7 @@ function doTap(id) {
     mesh.position.x = from.x + (to.x - from.x) * e;
     mesh.position.z = from.z + (to.z - from.z) * e;
     // Lean into the direction of travel, then straighten out.
-    const lean = Math.sin(p * Math.PI) * 0.15;
+    const lean = REDUCED ? 0 : Math.sin(p * Math.PI) * 0.15;
     mesh.rotation.z = -lean * dir.dc;
     mesh.rotation.x = lean * dir.dr;
     if (exits) {
@@ -902,13 +938,16 @@ function doTap(id) {
   }, () => {
     mesh.rotation.set(0, 0, 0);
     if (exits) {
-      const s = toScreen(mesh.position.clone().setY(BLOCK_Y + BLOCK_H / 2));
-      juiceBurst(s.x, s.y, [COLORS[b.ci].css, COLORS[b.ci].b]);
+      if (!REDUCED) {
+        const s = toScreen(mesh.position.clone().setY(BLOCK_Y + BLOCK_H / 2));
+        juiceBurst(s.x, s.y, [COLORS[b.ci].css, COLORS[b.ci].b]);
+      }
       shake(0.07);
       finishTap(id, idx, r, c, exits);
     } else {
       finishTap(id, idx, r, c, exits);
       // Squash & stretch on landing.
+      if (REDUCED) return;
       tween(220, (e, p) => {
         const k = Math.sin(p * Math.PI);
         mesh.scale.set(1 + 0.16 * k, 1 - 0.26 * k, 1 + 0.16 * k);
@@ -960,6 +999,9 @@ function showHint() {
   if (!sol || !sol.length) return;
   hintId = sol[0];
   hintUntil = performance.now() + 1600;
+  // The hint's glow outlives the click that asked for it, so hold the frames
+  // open for its full duration plus the frame that clears it.
+  invalidate(1700);
 }
 
 function showWin() {
@@ -981,6 +1023,9 @@ function showToast(msg) {
 
 const CC = ['#FF6B6B','#4ECDC4','#FFB800','#A29BFE','#FD79A8','#45B7D1','#6C5CE7','#00B894'];
 function spawnConfetti() {
+  // Eighty pieces falling the height of the screen is the largest single piece
+  // of motion in the game, and the win overlay already says you cleared it.
+  if (REDUCED) return;
   for (let i = 0; i < 80; i++) {
     setTimeout(() => {
       const el = document.createElement('div');
@@ -1089,23 +1134,53 @@ window.addEventListener('resize', layout);
 // ── Render loop ──────────────────────────────────────────────────────────────
 
 let last = performance.now();
+let shadowParity = 0;
+
+// The board only changes when it is tapped, so the idle float does not need the
+// full display rate. `- 4` of slack because rAF ticks every ~16.7ms at 60Hz: a
+// bare 33.3ms threshold is missed by two ticks as often as not and the loop
+// waits for a third, landing at 22fps rather than 30.
+const IDLE_MS = 1000 / 30 - 4;
 
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // Sampled before stepTweens so the frame a tween finishes on still counts —
+  // otherwise a block's last position never reaches the shadow map.
+  const animating = tweens.length > 0 || shakeAmt > 0.0005;
+
+  if (REDUCED) {
+    // Nothing floats, pulses or shakes, so there is nothing to draw between taps.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
   stepTweens(now);
+
+  // Alternate frames while idling: the float is 0.018 of a cell, so its shadow
+  // moves about a pixel. A live tween gets every frame.
+  shadowParity ^= 1;
+  if (animating || tweens.length > 0 || now < dirtyUntil || (!REDUCED && shadowParity)) {
+    renderer.shadowMap.needsUpdate = true;
+  }
 
   const t = now / 1000;
   const hintOn = hintId !== -1 && now < hintUntil;
   for (const mesh of meshById.values()) {
     const u = mesh.userData;
     const isHint = hintOn && u.id === hintId;
-    // Gentle idle float keeps the board feeling alive between taps.
-    const bob = Math.sin(t * 1.5 + u.phase) * 0.018 + (isHint ? 0.09 + Math.sin(t * 9) * 0.05 : 0);
+    // Gentle idle float keeps the board feeling alive between taps. Under
+    // REDUCED the blocks sit still and a hint is a steady glow rather than a
+    // throb — still the brightest thing on the board, just not moving.
+    const bob = REDUCED
+      ? (isHint ? 0.09 : 0)
+      : Math.sin(t * 1.5 + u.phase) * 0.018 + (isHint ? 0.09 + Math.sin(t * 9) * 0.05 : 0);
     mesh.position.y = BLOCK_Y + bob;
-    u.mat.emissiveIntensity = isHint ? 0.28 + Math.sin(t * 9) * 0.22 : 0.1;
+    u.mat.emissiveIntensity = isHint ? (REDUCED ? 0.5 : 0.28 + Math.sin(t * 9) * 0.22) : 0.1;
   }
 
   if (shakeAmt > 0.0005) {
