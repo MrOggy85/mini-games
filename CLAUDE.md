@@ -187,6 +187,17 @@ Conventions for a 3D game:
   to drive an emissive PBR material, and it still respects fog.
 - Budget for iPhone/iPad: `setPixelRatio(Math.min(2, devicePixelRatio))`, one shadow-casting
   `DirectionalLight` at 1024², no postprocessing, `InstancedMesh` for repeated board tiles.
+- **`PCFSoftShadowMap` is deprecated** in the vendored three. Setting it does nothing except
+  log a warning — the renderer falls back to `PCFShadowMap` on the first shadow render. Every
+  page names `PCFShadowMap` directly: the same picture, minus the warning.
+- **The shadow map is redrawn every frame by default**, even when nothing has moved, at one
+  extra draw call per caster. For a board whose pieces sit still between inputs that is nearly
+  every frame: `unblock-me` sets `shadowMap.autoUpdate = false` and raises `needsUpdate` only
+  while something is animating, which takes an idle frame from 26 draw calls to 15. Sample the
+  "is anything animating" flag *before* stepping the tweens, or the frame in which a piece
+  lands never reaches the shadow map and leaves a shadow behind.
+- **A static board doesn't need 60fps.** `unblock-me` renders at 30 unless a finger is down or
+  a tween is running. Idle animation (dust, a pulsing marker) still reads fine at half rate.
 - Tune light intensities so a fully lit top face lands at roughly the material's own color —
   otherwise the **Color & Contrast** rules above can't be checked against a hex value.
 - Meshes aren't tappable targets on their own. Give each interactive piece an oversized

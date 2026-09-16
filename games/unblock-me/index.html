@@ -684,13 +684,19 @@ function starsFor(par, moves) {
 }
 // ── /Puzzle model ────────────────────────────────────────────────────────────
 
-const audit = auditLevels(LEVELS);
-if (audit.length) {
-  for (const a of audit) console.error('[unblock-me] level ' + a.id + ' (' + a.name + '): ' + a.errs.join('; '));
-}
 // Exposed so the level data can be re-checked from a console on a device,
 // without a build step. `make verify` runs the same function in node.
 window.__unblockAudit = () => auditLevels(LEVELS);
+
+// A full BFS of every level costs ~50ms on a laptop and several times that on a
+// phone. It is a safety net for whoever edits LEVELS, not gameplay, so it runs
+// once the board is on screen rather than spending that budget before the first
+// pixel. See the call at the bottom of the Init section.
+function runAudit() {
+  for (const a of auditLevels(LEVELS)) {
+    console.error('[unblock-me] level ' + a.id + ' (' + a.name + '): ' + a.errs.join('; '));
+  }
+}
 
 // ── Save data ────────────────────────────────────────────────────────────────
 
@@ -977,7 +983,14 @@ const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// PCF, not PCFSoft: three deprecated PCFSoft and the renderer silently falls
+// back to this on the first shadow render anyway, with a console warning.
+renderer.shadowMap.type = THREE.PCFShadowMap;
+// The shadow pass is the most expensive thing in a frame, and in a puzzle whose
+// pieces sit still between moves almost every frame redraws an identical map.
+// Refreshed explicitly instead — see `shadowHold` in the render loop.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(26, 1, 1, 200);
@@ -1326,6 +1339,14 @@ let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
 const shake = (a) => { shakeAmt = Math.max(shakeAmt, a); };
 
+// Keep refreshing the shadow map until this timestamp. For changes that aren't
+// a tween and aren't a drag — a rebuilt board, a selection lift — and so aren't
+// visible to the render loop's own animating check.
+let shadowHold = 0;
+function touchShadow(ms) {
+  shadowHold = Math.max(shadowHold, performance.now() + (ms || 200));
+}
+
 // ── Game state ───────────────────────────────────────────────────────────────
 
 const game = {
@@ -1379,8 +1400,11 @@ function disposeGroup(group) {
 
 function own(x) { x.userData.own = true; return x; }
 
+let exitArrow = null;
+
 function buildBoard() {
   disposeGroup(boardGroup);
+  exitArrow = null;
   const W = game.lv.w, H = game.lv.h;
   const zg0 = exitZ() - 0.5, zg1 = exitZ() + 0.5;
 
@@ -1427,10 +1451,9 @@ function buildBoard() {
 
   // Exit marker, self-lit so it stays legible against the dark page beyond the
   // tray. MeshBasicMaterial ignores lights, which is the point.
-  const arrow = new THREE.Mesh(ARROW_GEO, own(new THREE.MeshBasicMaterial({ color: C.gold })));
-  arrow.position.set(W / 2 + RIM + 0.52, 0.02, exitZ());
-  arrow.userData.exitArrow = true;
-  boardGroup.add(arrow);
+  exitArrow = new THREE.Mesh(ARROW_GEO, own(new THREE.MeshBasicMaterial({ color: C.gold })));
+  exitArrow.position.set(W / 2 + RIM + 0.52, 0.02, exitZ());
+  boardGroup.add(exitArrow);
 
   // Light rig scaled to the board, so a different grid size relights correctly.
   keyLight.position.set(-(W * 0.9), 11, H * 0.75);
@@ -1477,7 +1500,7 @@ function buildBlocks() {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     if (b.orient === 'v') mesh.rotation.y = Math.PI / 2;
-    mesh.userData = { i, base: new THREE.Color(base) };
+    mesh.userData = { i, base: new THREE.Color(base), tag: 'blk' + i, dim: -1 };
     blockGroup.add(mesh);
     meshes[i] = mesh;
   });
@@ -1622,6 +1645,9 @@ function loadLevel(idx) {
   buildFitPoints();
   layout();
   updateHUD();
+  // A rebuilt board is a shadow change the render loop's animating check can't
+  // see on its own; the pop-in tweens cover the rest.
+  touchShadow(500);
 
   // Staggered pop-in, so a new board reads as "set out" rather than snapping on.
   meshes.forEach((mesh, i) => {
@@ -2166,14 +2192,32 @@ window.addEventListener('orientationchange', () => setTimeout(layout, 120));
 
 const _o = new THREE.Object3D();
 let last = performance.now();
+let lastSel = -1;
+
+// Nothing on this board moves unless the player moves it, so a held position
+// does not need sixty redraws a second. Full rate while a finger is down or a
+// tween is running; half rate otherwise, which is plenty for drifting dust and
+// a breathing arrow and roughly halves the idle GPU load on a battery device.
+const IDLE_MS = 1000 / 30;
 
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // Sampled before stepTweens, so the frame in which a tween *finishes* still
+  // counts as animating — otherwise the last position of a slide, and the frame
+  // where the target is hidden on the win, would never make it into the shadow
+  // map and would leave a shadow behind.
+  const animating = !!drag || tweens.length > 0 || shakeAmt > 0.0005;
+  if (!animating && now - last < IDLE_MS) return;
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const t = now / 1000;
 
   stepTweens(now);
+
+  if (game.sel !== lastSel) { lastSel = game.sel; touchShadow(); }
+  if (animating || tweens.length > 0 || now < shadowHold) renderer.shadowMap.needsUpdate = true;
 
   // Dust, in a box over the tray. Positions are normalised so a level of a
   // different size rescales them instead of stranding motes off the board.
@@ -2197,9 +2241,12 @@ function frame(now) {
     moteMesh.instanceMatrix.needsUpdate = true;
   }
 
-  // Frame-rate independent approach, unlike `x *= 0.9`.
+  // Frame-rate independent approach, unlike `x *= 0.9`. Snapped at the ends so
+  // it actually settles: an asymptotic approach never reaches its target, and
+  // the per-block colour write below skips only once it stops changing.
   const k = 1 - Math.pow(0.0015, dt);
   dimAmt += (dimTarget - dimAmt) * k;
+  if (Math.abs(dimTarget - dimAmt) < 0.002) dimAmt = dimTarget;
 
   const hintOn = hintMove && now < hintUntil;
   const pulse = 0.5 + 0.5 * Math.sin(t * 6);
@@ -2207,26 +2254,33 @@ function frame(now) {
   for (let i = 0; i < meshes.length; i++) {
     const mesh = meshes[i];
     if (!mesh || !mesh.visible) continue;
+    const u = mesh.userData;
     const held = drag && drag.i === i;
     const isHint = hintOn && hintMove.i === i;
     const sel = game.sel === i;
 
-    // "The rest of the board dims marginally" while something is held.
+    // "The rest of the board dims marginally" while something is held. Skipped
+    // once the dim has settled — dimAmt approaches its target asymptotically, so
+    // without the quantise below this would recompute a colour forever.
     const dim = held ? 0 : dimAmt * 0.14;
-    mesh.material.color.copy(mesh.userData.base).multiplyScalar(1 - dim);
+    if (u.dim !== dim) {
+      u.dim = dim;
+      mesh.material.color.copy(u.base).multiplyScalar(1 - dim);
+    }
     mesh.material.emissiveIntensity = isHint ? 0.16 + pulse * 0.2 : (held ? 0.07 : (sel ? 0.04 : 0));
 
-    if (!held && !hasTween('blk' + i)) {
+    // u.tag is prebuilt: 'blk' + i here would allocate a string per block per
+    // frame, which is pure garbage for the collector to sweep up.
+    if (!held && !hasTween(u.tag)) {
       mesh.position.y = sel ? 0.012 : 0;
     }
   }
 
   // Exit marker breathes so the gap is findable at a glance.
-  for (const o of boardGroup.children) {
-    if (o.userData.exitArrow) {
-      o.position.y = 0.02 + Math.sin(t * 1.8) * 0.012;
-      o.material.color.setHex(C.gold).multiplyScalar(0.8 + 0.2 * (0.5 + 0.5 * Math.sin(t * 1.8)));
-    }
+  if (exitArrow) {
+    const breathe = Math.sin(t * 1.8);
+    exitArrow.position.y = 0.02 + breathe * 0.012;
+    exitArrow.material.color.setHex(C.gold).multiplyScalar(0.9 + 0.1 * breathe);
   }
 
   const arrow = ensureHintArrow();
@@ -2264,6 +2318,16 @@ loadLevel(Math.min(save.unlocked - 1, LEVELS.length - 1));
 requestAnimationFrame(() => layout());
 requestAnimationFrame(frame);
 window.__unblockReady = true;
+
+// The `timeout` is not optional here: this page runs an uninterrupted rAF loop,
+// so the browser may never report an idle period at all and a plain
+// requestIdleCallback can be starved for the whole session — which is exactly
+// what happened the first time, and a level audit that silently never runs is
+// worse than no audit. Bound rather than extracted, too: a bare
+// `requestIdleCallback(...)` in a module has an undefined `this` and Chrome
+// throws "Illegal invocation".
+if (window.requestIdleCallback) window.requestIdleCallback(runAudit, { timeout: 2000 });
+else setTimeout(runAudit, 1500);
 </script>
 <script>
 if ('serviceWorker' in navigator) {

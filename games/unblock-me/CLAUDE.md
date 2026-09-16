@@ -101,6 +101,31 @@ silhouette at 7.4:1, the same job the portal's tile rims do. The numbers that
 matter are block-on-well (5.9:1 plain, 3.6:1 target) and frame-on-well (4.6:1).
 Change any one of the three and re-check all of them.
 
+## Performance
+
+A puzzle board is static between inputs, and the render loop leans on that.
+
+- `shadowMap.autoUpdate = false`; `needsUpdate` is raised only while a drag or a
+  tween is live, or `shadowHold` is still running. Measured on an iPad-sized
+  canvas: an idle frame is **15 draw calls / 3.3k triangles** instead of 26 /
+  6.4k. The `animating` flag is sampled **before** `stepTweens`, so the frame in
+  which a slide finishes still refreshes — otherwise the piece lands and leaves
+  its shadow at the old cell.
+- `shadowHold` / `touchShadow()` exist for changes the loop cannot see by
+  itself: a rebuilt board, and the 0.012 lift on a newly selected block. The
+  selection case is handled by comparing `game.sel` against `lastSel` in the
+  loop rather than by calling `touchShadow()` from each input path, so there is
+  no call site to forget.
+- Idle frames are capped at 30fps. Full rate resumes while dragging or tweening.
+- The boot audit is deferred to `requestIdleCallback` **with a `timeout`**. The
+  timeout is not optional: this page runs an uninterrupted rAF loop, so the
+  browser may never report an idle period and the audit would be starved for the
+  whole session. That is exactly what happened on the first attempt, and a
+  safety net that silently never runs is worse than no safety net.
+- Per-frame allocation is kept at zero in the block loop: the tween tag is
+  prebuilt as `userData.tag`, and `dimAmt` snaps to its target so the per-block
+  colour write stops once the dim settles.
+
 ## Gotchas
 
 - **Grain direction comes from the geometry, not the material.** Block geometry is
