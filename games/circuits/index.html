@@ -223,6 +223,14 @@ body > * { position: relative; z-index: 1; }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* The 3D side reads this same query in JS (see REDUCED); this covers the DOM.
+   Nothing is hidden — the win panel still appears, it just doesn't spring in. */
+@media (prefers-reduced-motion: reduce) {
+  .win-emoji, .win-title, .win-sub { animation: none; }
+  .btn, .toast { transition: none; }
+  .btn:active { transform: none; }
+}
+
 #settingsBtn {
   position: fixed; top: 12px; right: 14px; z-index: 200;
   background: rgba(10,30,48,0.8); border: 1px solid rgba(34,211,255,0.45);
@@ -387,6 +395,11 @@ renderer.shadowMap.enabled = true;
 // PCF, not PCFSoft: three deprecated PCFSoft and the renderer silently falls
 // back to this on the first shadow render anyway, with a console warning.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+// Pieces only move when one is rotated, so redrawing the shadow map every frame
+// was spending a draw call per caster to reproduce an identical map. Refreshed
+// explicitly in the render loop instead.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.haze);
@@ -970,6 +983,7 @@ function updateBolts(now) {
 }
 
 function sparkAt(v3, colors, count) {
+  if (REDUCED) return;
   const p = v3.clone().project(camera);
   juiceBurst((p.x * 0.5 + 0.5) * window.innerWidth, (-p.y * 0.5 + 0.5) * window.innerHeight,
     colors || ['#fff3c4', '#ffd93d', '#9beeff'], { count: count || 12, spread: 62, duration: 460 });
@@ -1442,9 +1456,27 @@ function stepTweens(now) {
   }
 }
 
+// Decorative motion goes; the information it carries stays. This board says a
+// lot with movement — beads trickling along live wires, pieces pulsing when
+// energised — so under REDUCED those are frozen rather than removed: the beads
+// park along their edges and the glows hold at the top of their cycle, so a
+// live wire still reads as live. What goes entirely is the ambient lightning,
+// the drifting ground streams, the camera shake and the burst.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Treat the scene as changed until this timestamp, for anything the loop can't
+// see for itself. Under REDUCED it also decides whether to draw at all.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 300));
+}
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
+
 let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
-function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); }
 
 // ── Input ────────────────────────────────────────────────────────────────────
 
@@ -1649,15 +1681,37 @@ const _tmpB = new THREE.Color();
 let last = performance.now();
 let ambientBoltAt = 0;
 
+// `- 4` of slack because rAF ticks every ~16.7ms at 60Hz: a bare 33.3ms
+// threshold is missed by two ticks as often as not and the loop waits for a
+// third, landing at 22fps rather than 30.
+const IDLE_MS = 1000 / 30 - 4;
+
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // Sampled before stepTweens so the frame a rotation lands on still counts.
+  const animating = tweens.length > 0 || (surge && !surge.done) || bolts.length > 0
+    || shakeAmt > 0.0005 || needsLayout;
+
+  if (REDUCED) {
+    // Beads are parked, glows are held and no lightning spawns, so between
+    // taps there is nothing left to redraw.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  const t = now / 1000;
+  const t = REDUCED ? 0 : now / 1000;
 
   if (needsLayout) { needsLayout = false; layout(); }
   stepTweens(now);
-  updateStreams(dt);
+  if (!REDUCED) updateStreams(dt);
+
+  // Pieces only move when rotated, so the shadow map only needs redrawing
+  // while a tween is running rather than on every frame.
+  if (animating || tweens.length > 0 || now < dirtyUntil) renderer.shadowMap.needsUpdate = true;
 
   // Surge front, in hops from the battery.
   let front = -1;
@@ -1741,8 +1795,10 @@ function frame(now) {
     }
   }
 
-  // Occasional lightning out in the machine, more often while surging.
-  if (now > ambientBoltAt) {
+  // Occasional lightning out in the machine, more often while surging. Purely
+  // atmospheric, so it is the first thing to go under REDUCED — and with no
+  // bolts spawning there is nothing keeping the loop awake between taps.
+  if (!REDUCED && now > ambientBoltAt) {
     ambientBoltAt = now + (surge && !surge.done ? 90 + Math.random() * 160 : 900 + Math.random() * 2600);
     const r = worldRect;
     const ax = r.x0 + Math.random() * (r.x1 - r.x0);
