@@ -329,6 +329,18 @@ h1 {
   from { transform: scale(1); }
   to   { transform: scale(1.035); }
 }
+
+/* The 3D side reads this same query in JS (see REDUCED); this covers the DOM.
+   The two `infinite` animations above matter most — they keep running whatever
+   the canvas is doing. The Run button stays visually distinct through .ready's
+   other styling, it just stops breathing. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-run.ready, .cmd-arrow.active-step { animation: none; }
+  .level-badge.pop, .status-msg.pop, .cmd-arrow { animation: none; }
+  .btn, .cmd-arrow, .btn-run, .btn-clear { transition: none; }
+}
+/* .active-step keeps its box-shadow ring, so the step being executed is still
+   marked without the pulse. */
 .btn-clear {
   background: linear-gradient(180deg, #ffffff, #eceff8);
   color: var(--text2);
@@ -524,9 +536,23 @@ h1 {
 <script type="module">
 import * as THREE from '/vendor/three.module.min.js';
 
+// This page has more decorative motion than any other here — turning gears,
+// clock hands, pulses running the circuit traces, a floating key, a breathing
+// goal ring, a bobbing robot. All of it is atmosphere, none of it is state, so
+// under REDUCED it all holds still. Running the program is untouched: that is
+// the answer being played back, and the player asked for it.
+//
+// Declared up here rather than beside the renderer because juiceBurst below
+// reads it, and a const referenced above its own declaration is a trap waiting
+// for whoever next calls that function during module init.
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ─────────────
 
 function juiceBurst(x, y, colors, opts) {
+  // Gated at the source rather than at each of the three call sites: every one
+  // of them is a flourish on something the UI already states in words.
+  if (REDUCED) return;
   opts = opts || {};
   var count = opts.count || 14;
   var spread = opts.spread || 70;
@@ -610,6 +636,10 @@ renderer.shadowMap.enabled = true;
 // PCF, not PCFSoft: three deprecated PCFSoft and the renderer silently falls
 // back to this on the first shadow render anyway, with a console warning.
 renderer.shadowMap.type = THREE.PCFShadowMap;
+// Otherwise redrawn every frame at one draw call per caster. Refreshed
+// explicitly in the render loop instead.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.sky);
@@ -1609,7 +1639,18 @@ function stepTweens(now) {
 
 let shakeAmt = 0;
 const shakeOff = new THREE.Vector3();
-function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function shake(a) { if (!REDUCED) shakeAmt = Math.max(shakeAmt, a); }
+
+// Treat the scene as changed until this timestamp, for anything the loop can't
+// see for itself. Under REDUCED it also decides whether to draw at all.
+// Capture phase, so it lands before the handlers.
+let dirtyUntil = 0;
+function invalidate(ms) {
+  dirtyUntil = Math.max(dirtyUntil, performance.now() + (ms || 300));
+}
+for (const ev of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'click']) {
+  window.addEventListener(ev, () => invalidate(), true);
+}
 
 function toScreen(v) {
   const p = v.clone().project(camera);
@@ -2301,11 +2342,31 @@ document.getElementById('sfxToggle').addEventListener('change', (e) => {
 
 let last = performance.now();
 
+// `- 4` of slack because rAF ticks every ~16.7ms at 60Hz: a bare 33.3ms
+// threshold is missed by two ticks as often as not and the loop waits for a
+// third, landing at 22fps rather than 30.
+const IDLE_MS = 1000 / 30 - 4;
+
 function frame(now) {
   requestAnimationFrame(frame);
+
+  // Sampled before stepTweens so the frame a move lands on still counts.
+  const animating = tweens.length > 0 || running || shakeAmt > 0.0005 || needsLayout;
+
+  if (REDUCED) {
+    // Every ambient loop below is frozen, so between runs there is nothing left
+    // that would draw a different picture.
+    if (!animating && now >= dirtyUntil) return;
+  } else if (!animating && now - last < IDLE_MS) {
+    return;
+  }
+
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  const t = now / 1000;
+  // Zeroing the clock holds every absolute-time loop below at a fixed phase.
+  // The two that accumulate instead — the gears and the trace pulses — have to
+  // be skipped by hand.
+  const t = REDUCED ? 0 : now / 1000;
 
   if (needsLayout) {
     needsLayout = false;
@@ -2314,8 +2375,12 @@ function frame(now) {
 
   stepTweens(now);
 
+  if (animating || tweens.length > 0 || now < dirtyUntil || !REDUCED) {
+    renderer.shadowMap.needsUpdate = true;
+  }
+
   // Clockwork
-  for (const g of gears) g.mesh.rotation.y += g.speed * dt;
+  if (!REDUCED) for (const g of gears) g.mesh.rotation.y += g.speed * dt;
   for (const c of clocks) {
     c.minute.rotation.y = -t * (Math.PI * 2 / 6);
     c.hour.rotation.y = -t * (Math.PI * 2 / 72);
@@ -2323,7 +2388,7 @@ function frame(now) {
 
   // Electricity: a pulse runs each trace from the frame edge in to the board.
   if (circuitMesh) {
-    for (const tr of traces) {
+    if (!REDUCED) for (const tr of traces) {
       tr.pulse += tr.speed * dt;
       if (tr.pulse > tr.len + 1.2) tr.pulse = -0.8 - Math.random() * 3;
     }
