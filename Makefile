@@ -1,9 +1,14 @@
-.PHONY: serve icons vendor
+.PHONY: serve icons vendor verify
 
 THREE_VERSION = 0.185.1
 
 serve:
 	python3 -m http.server 8000
+
+# Prove every Unblock Me level is solvable and that its par is the true optimum.
+# Runs the game's own solver, sliced out of its HTML — see the tool's header.
+verify:
+	node tools/verify-levels.mjs
 
 # Regenerate home screen PNGs from each icon.svg
 icons:

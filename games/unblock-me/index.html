@@ -1,0 +1,2288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#16110c">
+<link rel="manifest" href="/games/unblock-me/manifest.json">
+<link rel="icon" href="/games/unblock-me/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/games/unblock-me/apple-touch-icon.png">
+<title>Unblock Me</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  overflow: hidden;
+  height: 100%;
+  touch-action: none;
+}
+
+body {
+  height: 100%;
+  background: radial-gradient(ellipse at 50% 38%, #241a11 0%, #16110c 62%, #0d0a07 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 12px calc(env(safe-area-inset-bottom) + 14px);
+  padding-top: calc(env(safe-area-inset-top) + 12px);
+  color: #c9b393;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #8a7a63;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+  flex: 0 0 auto;
+}
+.back-link:hover { color: #4af; }
+
+h1 {
+  font-size: clamp(1.4rem, 5.6vw, 2.3rem);
+  font-weight: 800;
+  color: #ffb454;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.tagline {
+  font-size: 0.72rem;
+  color: #a08767;
+  text-align: center;
+  letter-spacing: 0.03em;
+  margin: 2px 0 8px;
+  flex: 0 0 auto;
+}
+
+.info-bar {
+  display: flex;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #c9b393;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+.pill {
+  background: rgba(255,200,130,0.07);
+  border: 1px solid #5a4632;
+  padding: 4px 13px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.pill.star { color: #ffc25c; }
+
+/* The canvas is taken out of flow so #stage's measured box is the space the
+   board may use, independent of whatever size the renderer last picked for it.
+   Measuring beats the magic "innerHeight - 290" constant the older games use. */
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  align-self: stretch;
+}
+#stage::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 55%, rgba(255,175,90,0.13), rgba(0,0,0,0) 70%);
+  pointer-events: none;
+}
+#scene {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: block;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#loadErr {
+  display: none;
+  max-width: 22rem;
+  margin: auto;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #d88;
+}
+#loadErr.on { display: block; }
+
+.btns {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.btn {
+  padding: 10px 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid #5a4632;
+  border-radius: 50px;
+  cursor: pointer;
+  background: rgba(255,200,130,0.08);
+  color: #d8c3a2;
+  transition: transform 0.12s, opacity 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  /* Touch target floor for iPad/iPhone. */
+  min-height: 44px;
+  min-width: 56px;
+}
+.btn:active { transform: scale(0.94); }
+.btn:hover { color: #fff1dc; border-color: #8a6b45; }
+.btn[disabled] { opacity: 0.35; pointer-events: none; }
+.btn-primary {
+  background: linear-gradient(135deg, #f0a03c 0%, #d2701a 100%);
+  border-color: transparent;
+  color: #241503;
+  box-shadow: 0 2px 12px rgba(240,160,60,0.28);
+}
+.btn-wide { padding: 12px 34px; font-size: 0.92rem; }
+
+.toast {
+  position: fixed;
+  bottom: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(60,40,20,0.94);
+  border: 1px solid #8a6b45;
+  color: #ffd9a0;
+  padding: 9px 22px;
+  border-radius: 30px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; }
+
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  background: rgba(14,10,6,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.overlay.on { display: flex; }
+
+.win-stars {
+  font-size: clamp(2rem, 10vw, 3.4rem);
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: #ffc25c;
+  animation: pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-stars .off { color: #4a3a28; }
+.win-title {
+  font-size: clamp(1.6rem, 6.5vw, 2.6rem);
+  font-weight: 800;
+  color: #ffb454;
+  letter-spacing: 0.06em;
+  animation: pop 0.5s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-sub {
+  font-size: 0.95rem;
+  color: #bda586;
+  text-align: center;
+  animation: pop 0.5s 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.win-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+  animation: pop 0.5s 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* --- Level select --- */
+.panel-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ffb454;
+}
+.pack-name { font-size: 0.78rem; color: #a08767; margin-bottom: 4px; }
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 84px));
+  gap: 10px;
+  justify-content: center;
+  max-width: 420px;
+  width: 100%;
+}
+.level-tile {
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 1px solid #5a4632;
+  background: rgba(255,200,130,0.07);
+  color: #d8c3a2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-weight: 800;
+  font-size: 1.2rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+}
+.level-tile:active { transform: scale(0.94); }
+.level-tile .sub { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em; color: #ffc25c; }
+.level-tile.locked { color: #6a5943; border-color: #3a2e21; cursor: default; }
+.level-tile.locked .sub { color: #6a5943; }
+.level-tile.solved { border-color: #8a6b45; background: rgba(255,190,100,0.13); }
+.level-tile.par { border-color: #ffc25c; }
+
+.confetti-p {
+  position: fixed;
+  top: -20px;
+  pointer-events: none;
+  z-index: 200;
+  animation: cfall linear forwards;
+}
+@keyframes cfall {
+  to { transform: translateY(110vh) rotate(var(--spin)); opacity: 0; }
+}
+
+@media (max-height: 560px) {
+  h1 { font-size: 1.15rem; }
+  .tagline { display: none; }
+}
+
+/* Six buttons wrap to a second row on a phone, which costs more height than the
+   "Undo" word is worth. Drop the label and tighten the pills instead — the 44px
+   touch-target floor is kept. */
+@media (max-width: 430px) {
+  .btns { gap: 5px; }
+  .btn { padding: 10px 11px; min-width: 44px; }
+  #btnUndo .lbl { display: none; }
+}
+</style>
+</head>
+<body>
+
+<a href="/" class="back-link">&larr; All Games</a>
+<h1>Unblock Me</h1>
+<p class="tagline">Slide the blocks aside, then drive the red one out.</p>
+
+<div class="info-bar">
+  <span class="pill" id="lvlPill">Level 1</span>
+  <span class="pill" id="movePill">Moves: 0</span>
+  <span class="pill star" id="parPill">Par 4</span>
+</div>
+
+<div id="stage">
+  <canvas id="scene"></canvas>
+</div>
+
+<p id="loadErr">Couldn&rsquo;t load the 3D engine. Reload the page &mdash; if you&rsquo;re offline, open the game once while connected so it can be cached.</p>
+
+<div class="btns">
+  <button class="btn" id="btnLevels" title="Level select">&#9783;</button>
+  <button class="btn" id="btnRestart" title="Restart level">&#8635;</button>
+  <button class="btn" id="btnUndo" title="Undo one move">&#8630;<span class="lbl"> Undo</span></button>
+  <button class="btn" id="btnHint" title="Show the next move on the optimal path">&#128161; <span id="hintCount">5</span></button>
+  <button class="btn" id="btnSound" title="Sound effects">&#128266;</button>
+  <button class="btn" id="btnMusic" title="Music">&#127925;</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="winOverlay">
+  <div class="win-stars" id="winStars"></div>
+  <div class="win-title">Unblocked!</div>
+  <div class="win-sub" id="winSub"></div>
+  <div class="win-btns">
+    <button class="btn" id="btnReplay">Replay</button>
+    <button class="btn" id="btnWinLevels">Levels</button>
+    <button class="btn btn-primary btn-wide" id="btnNext">Next &#8594;</button>
+  </div>
+</div>
+
+<div class="overlay" id="levelOverlay">
+  <div class="panel-title">Select a level</div>
+  <div class="pack-name" id="packName">Oak &mdash; 5 puzzles</div>
+  <div class="level-grid" id="levelGrid"></div>
+  <div class="win-btns">
+    <button class="btn" id="btnCloseLevels">Close</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from '/vendor/three.module.min.js';
+
+// ── Juice Toolkit (copy-pasted subset, see /templates/juice.js) ───────────────
+
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 4 + Math.random() * 4;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function(particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.3)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function() {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
+
+// ── Puzzle model ─────────────────────────────────────────────────────────────
+// PURE DATA AND LOGIC. No DOM, no three.js, no `window`.
+//
+// tools/verify-levels.mjs slices this exact region out of this file (between
+// this banner and the matching "/Puzzle model" one) and runs it in node, so the
+// shipped solver and the audited solver cannot drift apart. Keep it
+// dependency-free and keep both banner lines intact.
+
+// Grid art, one character per cell: '.' empty, 'X' the target block, any other
+// letter a plain block. Orientation and length are read off the art, so adding
+// a level is drawing one. Adding a pack is pushing to PACKS.
+//
+// A *move* is one slide of any distance, per the classic rules, so `par` counts
+// slides, not cells. It is not a number to guess: auditLevels() checks every
+// `par` against the solver at boot, and `make verify` checks them in CI-able
+// form. A level whose par is wrong, or which cannot be solved at all, fails
+// loudly instead of shipping (warehouse-keeper shipped an unsolvable level 8
+// for want of exactly this).
+const LEVELS = [
+  {
+    id: 1, pack: 'oak', name: 'First Slide', par: 4,
+    rows: [
+      '...A..',
+      '...A..',
+      'XX.A..',
+      'BB..C.',
+      'DDEEC.',
+      '......',
+    ],
+  },
+  {
+    id: 2, pack: 'oak', name: 'Shuffle', par: 7,
+    rows: [
+      '...A..',
+      '...A..',
+      'XX.A..',
+      '.BCDDD',
+      '.BC..E',
+      '..FF.E',
+    ],
+  },
+  {
+    id: 3, pack: 'oak', name: 'Crowded Yard', par: 12,
+    rows: [
+      'AA..B.',
+      '..CDB.',
+      'XXCDB.',
+      '..EDFF',
+      'G.E...',
+      'GHHH..',
+    ],
+  },
+  {
+    id: 4, pack: 'oak', name: 'Deadlock', par: 18,
+    rows: [
+      '.AA.B.',
+      '..CDB.',
+      'XXCD.E',
+      '.FC..E',
+      'GFHHI.',
+      'GJJJI.',
+    ],
+  },
+  {
+    id: 5, pack: 'oak', name: 'The Long Way Round', par: 25,
+    rows: [
+      'A.BC..',
+      'A.BCDD',
+      '.XXE.F',
+      '...EGF',
+      '.HHHGI',
+      '...JJI',
+    ],
+  },
+];
+
+const PACKS = [
+  { id: 'oak', name: 'Oak' },
+];
+
+// One cell tall, in the right wall, on row 2. A level's own `exit` overrides
+// it and `rows` sets the grid size, so nothing below is hard-coded to 6x6.
+const DEFAULT_EXIT = { row: 2, side: 'right' };
+
+function parseLevel(lv) {
+  const rows = lv.rows;
+  const h = rows.length;
+  const w = rows[0].length;
+  const errs = [];
+  const exit = Object.assign({}, DEFAULT_EXIT, lv.exit || {});
+
+  for (let r = 0; r < h; r++) {
+    if (rows[r].length !== w) errs.push('row ' + r + ' is ' + rows[r].length + ' wide, expected ' + w);
+    if (!/^[A-Z.]+$/.test(rows[r])) errs.push('row ' + r + ' has characters outside [A-Z.]');
+  }
+  if (errs.length) return { errs };
+
+  // Collect each letter's cells, then insist the shape is a straight 1xN run.
+  const cells = new Map();
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < w; c++) {
+      const ch = rows[r][c];
+      if (ch === '.') continue;
+      if (!cells.has(ch)) cells.set(ch, []);
+      cells.get(ch).push({ r, c });
+    }
+  }
+
+  const blocks = [];
+  for (const [ch, cs] of cells) {
+    const rs = cs.map((p) => p.r), cols = cs.map((p) => p.c);
+    const r0 = Math.min.apply(null, rs), r1 = Math.max.apply(null, rs);
+    const c0 = Math.min.apply(null, cols), c1 = Math.max.apply(null, cols);
+    const spanR = r1 - r0 + 1, spanC = c1 - c0 + 1;
+    if (spanR * spanC !== cs.length || (spanR !== 1 && spanC !== 1)) {
+      errs.push('block ' + ch + ' is not a straight run');
+      continue;
+    }
+    const len = Math.max(spanR, spanC);
+    if (len < 2 || len > 3) {
+      errs.push('block ' + ch + ' has length ' + len + ', expected 2 or 3');
+      continue;
+    }
+    blocks.push({ ch, orient: spanC > 1 ? 'h' : 'v', len, row: r0, col: c0, isTarget: ch === 'X' });
+  }
+
+  // Stable order, so a state vector means the same thing every time it is built.
+  blocks.sort((a, b) => (a.ch < b.ch ? -1 : 1));
+  const ti = blocks.findIndex((b) => b.isTarget);
+
+  if (ti === -1) errs.push('no target block (X)');
+  else {
+    const t = blocks[ti];
+    if (t.orient !== 'h') errs.push('target block must be horizontal');
+    if (t.row !== exit.row) errs.push('target is on row ' + t.row + ', exit is on row ' + exit.row);
+  }
+  if (errs.length) return { errs };
+
+  return { id: lv.id, pack: lv.pack, name: lv.name, par: lv.par, w, h, exit, blocks, ti, errs };
+}
+
+// A state is one integer per block: its position along its own axis (col for a
+// horizontal block, row for a vertical one). Everything else is fixed by the
+// level, so this vector is the whole mutable world — which is what makes the
+// BFS below cheap enough to run at boot.
+function startState(lv) {
+  return lv.blocks.map((b) => (b.orient === 'h' ? b.col : b.row));
+}
+
+function occupancy(lv, st) {
+  const grid = new Int8Array(lv.w * lv.h).fill(-1);
+  for (let i = 0; i < lv.blocks.length; i++) {
+    const b = lv.blocks[i], p = st[i];
+    for (let k = 0; k < b.len; k++) {
+      const r = b.orient === 'h' ? b.row : p + k;
+      const c = b.orient === 'h' ? p + k : b.col;
+      grid[r * lv.w + c] = i;
+    }
+  }
+  return grid;
+}
+
+// Inclusive range of positions block `i` can slide to, ignoring the exit gap.
+// Shared by the solver and by the drag clamp, so what the finger can do and
+// what the solver believes can never disagree.
+function freeRange(lv, grid, st, i) {
+  const b = lv.blocks[i], p = st[i];
+  const limit = b.orient === 'h' ? lv.w : lv.h;
+  let lo = p, hi = p;
+  for (;;) {
+    const n = lo - 1;
+    if (n < 0) break;
+    const r = b.orient === 'h' ? b.row : n;
+    const c = b.orient === 'h' ? n : b.col;
+    if (grid[r * lv.w + c] !== -1) break;
+    lo = n;
+  }
+  for (;;) {
+    const n = hi + 1;
+    if (n + b.len - 1 >= limit) break;
+    const r = b.orient === 'h' ? b.row : n + b.len - 1;
+    const c = b.orient === 'h' ? n + b.len - 1 : b.col;
+    if (grid[r * lv.w + c] !== -1) break;
+    hi = n;
+  }
+  return { lo, hi };
+}
+
+// Solved when the corridor from the target's leading edge to the exit wall is
+// clear: the slide that crosses it is the same move that carries the block out,
+// so it is counted once, as the final move of the path. Only cells on the exit
+// side count — a block parked behind the target is irrelevant.
+function canExit(lv, st, grid) {
+  const t = lv.blocks[lv.ti];
+  const p = st[lv.ti];
+  if (lv.exit.side === 'left') {
+    for (let c = p - 1; c >= 0; c--) if (grid[t.row * lv.w + c] !== -1) return false;
+  } else {
+    for (let c = p + t.len; c < lv.w; c++) if (grid[t.row * lv.w + c] !== -1) return false;
+  }
+  return true;
+}
+
+// Every legal slide from `st`, as { i, to }. Distance is free, so one entry per
+// reachable landing position rather than one per direction.
+function legalMoves(lv, st) {
+  const grid = occupancy(lv, st);
+  const out = [];
+  for (let i = 0; i < lv.blocks.length; i++) {
+    const rg = freeRange(lv, grid, st, i);
+    for (let p = rg.lo; p <= rg.hi; p++) if (p !== st[i]) out.push({ i: i, to: p });
+  }
+  return out;
+}
+
+const EXIT = 'exit';
+
+// BFS over slide-states. Returns the optimal move list, the last entry being
+// { i: target, to: EXIT } — the slide out through the gap. null if unsolvable,
+// or if it ran past `cap` expanded states.
+function solve(lv, st0, cap) {
+  cap = cap || 400000;
+  const start = st0 || startState(lv);
+  const seen = new Map();
+  const queue = [start];
+  // Index-pointer queue, not Array.shift(): shift() is O(n) and turned a
+  // 300k-state search into something that looked like a hang rather than a proof.
+  seen.set(start.join(','), null);
+  let head = 0, n = 0;
+
+  while (head < queue.length) {
+    const st = queue[head++];
+    const key = st.join(',');
+    if (canExit(lv, st, occupancy(lv, st))) {
+      const path = [];
+      let k = key;
+      for (;;) {
+        const e = seen.get(k);
+        if (!e) break;
+        path.push(e.move);
+        k = e.prev;
+      }
+      path.reverse();
+      path.push({ i: lv.ti, to: EXIT });
+      return path;
+    }
+    if (++n > cap) return null;
+    const mvs = legalMoves(lv, st);
+    for (let m = 0; m < mvs.length; m++) {
+      const mv = mvs[m];
+      const next = st.slice();
+      next[mv.i] = mv.to;
+      const nk = next.join(',');
+      if (seen.has(nk)) continue;
+      seen.set(nk, { prev: key, move: mv });
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
+// Returns one entry per broken level, [] when every level parses, is solvable
+// and matches its authored par. Silent success is the point: it runs at boot
+// and only speaks up when a level is wrong.
+function auditLevels(levels) {
+  const out = [];
+  for (const raw of levels) {
+    const lv = parseLevel(raw);
+    if (lv.errs && lv.errs.length) {
+      out.push({ id: raw.id, name: raw.name, min: null, errs: lv.errs.slice() });
+      continue;
+    }
+    const errs = [];
+    const sol = solve(lv);
+    if (!sol) errs.push('unsolvable');
+    else {
+      if (lv.par !== sol.length) errs.push('par is ' + lv.par + ', solver says ' + sol.length);
+      // A target with a clear run to the exit on move one is not a puzzle.
+      if (sol.length < 2) errs.push('trivial: target starts unblocked');
+    }
+    if (errs.length) out.push({ id: raw.id, name: raw.name, min: sol ? sol.length : null, errs });
+  }
+  return out;
+}
+
+// Difficulty is a function of the solver's output, not the block count.
+function tierOf(par) {
+  if (par <= 8) return 'Beginner';
+  if (par <= 16) return 'Intermediate';
+  if (par <= 28) return 'Advanced';
+  return 'Expert';
+}
+
+function starsFor(par, moves) {
+  if (moves <= par) return 3;
+  if (moves <= par + Math.max(2, Math.ceil(par * 0.5))) return 2;
+  return 1;
+}
+// ── /Puzzle model ────────────────────────────────────────────────────────────
+
+const audit = auditLevels(LEVELS);
+if (audit.length) {
+  for (const a of audit) console.error('[unblock-me] level ' + a.id + ' (' + a.name + '): ' + a.errs.join('; '));
+}
+// Exposed so the level data can be re-checked from a console on a device,
+// without a build step. `make verify` runs the same function in node.
+window.__unblockAudit = () => auditLevels(LEVELS);
+
+// ── Save data ────────────────────────────────────────────────────────────────
+
+const SAVE_KEY = 'unblock-me/v1';
+const save = loadSave();
+
+function loadSave() {
+  const def = { unlocked: 1, best: {}, hints: 5, sfx: true, music: true };
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return def;
+    return Object.assign(def, JSON.parse(raw));
+  } catch (e) { return def; }
+}
+
+function persist() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+}
+
+// ── Audio ────────────────────────────────────────────────────────────────────
+// Everything is synthesised: no audio files to cache, nothing extra in sw.js.
+
+let actx = null, master = null, sfxBus = null, musicBus = null, noiseBuf = null;
+
+function audio() {
+  if (actx) return actx;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) { return null; }
+  master = actx.createGain(); master.gain.value = 0.85; master.connect(actx.destination);
+  sfxBus = actx.createGain(); sfxBus.gain.value = save.sfx ? 1 : 0; sfxBus.connect(master);
+  musicBus = actx.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
+
+  const n = actx.sampleRate * 1.5;
+  noiseBuf = actx.createBuffer(1, n, actx.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  return actx;
+}
+
+// iOS starts every context suspended and only lets a user gesture resume it.
+function resumeAudio() {
+  const ctx = audio();
+  if (ctx && ctx.state === 'suspended') ctx.resume();
+  if (save.music) startMusic();
+}
+
+function noiseSource(ctx) {
+  const s = ctx.createBufferSource();
+  s.buffer = noiseBuf;
+  return s;
+}
+
+// Wood on wood: filtered noise, not a tone. The slide is a loop whose gain and
+// filter track the block's speed, so it starts and stops with the motion rather
+// than firing as a fixed-length one-shot.
+let slideSrc = null, slideGain = null, slideFilter = null;
+
+function slideOn() {
+  const ctx = audio();
+  if (!ctx || slideSrc) return;
+  slideSrc = noiseSource(ctx);
+  slideSrc.loop = true;
+  slideFilter = ctx.createBiquadFilter();
+  slideFilter.type = 'bandpass';
+  slideFilter.frequency.value = 800;
+  slideFilter.Q.value = 1.1;
+  slideGain = ctx.createGain();
+  slideGain.gain.value = 0;
+  slideSrc.connect(slideFilter).connect(slideGain).connect(sfxBus);
+  slideSrc.start();
+}
+
+function slideSpeed(v) {
+  if (!slideGain) return;
+  const ctx = actx;
+  const amt = Math.min(0.16, v * 0.14);
+  slideGain.gain.setTargetAtTime(amt, ctx.currentTime, 0.03);
+  slideFilter.frequency.setTargetAtTime(520 + Math.min(1400, v * 120), ctx.currentTime, 0.05);
+}
+
+function slideOff() {
+  if (!slideSrc) return;
+  const src = slideSrc, gain = slideGain, t = actx.currentTime;
+  gain.gain.cancelScheduledValues(t);
+  gain.gain.setTargetAtTime(0, t, 0.04);
+  setTimeout(() => { try { src.stop(); src.disconnect(); } catch (e) {} }, 250);
+  slideSrc = null; slideGain = null; slideFilter = null;
+}
+
+function sfx(type) {
+  const ctx = audio();
+  if (!ctx || !save.sfx) return;
+  const now = ctx.currentTime;
+  try {
+    if (type === 'bump') {
+      // Body: a short low sine thump. Skin: a lowpassed noise tick on top.
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(150, now);
+      o.frequency.exponentialRampToValueAtTime(72, now + 0.09);
+      g.gain.setValueAtTime(0.28, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      o.connect(g).connect(sfxBus);
+      o.start(now); o.stop(now + 0.14);
+
+      const s = noiseSource(ctx), f = ctx.createBiquadFilter(), ng = ctx.createGain();
+      f.type = 'lowpass'; f.frequency.value = 420;
+      ng.gain.setValueAtTime(0.2, now);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      s.connect(f).connect(ng).connect(sfxBus);
+      s.start(now); s.stop(now + 0.08);
+      return;
+    }
+    if (type === 'grab' || type === 'place') {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = type === 'grab' ? 520 : 330;
+      g.gain.setValueAtTime(type === 'grab' ? 0.10 : 0.16, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      o.connect(g).connect(sfxBus);
+      o.start(now); o.stop(now + 0.1);
+      return;
+    }
+    if (type === 'deny') {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(200, now);
+      o.frequency.exponentialRampToValueAtTime(140, now + 0.16);
+      g.gain.setValueAtTime(0.1, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      o.connect(g).connect(sfxBus);
+      o.start(now); o.stop(now + 0.2);
+      return;
+    }
+    if (type === 'hint') {
+      [880, 1175].forEach((f, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        const t = now + i * 0.09;
+        g.gain.setValueAtTime(0.12, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+        o.connect(g).connect(sfxBus);
+        o.start(t); o.stop(t + 0.22);
+      });
+      return;
+    }
+    if (type === 'exit') {
+      // Rising whoosh as the block clears the gap.
+      const s = noiseSource(ctx), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      f.type = 'bandpass'; f.Q.value = 1.4;
+      f.frequency.setValueAtTime(500, now);
+      f.frequency.exponentialRampToValueAtTime(2600, now + 0.42);
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.linearRampToValueAtTime(0.2, now + 0.12);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      s.connect(f).connect(g).connect(sfxBus);
+      s.start(now); s.stop(now + 0.55);
+      return;
+    }
+    if (type === 'win') {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        const t = now + i * 0.11;
+        marimba(ctx, f, t, 0.3, sfxBus);
+      });
+      return;
+    }
+  } catch (e) {}
+}
+
+// Struck-wood voice: a triangle fundamental plus a detuned, quieter octave that
+// dies faster. Used for both the win flourish and the music.
+function marimba(ctx, freq, t, amp, dest) {
+  for (let k = 0; k < 2; k++) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = k ? 'sine' : 'triangle';
+    o.frequency.value = freq * (k ? 4.01 : 1);
+    const a = amp * (k ? 0.22 : 1);
+    const dur = k ? 0.22 : 0.9;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(a, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    o.connect(g).connect(dest);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+}
+
+// Generative ambience: a slow warm pad under sparse pentatonic plucks. No loop
+// point to hear, and nothing to download.
+let musicOn = false, musicTimer = 0, nextNote = 0, bar = 0, padNodes = null;
+const PENT = [0, 2, 4, 7, 9, 12, 14, 16];
+const CHORDS = [[0, 7, 16], [-3, 4, 12], [2, 9, 14], [-5, 2, 11]];
+const ROOT = 146.83;   // D3
+const hz = (semi) => ROOT * Math.pow(2, semi / 12);
+
+function startMusic() {
+  const ctx = audio();
+  if (!ctx || musicOn) return;
+  musicOn = true;
+  musicBus.gain.cancelScheduledValues(ctx.currentTime);
+  musicBus.gain.setTargetAtTime(0.5, ctx.currentTime, 1.2);
+
+  // Pad: three detuned saws through a slowly breathing lowpass.
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.value = 520;
+  filt.Q.value = 0.8;
+  const padGain = ctx.createGain();
+  padGain.gain.value = 0.055;
+  filt.connect(padGain).connect(musicBus);
+
+  const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
+  lfo.frequency.value = 0.055;
+  lfoGain.gain.value = 190;
+  lfo.connect(lfoGain).connect(filt.frequency);
+  lfo.start();
+
+  const oscs = CHORDS[0].map((semi, i) => {
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = hz(semi);
+    o.detune.value = (i - 1) * 6;
+    o.connect(filt);
+    o.start();
+    return o;
+  });
+
+  padNodes = { filt, padGain, lfo, oscs };
+  nextNote = ctx.currentTime + 0.3;
+  bar = 0;
+  musicTimer = setInterval(schedule, 140);
+}
+
+function stopMusic() {
+  if (!musicOn) return;
+  musicOn = false;
+  clearInterval(musicTimer);
+  const t = actx.currentTime;
+  musicBus.gain.cancelScheduledValues(t);
+  musicBus.gain.setTargetAtTime(0, t, 0.5);
+  const nodes = padNodes;
+  padNodes = null;
+  setTimeout(() => {
+    if (!nodes) return;
+    try {
+      nodes.oscs.forEach((o) => { o.stop(); o.disconnect(); });
+      nodes.lfo.stop(); nodes.lfo.disconnect();
+      nodes.filt.disconnect(); nodes.padGain.disconnect();
+    } catch (e) {}
+  }, 2200);
+}
+
+// Lookahead scheduler: Web Audio is sample-accurate but setInterval is not, so
+// notes are queued ahead of the clock rather than played on the tick.
+function schedule() {
+  if (!musicOn || !actx) return;
+  const ahead = actx.currentTime + 0.4;
+  while (nextNote < ahead) {
+    const chord = CHORDS[Math.floor(bar / 8) % CHORDS.length];
+    if (padNodes) {
+      padNodes.oscs.forEach((o, i) => {
+        o.frequency.setTargetAtTime(hz(chord[i]), nextNote, 1.6);
+      });
+    }
+    // Sparse on purpose: this is a calm puzzle, and a busy line under it reads
+    // as time pressure.
+    if (Math.random() < 0.42) {
+      const semi = chord[0] + PENT[Math.floor(Math.random() * PENT.length)] + 12;
+      marimba(actx, hz(semi), nextNote, 0.16 + Math.random() * 0.09, musicBus);
+    }
+    if (bar % 4 === 0) marimba(actx, hz(chord[0] - 12), nextNote, 0.12, musicBus);
+    nextNote += 0.42;
+    bar++;
+  }
+}
+
+function haptic(ms) {
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+}
+
+// ── Renderer / scene ─────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(26, 1, 1, 200);
+const camBase = new THREE.Vector3();
+const camTarget = new THREE.Vector3();
+
+scene.add(new THREE.HemisphereLight(0xffe4c0, 0x20150c, 0.44));
+
+const keyLight = new THREE.DirectionalLight(0xfff1d8, 0.82);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.bias = -0.0012;
+keyLight.shadow.normalBias = 0.02;
+scene.add(keyLight, keyLight.target);
+
+const fillLight = new THREE.DirectionalLight(0x9fb8ff, 0.17);
+fillLight.position.set(7, 5, -8);
+scene.add(fillLight);
+
+// Small warm-room sky through PMREM, used as an env map on the tray and the
+// blocks only. Direct lights alone give a hard specular dot on a flat diffuse,
+// which doesn't read as varnished wood. Deliberately not scene.environment —
+// the page behind the board is meant to stay dark.
+let ENV = null;
+(function buildEnv() {
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 64;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 64);
+  grad.addColorStop(0, '#fff4e0');
+  grad.addColorStop(0.42, '#e8cba4');
+  grad.addColorStop(0.6, '#8d6f4f');
+  grad.addColorStop(1, '#2a1d12');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 64);
+  const lamp = g.createRadialGradient(40, 12, 1, 40, 12, 26);
+  lamp.addColorStop(0, 'rgba(255,255,255,1)');
+  lamp.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = lamp;
+  g.fillRect(0, 0, 128, 64);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  ENV = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose();
+  tex.dispose();
+})();
+
+// ── Palette ──────────────────────────────────────────────────────────────────
+// Source hexes, so each is a little brighter than the on-screen number: the
+// light rig lands a fully lit top face at roughly 0.85 of the material colour.
+// Contrast is measured against the WELL, not the page — the light FRAME is what
+// separates the tray from the near-black background (7.4:1), the same job the
+// portal's tile rims do. Re-check all three together if any one changes.
+const C = {
+  frame:  0xc89a5e,   // 7.4:1 on the page, 4.6:1 on the well
+  well:   0x4e3219,
+  target: 0xe8664a,   // 3.6:1 on the well
+  gold:   0xffc25c,
+};
+// Plain blocks vary slightly so the board doesn't look like one stamp repeated.
+// All three clear 5:1 on the well, and none of them is anywhere near the target's
+// hue, so "which one is mine" never depends on lightness alone.
+const WOODS = [0xdcb075, 0xd2a266, 0xe3bb85];
+
+// ── Geometry helpers ─────────────────────────────────────────────────────────
+
+function roundedRect(w, h, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  r = Math.min(r, w / 2, h / 2);
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+
+// Beveled box with its base at y=0. ExtrudeGeometry spans [-bevel, depth+bevel]
+// on its extrusion axis, so inset the profile by `bevel` and lift by `bevel`.
+function roundedBox(w, d, h, r, bevel) {
+  const geo = new THREE.ExtrudeGeometry(
+    roundedRect(w - 2 * bevel, d - 2 * bevel, Math.max(0.01, r - bevel)),
+    {
+      depth: h - 2 * bevel,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 2,
+      curveSegments: 5,
+    }
+  );
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, bevel, 0);
+  return geo;
+}
+
+// ExtrudeGeometry's own UVs run in raw shape units, so a texture lands
+// arbitrarily. Reproject per face along its dominant normal at a fixed world
+// size, keeping the grain the same physical scale on every face.
+function boxUV(geo, scale) {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const pos = geo.attributes.position, nrm = geo.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const ax = Math.abs(nrm.getX(i)), ay = Math.abs(nrm.getY(i)), az = Math.abs(nrm.getZ(i));
+    let u, v;
+    if (ay >= ax && ay >= az)      { u = x - bb.min.x; v = z - bb.min.z; }
+    else if (ax >= az)             { u = z - bb.min.z; v = y - bb.min.y; }
+    else                           { u = x - bb.min.x; v = y - bb.min.y; }
+    uv[i * 2] = u / scale;
+    uv[i * 2 + 1] = v / scale;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+// Flat arrow pointing at +X, lying in the XZ plane, base at y=0.
+function arrowGeometry() {
+  const s = new THREE.Shape();
+  const w = 0.09, hw = 0.24, tip = 0.30, neck = 0.02, tail = -0.26;
+  s.moveTo(tip, 0);
+  s.lineTo(neck, hw);
+  s.lineTo(neck, w);
+  s.lineTo(tail, w);
+  s.lineTo(tail, -w);
+  s.lineTo(neck, -w);
+  s.lineTo(neck, -hw);
+  s.closePath();
+  const geo = new THREE.ExtrudeGeometry(s, {
+    depth: 0.05, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 1,
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, 0.015, 0);
+  return geo;
+}
+
+function finishTex(cv) {
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+// Deterministic per-texture noise, so a rebuilt board looks identical to the
+// one the player was just looking at.
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Wood grain, greyscale so each block's own colour tints it. Grain runs along
+// u, and every wave has an integer period across the canvas so the texture
+// tiles seamlessly in u — which matters because boxUV gives a 3-long block a u
+// range of 0..2.88.
+function woodTexture(seed, opts) {
+  opts = opts || {};
+  const S = 256, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const rnd = mulberry32(seed);
+
+  g.fillStyle = '#ffffff';
+  g.fillRect(0, 0, S, S);
+
+  const lines = opts.lines || 110;
+  for (let i = 0; i < lines; i++) {
+    const y0 = rnd() * S;
+    const k = 1 + Math.floor(rnd() * 3);          // integer period -> seamless in u
+    const amp = 1.5 + rnd() * 5;
+    const phase = rnd() * Math.PI * 2;
+    const dark = rnd() < 0.72;
+    g.strokeStyle = dark
+      ? 'rgba(74,44,16,' + (0.03 + rnd() * 0.11) + ')'
+      : 'rgba(255,255,255,' + (0.05 + rnd() * 0.13) + ')';
+    g.lineWidth = 0.5 + rnd() * 2.6;
+    g.beginPath();
+    for (let x = 0; x <= S; x += 6) {
+      const y = y0 + Math.sin((x / S) * Math.PI * 2 * k + phase) * amp;
+      if (x === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+
+  // A knot or two, drawn as nested ellipses.
+  const knots = opts.knots === undefined ? 1 : opts.knots;
+  for (let n = 0; n < knots; n++) {
+    const kx = 20 + rnd() * (S - 40), ky = 20 + rnd() * (S - 40);
+    for (let r = 13; r > 0; r -= 2.2) {
+      g.strokeStyle = 'rgba(70,40,14,' + (0.05 + r * 0.011) + ')';
+      g.lineWidth = 1.3;
+      g.beginPath();
+      g.ellipse(kx, ky, r * 1.7, r, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+  }
+
+  // Fine pore speckle.
+  for (let i = 0; i < 420; i++) {
+    g.fillStyle = 'rgba(60,34,12,' + (0.015 + rnd() * 0.04) + ')';
+    g.fillRect(rnd() * S, rnd() * S, 2, 1);
+  }
+
+  if (opts.groove) {
+    // One texture tile == one board cell (boxUV scale 1), so a border here is a
+    // groove between every pair of cells. Inset by a pixel: at the very edge,
+    // RepeatWrapping plus mipmapping bleeds it across the seam.
+    const b = 6;
+    g.strokeStyle = 'rgba(28,14,4,0.55)';
+    g.lineWidth = b;
+    g.strokeRect(b / 2 + 1, b / 2 + 1, S - b - 2, S - b - 2);
+    g.strokeStyle = 'rgba(255,220,170,0.09)';
+    g.lineWidth = 2;
+    g.strokeRect(b + 2, b + 2, S - 2 * b - 4, S - 2 * b - 4);
+  }
+
+  return finishTex(cv);
+}
+
+const WOOD_TEX = [0, 1, 2].map((i) => woodTexture(9137 + i * 733));
+const TARGET_TEX = woodTexture(4211, { lines: 130, knots: 0 });
+const FRAME_TEX = woodTexture(8823, { lines: 90, knots: 2 });
+const WELL_TEX = woodTexture(1559, { lines: 80, knots: 1, groove: true });
+
+function woodMat(color, tex, opts) {
+  return new THREE.MeshStandardMaterial(Object.assign({
+    color, map: tex, roughness: 0.46, metalness: 0.02,
+    envMap: ENV, envMapIntensity: 0.26,
+  }, opts || {}));
+}
+
+// ── Board constants (world units, 1 unit = 1 cell) ───────────────────────────
+
+const RIM = 0.42;          // frame thickness
+const WALL_H = 0.30;       // frame height above the well floor
+const FLOOR_H = 0.34;
+const BLOCK_H = 0.50;
+const BLOCK_INSET = 0.12;  // clearance, so neighbours never z-fight
+const LIFT = 0.055;        // how far a grabbed block rises
+const PITCH = THREE.MathUtils.degToRad(62);
+const LOOK_AT = new THREE.Vector3(0, 0.15, 0);
+
+// 62 degrees, not the ~50 that suits a flat board: blocks stand 0.5 tall on the
+// cells, so the tilt is picked from their height the way guide-the-way's is.
+// A piece of height h hides h/tan(pitch) of the board behind it — 0.27 of a cell
+// here, against 0.39 at 50 degrees — and the 0.30 rim hides 0.16 of the near
+// row. Flattening PITCH or raising WALL_H eats into that row; check the two
+// together. Steepening it also squares the board up on screen, which is what
+// lets a 6x6 grid fill a portrait phone instead of banding out top and bottom.
+
+const ARROW_GEO = arrowGeometry();
+
+const boardGroup = new THREE.Group();
+scene.add(boardGroup);
+const blockGroup = new THREE.Group();
+scene.add(blockGroup);
+
+// ── Dust motes ───────────────────────────────────────────────────────────────
+// The one thing on screen that moves without the player: pieces never drift by
+// themselves in this game, so the room does instead.
+const MOTES = 44;
+const moteMesh = new THREE.InstancedMesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial({
+    map: (() => {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 32;
+      const g = cv.getContext('2d');
+      const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      grad.addColorStop(0, 'rgba(255,240,215,1)');
+      grad.addColorStop(1, 'rgba(255,220,180,0)');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 32, 32);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    })(),
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }),
+  MOTES
+);
+moteMesh.frustumCulled = false;
+scene.add(moteMesh);
+
+const motes = [];
+for (let i = 0; i < MOTES; i++) {
+  motes.push({
+    u: Math.random(), v: Math.random(),
+    y: 0.7 + Math.random() * 2.4,
+    size: 0.03 + Math.random() * 0.05,
+    vx: (Math.random() - 0.5) * 0.045,
+    vy: (Math.random() - 0.5) * 0.03,
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+// ── Tweens ───────────────────────────────────────────────────────────────────
+// Tagged, so a new tween for an entity cancels the old one. Without it, grabbing
+// a block mid-snap strands it between two cells.
+
+const tweens = [];
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const easeIn = (p) => p * p;
+
+function cancelTween(tag) {
+  for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].tag === tag) tweens.splice(i, 1);
+}
+
+function hasTween(tag) {
+  for (let i = 0; i < tweens.length; i++) if (tweens[i].tag === tag) return true;
+  return false;
+}
+
+function tween(tag, dur, up, done, ease) {
+  if (tag) cancelTween(tag);
+  tweens.push({ tag, t0: performance.now(), dur, up, done, ease: ease || easeOut });
+}
+
+function stepTweens(now) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const t = tweens[i];
+    let p = (now - t.t0) / t.dur;
+    if (p >= 1) p = 1;
+    t.up(t.ease(p), p);
+    if (p === 1) { tweens.splice(i, 1); if (t.done) t.done(); }
+  }
+}
+
+let shakeAmt = 0;
+const shakeOff = new THREE.Vector3();
+const shake = (a) => { shakeAmt = Math.max(shakeAmt, a); };
+
+// ── Game state ───────────────────────────────────────────────────────────────
+
+const game = {
+  idx: 0,        // index into LEVELS
+  lv: null,      // parsed level
+  st: [],        // authoritative cell positions, one per block
+  vis: [],       // continuous positions the meshes are drawn at
+  moves: 0,
+  undo: [],      // { i, from }
+  sel: -1,
+  won: false,
+  busy: false,
+};
+
+const meshes = [];
+let hintMove = null, hintUntil = 0;
+let hintArrow = null;
+
+function cellX(c) { return c - (game.lv.w - 1) / 2; }
+function cellZ(r) { return r - (game.lv.h - 1) / 2; }
+function exitZ() { return cellZ(game.lv.exit.row); }
+
+// World centre of block `i` when its axis position is `p` (which may be
+// fractional mid-drag, and may run past the board while the target exits).
+function blockCentre(i, p) {
+  const b = game.lv.blocks[i];
+  if (b.orient === 'h') return { x: cellX(p) + (b.len - 1) / 2, z: cellZ(b.row) };
+  return { x: cellX(b.col), z: cellZ(p) + (b.len - 1) / 2 };
+}
+
+function syncMesh(i, lift) {
+  const m = meshes[i];
+  if (!m) return;
+  const c = blockCentre(i, game.vis[i]);
+  m.position.x = c.x;
+  m.position.z = c.z;
+  m.position.y = lift === undefined ? m.position.y : lift;
+}
+
+// ── Board build ──────────────────────────────────────────────────────────────
+
+function disposeGroup(group) {
+  for (const o of group.children.slice()) {
+    o.traverse((n) => {
+      if (n.geometry && n.geometry.userData.own) n.geometry.dispose();
+      if (n.material && n.material.userData.own) n.material.dispose();
+    });
+    group.remove(o);
+  }
+}
+
+function own(x) { x.userData.own = true; return x; }
+
+function buildBoard() {
+  disposeGroup(boardGroup);
+  const W = game.lv.w, H = game.lv.h;
+  const zg0 = exitZ() - 0.5, zg1 = exitZ() + 0.5;
+
+  const frameMat = own(woodMat(C.frame, FRAME_TEX, { roughness: 0.4, envMapIntensity: 0.34 }));
+  const wellMat = own(woodMat(C.well, WELL_TEX, { roughness: 0.62, envMapIntensity: 0.16 }));
+
+  // Well floor. boxUV at scale 1 puts exactly one texture tile — one groove
+  // border — on each cell, so the grid comes from the texture and not geometry.
+  const wellGeo = own(boxUV(new THREE.BoxGeometry(W, FLOOR_H, H), 1));
+  const well = new THREE.Mesh(wellGeo, wellMat);
+  well.position.y = -FLOOR_H / 2;
+  well.receiveShadow = true;
+  boardGroup.add(well);
+
+  // Frame rails. The left and right rails run the full outer length and overlap
+  // the top and bottom ones at the corners: same opaque material, so the overlap
+  // is invisible, and there is no corner notch to get wrong.
+  const railH = FLOOR_H + WALL_H;
+  const rails = [
+    [W + 2 * RIM, RIM, 0, -(H / 2 + RIM / 2)],
+    [W + 2 * RIM, RIM, 0, H / 2 + RIM / 2],
+    [RIM, H + 2 * RIM, -(W / 2 + RIM / 2), 0],
+  ];
+  const outer = H / 2 + RIM;
+  if (zg0 > -outer) rails.push([RIM, zg0 + outer, W / 2 + RIM / 2, (-outer + zg0) / 2]);
+  if (zg1 < outer) rails.push([RIM, outer - zg1, W / 2 + RIM / 2, (zg1 + outer) / 2]);
+
+  for (const [rw, rd, rx, rz] of rails) {
+    if (rw <= 0 || rd <= 0) continue;
+    const geo = own(boxUV(roundedBox(rw, rd, railH, 0.1, 0.04), 1.6));
+    const m = new THREE.Mesh(geo, frameMat);
+    m.position.set(rx, -FLOOR_H, rz);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    boardGroup.add(m);
+  }
+
+  // Threshold: the sliver of floor that carries the target out through the gap.
+  const sillGeo = own(boxUV(new THREE.BoxGeometry(RIM + 0.12, 0.14, 1), 1.6));
+  const sill = new THREE.Mesh(sillGeo, frameMat);
+  sill.position.set(W / 2 + (RIM + 0.12) / 2, -0.07, exitZ());
+  sill.receiveShadow = true;
+  boardGroup.add(sill);
+
+  // Exit marker, self-lit so it stays legible against the dark page beyond the
+  // tray. MeshBasicMaterial ignores lights, which is the point.
+  const arrow = new THREE.Mesh(ARROW_GEO, own(new THREE.MeshBasicMaterial({ color: C.gold })));
+  arrow.position.set(W / 2 + RIM + 0.52, 0.02, exitZ());
+  arrow.userData.exitArrow = true;
+  boardGroup.add(arrow);
+
+  // Light rig scaled to the board, so a different grid size relights correctly.
+  keyLight.position.set(-(W * 0.9), 11, H * 0.75);
+  keyLight.target.position.set(0, 0, 0);
+  const half = Math.max(W, H) / 2 + RIM + 1.2;
+  const sc = keyLight.shadow.camera;
+  sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half;
+  sc.near = 3; sc.far = 32;
+  sc.updateProjectionMatrix();
+}
+
+// ── Block meshes ─────────────────────────────────────────────────────────────
+
+const blockGeoCache = new Map();
+
+function blockGeo(len) {
+  if (!blockGeoCache.has(len)) {
+    // Authored horizontal, so the grain runs along the block's length. Vertical
+    // blocks are the same geometry yawed 90 degrees, which carries the UVs — and
+    // therefore the grain — around with them.
+    blockGeoCache.set(len, boxUV(roundedBox(len - BLOCK_INSET, 1 - BLOCK_INSET, BLOCK_H, 0.13, 0.042), 1));
+  }
+  return blockGeoCache.get(len);
+}
+
+function buildBlocks() {
+  for (const m of meshes) {
+    if (!m) continue;
+    m.material.dispose();
+    blockGroup.remove(m);
+  }
+  meshes.length = 0;
+
+  game.lv.blocks.forEach((b, i) => {
+    const base = b.isTarget ? C.target : WOODS[i % WOODS.length];
+    const tex = b.isTarget ? TARGET_TEX : WOOD_TEX[i % WOOD_TEX.length];
+    const mat = woodMat(base, tex, {
+      roughness: b.isTarget ? 0.38 : 0.46,
+      envMapIntensity: b.isTarget ? 0.34 : 0.26,
+      emissive: base,
+      emissiveIntensity: 0,
+    });
+    const mesh = new THREE.Mesh(blockGeo(b.len), mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    if (b.orient === 'v') mesh.rotation.y = Math.PI / 2;
+    mesh.userData = { i, base: new THREE.Color(base) };
+    blockGroup.add(mesh);
+    meshes[i] = mesh;
+  });
+
+  for (let i = 0; i < meshes.length; i++) {
+    meshes[i].position.y = 0;
+    syncMesh(i);
+  }
+}
+
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+const FIT_PTS = [];
+const FIT_MARGIN = 0.97;
+
+function buildFitPoints() {
+  FIT_PTS.length = 0;
+  const W = game.lv.w, H = game.lv.h;
+  const box = (x0, x1, z0, z1, y0, y1) => {
+    for (const x of [x0, x1]) for (const z of [z0, z1]) for (const y of [y0, y1]) {
+      FIT_PTS.push(new THREE.Vector3(x, y, z));
+    }
+  };
+  // The tray, the volume a block can stand in, and the exit marker beyond the
+  // frame. Bounding them separately avoids reserving empty air above the rails.
+  box(-(W / 2 + RIM), W / 2 + RIM, -(H / 2 + RIM), H / 2 + RIM, -FLOOR_H, WALL_H);
+  box(-W / 2, W / 2, -H / 2, H / 2, 0, BLOCK_H);
+  box(W / 2 + RIM, W / 2 + RIM + 0.85, exitZ() - 0.5, exitZ() + 0.5, 0, 0.1);
+}
+
+function orthoAspect() {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  let hx = 0, hy = 0;
+  for (const p of FIT_PTS) {
+    hx = Math.max(hx, Math.abs(p.x));
+    hy = Math.max(hy, Math.abs((p.y - LOOK_AT.y) * cp - p.z * sp));
+  }
+  return { hx, hy, aspect: hx / Math.max(0.001, hy) };
+}
+
+// An orthographic solve under-reserves: perspective spreads the near edge of a
+// tilted board outward. So measure instead of predicting — project the corners,
+// walk the distance until the widest sits just inside the frame, and slide the
+// look-at point to recentre what's left. Unlike glide's version this also
+// recentres in x, because the exit marker makes the board asymmetric.
+function fitCamera(startDist) {
+  const cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const v = new THREE.Vector3();
+  let dist = startDist, shiftUp = 0, shiftX = 0, spanX = 1, spanY = 1;
+
+  for (let i = 0; i < 14; i++) {
+    camTarget.set(LOOK_AT.x + shiftX, LOOK_AT.y + cp * shiftUp, LOOK_AT.z - sp * shiftUp);
+    camera.position.set(camTarget.x, camTarget.y + sp * dist, camTarget.z + cp * dist);
+    camera.near = Math.max(0.5, dist - 16);
+    camera.far = dist + 16;
+    camera.lookAt(camTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+
+    let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    for (const p of FIT_PTS) {
+      v.copy(p).project(camera);
+      if (v.x < mnx) mnx = v.x;
+      if (v.x > mxx) mxx = v.x;
+      if (v.y < mny) mny = v.y;
+      if (v.y > mxy) mxy = v.y;
+    }
+    spanX = (mxx - mnx) / 2;
+    spanY = (mxy - mny) / 2;
+    const cy = (mxy + mny) / 2, cx = (mxx + mnx) / 2;
+    const over = Math.max(spanX, spanY);
+    if (Math.abs(over - FIT_MARGIN) < 0.003 && Math.abs(cy) < 0.003 && Math.abs(cx) < 0.003) break;
+    shiftUp += cy * dist * tanY;
+    // No yaw and no roll, so the camera's right axis is world +X and the x
+    // recentre is the same expression scaled by aspect.
+    shiftX += cx * dist * tanY * camera.aspect;
+    dist *= over / FIT_MARGIN;
+  }
+
+  camBase.copy(camera.position);
+  return { dist, spanX, spanY };
+}
+
+const stage = document.getElementById('stage');
+
+function layout() {
+  if (!game.lv) return;
+  // #stage is the flex slot the board may use; the canvas is out of flow, so
+  // this measurement doesn't feed back into itself.
+  const availW = Math.max(120, stage.clientWidth - 4);
+  const availH = Math.max(140, stage.clientHeight - 4);
+  const est = orthoAspect();
+  const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  let aspect = est.aspect;
+  let dist = est.hy / tanY;
+
+  // Second pass retightens the canvas aspect to the spans the first measured, so
+  // the board fills the canvas rather than leaving a band on one axis.
+  for (let pass = 0; pass < 2; pass++) {
+    let w = Math.min(availW, 820);
+    let h = w / aspect;
+    if (h > availH) { h = availH; w = h * aspect; }
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    const fit = fitCamera(dist);
+    dist = fit.dist;
+    aspect = THREE.MathUtils.clamp(aspect * fit.spanX / fit.spanY, 0.4, 3.2);
+  }
+}
+
+// ── Screen projection ────────────────────────────────────────────────────────
+
+function toScreen(v) {
+  const p = v.clone().project(camera);
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: rect.left + (p.x * 0.5 + 0.5) * rect.width,
+    y: rect.top + (-p.y * 0.5 + 0.5) * rect.height,
+  };
+}
+
+// ── Level lifecycle ──────────────────────────────────────────────────────────
+
+function loadLevel(idx) {
+  game.idx = Math.max(0, Math.min(LEVELS.length - 1, idx));
+  game.lv = parseLevel(LEVELS[game.idx]);
+  game.st = startState(game.lv);
+  game.vis = game.st.slice();
+  game.moves = 0;
+  game.undo.length = 0;
+  game.sel = -1;
+  game.won = false;
+  game.busy = false;
+  hintMove = null;
+  drag = null;
+  tweens.length = 0;
+  document.getElementById('winOverlay').classList.remove('on');
+
+  buildBoard();
+  buildBlocks();
+  buildFitPoints();
+  layout();
+  updateHUD();
+
+  // Staggered pop-in, so a new board reads as "set out" rather than snapping on.
+  meshes.forEach((mesh, i) => {
+    mesh.scale.setScalar(0.01);
+    setTimeout(() => {
+      if (meshes[i] !== mesh) return;
+      tween('pop' + i, 300, (e) => {
+        const s = 1 + Math.sin(e * Math.PI) * 0.1;
+        mesh.scale.set(s, e * (2 - e) * s, s);
+      }, () => mesh.scale.set(1, 1, 1));
+    }, i * 45);
+  });
+}
+
+function restartLevel() {
+  const idx = game.idx;
+  loadLevel(idx);
+}
+
+// ── HUD ──────────────────────────────────────────────────────────────────────
+
+function updateHUD() {
+  const lv = game.lv;
+  const best = save.best[lv.id];
+  document.getElementById('lvlPill').textContent = 'Level ' + lv.id + ' · ' + lv.name;
+  document.getElementById('movePill').textContent = 'Moves: ' + game.moves;
+  document.getElementById('parPill').textContent =
+    'Par ' + lv.par + (best ? ' · Best ' + best : '');
+  document.getElementById('hintCount').textContent = String(save.hints);
+  document.getElementById('btnHint').disabled = save.hints <= 0 || game.won;
+  document.getElementById('btnUndo').disabled = game.undo.length === 0 || game.won;
+  document.getElementById('btnSound').textContent = save.sfx ? '\u{1F50A}' : '\u{1F507}';
+  document.getElementById('btnMusic').style.opacity = save.music ? '1' : '0.45';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+// ── Moves ────────────────────────────────────────────────────────────────────
+
+// `coalesce` merges this slide into the previous one when it continues the same
+// block in the same direction — what keeps a run of arrow-key presses costing
+// one move, the same as the drag it imitates.
+function commitMove(i, to, coalesce) {
+  const from = game.st[i];
+  if (to === from) return false;
+  const last = game.undo[game.undo.length - 1];
+  const dir = Math.sign(to - from);
+  if (coalesce && last && last.i === i && last.dir === dir) {
+    last.to = to;
+  } else {
+    game.undo.push({ i, from, to, dir });
+    game.moves++;
+  }
+  game.st[i] = to;
+  hintMove = null;
+  updateHUD();
+  return true;
+}
+
+function undoMove() {
+  if (!game.undo.length || game.won) return;
+  const mv = game.undo.pop();
+  game.moves = Math.max(0, game.moves - 1);
+  game.st[mv.i] = mv.from;
+  animateTo(mv.i, mv.from, 170);
+  hintMove = null;
+  sfx('place');
+  updateHUD();
+}
+
+function animateTo(i, to, dur) {
+  const from = game.vis[i];
+  if (Math.abs(from - to) < 0.0005) { game.vis[i] = to; syncMesh(i, 0); return; }
+  tween('blk' + i, dur, (e) => {
+    game.vis[i] = from + (to - from) * e;
+    syncMesh(i, 0);
+  }, () => {
+    game.vis[i] = to;
+    syncMesh(i, 0);
+    // Squash and stretch on landing: brief, because this is a calm game.
+    tween('sq' + i, 180, (e, p) => {
+      const k = Math.sin(p * Math.PI);
+      meshes[i].scale.set(1 + 0.05 * k, 1 - 0.1 * k, 1 + 0.05 * k);
+    }, () => meshes[i].scale.set(1, 1, 1), (p) => p);
+  });
+}
+
+// The corridor a block may be dragged through, in continuous axis units. The
+// target's ceiling opens past the board edge once the exit run is clear — that
+// extra stretch is the win.
+function dragRange(i) {
+  const grid = occupancy(game.lv, game.st);
+  const rg = freeRange(game.lv, grid, game.st, i);
+  let lo = rg.lo, hi = rg.hi;
+  if (i === game.lv.ti && canExit(game.lv, game.st, grid)) {
+    if (game.lv.exit.side === 'left') lo = -game.lv.blocks[i].len;
+    else hi = game.lv.w;
+  }
+  return { lo, hi };
+}
+
+function canWinFrom(p) {
+  const t = game.lv.blocks[game.lv.ti];
+  return game.lv.exit.side === 'left' ? p < -0.35 : p > game.lv.w - t.len + 0.35;
+}
+
+// ── Win ──────────────────────────────────────────────────────────────────────
+
+// `coalesce` has the same job here as in commitMove: an arrow-key run that
+// walks the target to the wall and then one cell further is a single slide, so
+// the step that carries it out must not be billed twice. A drag that ends out
+// through the gap was never committed at all, so it always pays the one move.
+function triggerWin(coalesce) {
+  if (game.won) return;
+  game.won = true;
+  game.busy = true;
+  game.sel = -1;
+  drag = null;
+  slideOff();
+  hintMove = null;
+
+  const last = game.undo[game.undo.length - 1];
+  const outDir = game.lv.exit.side === 'left' ? -1 : 1;
+  if (!(coalesce && last && last.i === game.lv.ti && last.dir === outDir)) game.moves++;
+
+  const i = game.lv.ti;
+  const mesh = meshes[i];
+  const from = game.vis[i];
+  const out = game.lv.exit.side === 'left' ? from - 9 : from + 9;
+
+  sfx('exit');
+  haptic(14);
+  updateHUD();
+
+  // Accelerating, not eased-out: it should read as driving away, not parking.
+  tween('blk' + i, 780, (e, p) => {
+    game.vis[i] = from + (out - from) * e;
+    syncMesh(i, 0);
+    if (p > 0.55) {
+      const f = 1 - (p - 0.55) / 0.45;
+      mesh.material.transparent = true;
+      mesh.material.opacity = f;
+    }
+  }, () => {
+    mesh.visible = false;
+    finishWin();
+  }, easeIn);
+
+  // Burst at the gap as it crosses the threshold.
+  setTimeout(() => {
+    const s = toScreen(new THREE.Vector3(game.lv.w / 2 + RIM, BLOCK_H / 2, exitZ()));
+    juiceBurst(s.x, s.y, ['#ffc25c', '#e8664a', '#fff1dc'], { count: 20, spread: 96 });
+    shake(0.07);
+  }, 230);
+}
+
+function finishWin() {
+  const lv = game.lv;
+  const stars = starsFor(lv.par, game.moves);
+  const prev = save.best[lv.id];
+  const isBest = prev === undefined || game.moves < prev;
+  if (isBest) save.best[lv.id] = game.moves;
+  // One hint earned the first time a level is beaten at par, so the pool
+  // refills by playing well rather than by waiting.
+  if (stars === 3 && prev === undefined) save.hints++;
+  if (game.idx + 1 < LEVELS.length) save.unlocked = Math.max(save.unlocked, game.idx + 2);
+  persist();
+
+  document.getElementById('winStars').innerHTML =
+    [0, 1, 2].map((k) => '<span class="' + (k < stars ? '' : 'off') + '">★</span>').join('');
+  let sub = game.moves + ' move' + (game.moves === 1 ? '' : 's') + ' · par ' + lv.par;
+  if (stars === 3) sub += '  ✨ Perfect';
+  else if (isBest && prev !== undefined) sub += '  · new best';
+  document.getElementById('winSub').textContent = sub;
+  document.getElementById('btnNext').style.display = game.idx + 1 < LEVELS.length ? '' : 'none';
+
+  sfx('win');
+  document.getElementById('winOverlay').classList.add('on');
+  spawnConfetti();
+  game.busy = false;
+}
+
+const CC = ['#ffc25c', '#e8664a', '#dcb075', '#fff1dc', '#c89a5e', '#f0a03c'];
+function spawnConfetti() {
+  for (let i = 0; i < 70; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-p';
+      const w = 6 + Math.random() * 8;
+      const h = Math.random() < 0.5 ? w : w * (1.4 + Math.random() * 0.8);
+      const dur = 1.8 + Math.random() * 2;
+      el.style.cssText =
+        'left:' + (Math.random() * 100) + 'vw;' +
+        'width:' + w + 'px;height:' + h + 'px;' +
+        'border-radius:' + (Math.random() < 0.5 ? '50%' : '2px') + ';' +
+        'background:' + CC[Math.floor(Math.random() * CC.length)] + ';' +
+        '--spin:' + (Math.random() * 720 - 360) + 'deg;' +
+        'animation-duration:' + dur + 's;';
+      document.body.appendChild(el);
+      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, (dur + 0.3) * 1000);
+    }, i * 24);
+  }
+}
+
+// ── Hint ─────────────────────────────────────────────────────────────────────
+
+function showHint() {
+  if (game.won || save.hints <= 0) return;
+  const sol = solve(game.lv, game.st.slice(), 300000);
+  if (!sol || !sol.length) { showToast('No hint available'); return; }
+  const mv = sol[0];
+  const to = mv.to === EXIT ? (game.lv.exit.side === 'left' ? -game.lv.blocks[mv.i].len : game.lv.w) : mv.to;
+  hintMove = { i: mv.i, dir: Math.sign(to - game.st[mv.i]) || 1 };
+  hintUntil = performance.now() + 2600;
+  game.sel = mv.i;
+  save.hints--;
+  persist();
+  updateHUD();
+  sfx('hint');
+}
+
+// The hint arrow is one reused mesh parked above whichever block is being
+// pointed at, rather than one per block.
+function ensureHintArrow() {
+  if (hintArrow) return hintArrow;
+  hintArrow = new THREE.Mesh(ARROW_GEO, new THREE.MeshBasicMaterial({
+    color: C.gold, transparent: true, opacity: 0.9, depthTest: false,
+  }));
+  hintArrow.renderOrder = 10;
+  hintArrow.visible = false;
+  scene.add(hintArrow);
+  return hintArrow;
+}
+
+// ── Input ────────────────────────────────────────────────────────────────────
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const TOP_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BLOCK_H);
+const FLOOR_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const hitPoint = new THREE.Vector3();
+
+let drag = null;
+let dimAmt = 0, dimTarget = 0;
+
+function planePoint(e, plane) {
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  return raycaster.ray.intersectPlane(plane, hitPoint) ? hitPoint.clone() : null;
+}
+
+// Deliberately not box colliders. A collider tall enough to be a comfortable
+// target throws a silhouette `height / tan(pitch)` up-screen and steals taps
+// meant for the block behind it (see games/glide/CLAUDE.md). Blocks all share
+// one height, so testing the footprint on the plane through their top faces is
+// both exact and immune to that.
+function pickBlock(pt, pad) {
+  pad = pad || 0;
+  let best = -1, bestD = Infinity;
+  for (let i = 0; i < game.lv.blocks.length; i++) {
+    const b = game.lv.blocks[i], p = game.st[i];
+    let x0, x1, z0, z1;
+    if (b.orient === 'h') {
+      x0 = cellX(p) - 0.5; x1 = cellX(p + b.len - 1) + 0.5;
+      z0 = cellZ(b.row) - 0.5; z1 = cellZ(b.row) + 0.5;
+    } else {
+      x0 = cellX(b.col) - 0.5; x1 = cellX(b.col) + 0.5;
+      z0 = cellZ(p) - 0.5; z1 = cellZ(p + b.len - 1) + 0.5;
+    }
+    if (pt.x < x0 - pad || pt.x > x1 + pad || pt.z < z0 - pad || pt.z > z1 + pad) continue;
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const d = (pt.x - cx) * (pt.x - cx) + (pt.z - cz) * (pt.z - cz);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+function cellAt(pt) {
+  const c = Math.round(pt.x + (game.lv.w - 1) / 2);
+  const r = Math.round(pt.z + (game.lv.h - 1) / 2);
+  if (c < 0 || c >= game.lv.w || r < 0 || r >= game.lv.h) return null;
+  return { r, c };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  resumeAudio();
+  if (game.busy || game.won) return;
+  const pt = planePoint(e, TOP_PLANE);
+  if (!pt) return;
+  canvas.setPointerCapture(e.pointerId);
+
+  let i = pickBlock(pt, 0);
+  if (i === -1) i = pickBlock(pt, 0.22);
+
+  if (i === -1) {
+    // Empty cell: with a block selected this is the tap-to-target path.
+    const cell = cellAt(planePoint(e, FLOOR_PLANE) || pt);
+    if (cell && game.sel >= 0) slideSelectedTo(cell);
+    else { game.sel = -1; }
+    return;
+  }
+
+  const b = game.lv.blocks[i];
+  drag = {
+    i,
+    axis: b.orient === 'h' ? 'x' : 'z',
+    grab: b.orient === 'h' ? pt.x : pt.z,
+    startP: game.st[i],
+    range: dragRange(i),
+    t0: performance.now(),
+    moved: 0,
+    lastP: game.st[i],
+    lastT: performance.now(),
+    bumped: 0,
+  };
+  game.sel = i;
+  dimTarget = 1;
+  // Drop any landing squash still running, or the grabbed block keeps pulsing
+  // under the finger.
+  cancelTween('sq' + i);
+  meshes[i].scale.set(1, 1, 1);
+  slideOn();
+  sfx('grab');
+  haptic(6);
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const pt = planePoint(e, TOP_PLANE);
+  if (!pt) return;
+  const cur = drag.axis === 'x' ? pt.x : pt.z;
+  const raw = drag.startP + (cur - drag.grab);
+  const p = Math.max(drag.range.lo, Math.min(drag.range.hi, raw));
+
+  drag.moved = Math.max(drag.moved, Math.abs(raw - drag.startP));
+
+  // Hard stop at the obstacle: no shake, no flash. A bump sound and a haptic
+  // tap are the whole feedback, debounced so pushing against a wall doesn't
+  // machine-gun.
+  const clamped = raw < drag.range.lo - 0.04 || raw > drag.range.hi + 0.04;
+  const now = performance.now();
+  if (clamped && now - drag.bumped > 420) {
+    drag.bumped = now;
+    sfx('bump');
+    haptic(9);
+  }
+
+  const dt = Math.max(0.001, (now - drag.lastT) / 1000);
+  slideSpeed(Math.abs(p - drag.lastP) / dt);
+  drag.lastP = p; drag.lastT = now;
+
+  game.vis[drag.i] = p;
+  syncMesh(drag.i, LIFT);
+
+  if (drag.i === game.lv.ti && canWinFrom(p)) {
+    const i = drag.i;
+    drag = null;
+    dimTarget = 0;
+    game.st[i] = game.lv.w;
+    triggerWin(false);
+  }
+});
+
+function endDrag(e) {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  dimTarget = 0;
+  slideOff();
+
+  const dur = performance.now() - d.t0;
+  let p = game.vis[d.i];
+
+  // A quick, decisive push is a flick: run the block as far as it will go that
+  // way, rather than snapping to whichever cell the finger happened to leave.
+  const delta = p - d.startP;
+  if (dur < 260 && Math.abs(delta) > 0.22) p = delta > 0 ? d.range.hi : d.range.lo;
+
+  let to = Math.round(p);
+  to = Math.max(d.range.lo, Math.min(d.range.hi, to));
+
+  if (d.i === game.lv.ti && canWinFrom(to)) {
+    game.st[d.i] = to;
+    triggerWin(false);
+    return;
+  }
+
+  const changed = commitMove(d.i, to, false);
+  animateTo(d.i, to, Math.min(190, 90 + Math.abs(to - game.vis[d.i]) * 45));
+  if (changed) { sfx('place'); haptic(8); }
+}
+
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+// Tap an empty cell on the selected block's axis to send it there.
+function slideSelectedTo(cell) {
+  const i = game.sel;
+  if (i < 0 || game.won) return;
+  const b = game.lv.blocks[i];
+  if (b.orient === 'h' && cell.r !== b.row) return;
+  if (b.orient === 'v' && cell.c !== b.col) return;
+  const rg = dragRange(i);
+  // The tapped cell is where the leading edge should land, so aim the block's
+  // near end at it and let the clamp do the rest.
+  const cur = game.st[i];
+  const target = b.orient === 'h' ? cell.c : cell.r;
+
+  // The exit is off the board, so no cell can stand for it. Tapping anywhere
+  // beyond the target block along the exit run means "out" — otherwise this
+  // input path could only ever park the block against the wall and the player
+  // would be forced back to the drag to finish.
+  if (i === game.lv.ti && canExit(game.lv, game.st, occupancy(game.lv, game.st))) {
+    const toward = game.lv.exit.side === 'left' ? target < cur : target > cur;
+    if (toward) { game.st[i] = rg.hi; triggerWin(false); return; }
+  }
+
+  let to = target > cur ? target - b.len + 1 : target;
+  to = Math.max(rg.lo, Math.min(rg.hi, to));
+  if (to === cur) { sfx('deny'); return; }
+  if (i === game.lv.ti && canWinFrom(to)) { game.st[i] = to; triggerWin(false); return; }
+  commitMove(i, to, false);
+  animateTo(i, to, 200);
+  sfx('place');
+  haptic(8);
+}
+
+// Keyboard / accessibility path. An arrow steps one cell, and consecutive steps
+// on the same block in the same direction coalesce into a single move, so the
+// keyboard is not scored worse than the drag it stands in for.
+window.addEventListener('keydown', (e) => {
+  if (game.won || game.busy) return;
+  const k = e.key;
+  if (k === 'Tab') {
+    e.preventDefault();
+    const n = game.lv.blocks.length;
+    game.sel = ((game.sel + (e.shiftKey ? -1 : 1)) % n + n) % n;
+    resumeAudio();
+    return;
+  }
+  const dirs = {
+    ArrowLeft: [-1, 'h'], a: [-1, 'h'], A: [-1, 'h'],
+    ArrowRight: [1, 'h'], d: [1, 'h'], D: [1, 'h'],
+    ArrowUp: [-1, 'v'], w: [-1, 'v'], W: [-1, 'v'],
+    ArrowDown: [1, 'v'], s: [1, 'v'], S: [1, 'v'],
+  };
+  const spec = dirs[k];
+  if (!spec) return;
+  e.preventDefault();
+  resumeAudio();
+  if (game.sel < 0) game.sel = game.lv.ti;
+  const i = game.sel;
+  const b = game.lv.blocks[i];
+  if (b.orient !== spec[1]) { sfx('deny'); return; }
+  const rg = dragRange(i);
+  const to = Math.max(rg.lo, Math.min(rg.hi, game.st[i] + spec[0]));
+  if (to === game.st[i]) { sfx('bump'); haptic(9); return; }
+  if (i === game.lv.ti && canWinFrom(to)) { game.st[i] = to; triggerWin(true); return; }
+  commitMove(i, to, true);
+  animateTo(i, to, 120);
+  sfx('place');
+});
+
+// ── Level select ─────────────────────────────────────────────────────────────
+
+function openLevels() {
+  const grid = document.getElementById('levelGrid');
+  grid.innerHTML = '';
+  LEVELS.forEach((raw, idx) => {
+    const el = document.createElement('button');
+    const locked = idx + 1 > save.unlocked;
+    const best = save.best[raw.id];
+    el.className = 'level-tile' + (locked ? ' locked' : best !== undefined ? (best <= raw.par ? ' solved par' : ' solved') : '');
+    const sub = locked ? '\u{1F512}' : best !== undefined
+      ? '★'.repeat(starsFor(raw.par, best))
+      : tierOf(raw.par).slice(0, 3);
+    el.innerHTML = raw.id + '<span class="sub">' + sub + '</span>';
+    el.title = raw.name + ' · ' + tierOf(raw.par) + ' · par ' + raw.par;
+    if (!locked) el.addEventListener('click', () => {
+      document.getElementById('levelOverlay').classList.remove('on');
+      loadLevel(idx);
+    });
+    grid.appendChild(el);
+  });
+  const pack = PACKS.find((p) => p.id === LEVELS[0].pack);
+  document.getElementById('packName').textContent =
+    (pack ? pack.name : 'Levels') + ' — ' + LEVELS.length + ' puzzles';
+  document.getElementById('levelOverlay').classList.add('on');
+}
+
+// ── Buttons ──────────────────────────────────────────────────────────────────
+
+document.getElementById('btnLevels').addEventListener('click', () => { resumeAudio(); openLevels(); });
+document.getElementById('btnWinLevels').addEventListener('click', () => {
+  document.getElementById('winOverlay').classList.remove('on');
+  openLevels();
+});
+document.getElementById('btnCloseLevels').addEventListener('click', () => {
+  document.getElementById('levelOverlay').classList.remove('on');
+});
+document.getElementById('btnRestart').addEventListener('click', () => { resumeAudio(); restartLevel(); });
+document.getElementById('btnUndo').addEventListener('click', () => { resumeAudio(); undoMove(); });
+document.getElementById('btnHint').addEventListener('click', () => { resumeAudio(); showHint(); });
+document.getElementById('btnReplay').addEventListener('click', () => restartLevel());
+document.getElementById('btnNext').addEventListener('click', () => loadLevel(game.idx + 1));
+
+document.getElementById('btnSound').addEventListener('click', () => {
+  save.sfx = !save.sfx;
+  persist();
+  const ctx = audio();
+  if (ctx) sfxBus.gain.setTargetAtTime(save.sfx ? 1 : 0, ctx.currentTime, 0.02);
+  updateHUD();
+  if (save.sfx) sfx('place');
+});
+
+document.getElementById('btnMusic').addEventListener('click', () => {
+  save.music = !save.music;
+  persist();
+  if (save.music) { resumeAudio(); startMusic(); } else stopMusic();
+  updateHUD();
+});
+
+// A backgrounded home-screen app should not keep playing.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopMusic();
+  else if (save.music && actx) startMusic();
+});
+
+document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 120));
+
+// ── Render loop ──────────────────────────────────────────────────────────────
+
+const _o = new THREE.Object3D();
+let last = performance.now();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
+
+  stepTweens(now);
+
+  // Dust, in a box over the tray. Positions are normalised so a level of a
+  // different size rescales them instead of stranding motes off the board.
+  if (game.lv) {
+    const W = game.lv.w + 2 * RIM, H = game.lv.h + 2 * RIM;
+    for (let i = 0; i < MOTES; i++) {
+      const m = motes[i];
+      m.u = (m.u + m.vx * dt * 0.1 + 1) % 1;
+      m.v = (m.v + m.vy * dt * 0.1 + 1) % 1;
+      _o.position.set(
+        (m.u - 0.5) * W * 1.2,
+        m.y + Math.sin(t * 0.5 + m.phase) * 0.12,
+        (m.v - 0.5) * H * 1.2
+      );
+      _o.quaternion.copy(camera.quaternion);
+      const s = m.size * (1 + Math.sin(t * 1.1 + m.phase) * 0.2);
+      _o.scale.set(s, s, s);
+      _o.updateMatrix();
+      moteMesh.setMatrixAt(i, _o.matrix);
+    }
+    moteMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  // Frame-rate independent approach, unlike `x *= 0.9`.
+  const k = 1 - Math.pow(0.0015, dt);
+  dimAmt += (dimTarget - dimAmt) * k;
+
+  const hintOn = hintMove && now < hintUntil;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 6);
+
+  for (let i = 0; i < meshes.length; i++) {
+    const mesh = meshes[i];
+    if (!mesh || !mesh.visible) continue;
+    const held = drag && drag.i === i;
+    const isHint = hintOn && hintMove.i === i;
+    const sel = game.sel === i;
+
+    // "The rest of the board dims marginally" while something is held.
+    const dim = held ? 0 : dimAmt * 0.14;
+    mesh.material.color.copy(mesh.userData.base).multiplyScalar(1 - dim);
+    mesh.material.emissiveIntensity = isHint ? 0.16 + pulse * 0.2 : (held ? 0.07 : (sel ? 0.04 : 0));
+
+    if (!held && !hasTween('blk' + i)) {
+      mesh.position.y = sel ? 0.012 : 0;
+    }
+  }
+
+  // Exit marker breathes so the gap is findable at a glance.
+  for (const o of boardGroup.children) {
+    if (o.userData.exitArrow) {
+      o.position.y = 0.02 + Math.sin(t * 1.8) * 0.012;
+      o.material.color.setHex(C.gold).multiplyScalar(0.8 + 0.2 * (0.5 + 0.5 * Math.sin(t * 1.8)));
+    }
+  }
+
+  const arrow = ensureHintArrow();
+  if (hintOn && meshes[hintMove.i]) {
+    const b = game.lv.blocks[hintMove.i];
+    const c = blockCentre(hintMove.i, game.vis[hintMove.i]);
+    arrow.visible = true;
+    arrow.position.set(c.x, BLOCK_H + 0.30 + pulse * 0.06, c.z);
+    arrow.rotation.y = b.orient === 'h'
+      ? (hintMove.dir > 0 ? 0 : Math.PI)
+      : (hintMove.dir > 0 ? -Math.PI / 2 : Math.PI / 2);
+    arrow.material.opacity = 0.55 + pulse * 0.4;
+  } else {
+    arrow.visible = false;
+    if (hintMove && now >= hintUntil) hintMove = null;
+  }
+
+  if (shakeAmt > 0.0005) {
+    shakeOff.set((Math.random() - 0.5) * shakeAmt, (Math.random() - 0.5) * shakeAmt, 0)
+      .applyQuaternion(camera.quaternion);
+    camera.position.copy(camBase).add(shakeOff);
+    shakeAmt *= Math.pow(0.0015, dt);
+  } else if (shakeAmt !== 0) {
+    shakeAmt = 0;
+    camera.position.copy(camBase);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+loadLevel(Math.min(save.unlocked - 1, LEVELS.length - 1));
+// The flex slot settles a frame after the first paint on some iOS builds.
+requestAnimationFrame(() => layout());
+requestAnimationFrame(frame);
+window.__unblockReady = true;
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(function (reg) {
+    // The browser only looks for a new worker on navigation, so a home-screen
+    // app left open for days never sees a deploy. Nudge it when it comes forward.
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) reg.update();
+    });
+  });
+}
+// The board is drawn entirely by the module script above; if the engine fails
+// to load the page would otherwise just sit blank.
+setTimeout(function () {
+  if (!window.__unblockReady) {
+    document.getElementById('stage').style.display = 'none';
+    document.getElementById('loadErr').classList.add('on');
+  }
+}, 6000);
+</script>
+</body>
+</html>

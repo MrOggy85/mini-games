@@ -446,6 +446,26 @@ html.webgl .games a:focus-visible {
       <span class="card-name">Flag Quiz</span>
     </a>
 
+    <a href="/games/unblock-me/" data-game="unblock-me">
+      <div class="card-art">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Unblock Me: the red block with a clear run at the gap in the tray wall -->
+          <rect x="14" y="14" width="52" height="52" fill="#4e3219"/>
+          <rect x="6" y="6" width="68" height="8" fill="#c89a5e"/>
+          <rect x="6" y="66" width="68" height="8" fill="#c89a5e"/>
+          <rect x="6" y="6" width="8" height="68" fill="#c89a5e"/>
+          <rect x="66" y="6" width="8" height="24" fill="#c89a5e"/>
+          <rect x="66" y="46" width="8" height="28" fill="#c89a5e"/>
+          <rect x="18" y="18" width="26" height="11" rx="3" fill="#dcb075"/>
+          <rect x="50" y="47" width="11" height="18" rx="3" fill="#d2a266"/>
+          <rect x="18" y="33" width="29" height="11" rx="3" fill="#e8664a"/>
+          <path d="M67,33 L73.5,38.5 L67,44" fill="none" stroke="#ffc25c" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="card-name">Unblock Me</span>
+    </a>
+
     <a href="https://sweden.mroggy85.deno.net/" data-game="sweden">
       <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -500,6 +520,7 @@ const GAMES = {
   'warehouse-keeper': { face: 0xfff3e0, rim: 0x8a4f0e, burst: ['#c17817', '#8a4f0e', '#4a90e2'] },
   'circuits':         { face: 0x12142b, rim: 0x080a18, burst: ['#ffd93d', '#ffe27a', '#c7cbe8'] },
   'flag-quiz':        { face: 0x12142b, rim: 0x080a18, burst: ['#ff6b6b', '#ffb3b3', '#e8eaff'] },
+  'unblock-me':       { face: 0xfff2e0, rim: 0xa83218, burst: ['#e8664a', '#dcb075', '#ffc25c'] },
   // Off-site (Deno Deploy), so nothing here is in sw.js and the tile dead-ends
   // offline. It is otherwise an ordinary anchor and needs no special casing.
   'sweden':           { face: 0xeef4ff, rim: 0x005293, burst: ['#005293', '#fecc02', '#ffffff'] },
@@ -1384,6 +1405,92 @@ function iconSweden() {
   };
 }
 
+function iconUnblockMe() {
+  const g = new THREE.Group();
+  const oak = mat(0xc89a5e, { roughness: 0.42 });
+  const well = mat(0x4e3219, { roughness: 0.7 });
+  const maple = mat(0xdcb075, { roughness: 0.45 });
+  const maple2 = mat(0xd2a266, { roughness: 0.45 });
+  const red = mat(0xe8664a, { roughness: 0.34 });
+  const goldMat = mat(0xffc25c, { roughness: 0.26, emissive: 0xffc25c, emissiveIntensity: 0.25 });
+
+  // The tray is held to x = +/-0.40, not the full art box: the chevron and the
+  // red block's run out both live in the strip beyond its right wall, and an
+  // icon that overruns the 1x1 square draws over the next tile.
+  const base = new THREE.Mesh(chipGeo(0.80, 0.86, 0.06, 0.06, 0.02), well);
+  base.receiveShadow = true;
+  g.add(base);
+
+  // Everything inside the tray stands on the well floor, not on the slab.
+  const FZ = 0.055;
+
+  // Frame rails. The right one is split, and the gap between the two halves is
+  // the whole point of the icon — keep it at least as tall as the red block.
+  for (const [w, h, x, y] of [
+    [0.80, 0.10, 0, 0.38],
+    [0.80, 0.10, 0, -0.38],
+    [0.10, 0.86, -0.35, 0],
+    [0.10, 0.32, 0.35, 0.27],
+    [0.10, 0.32, 0.35, -0.27],
+  ]) {
+    const m = new THREE.Mesh(chipGeo(w, h, 0.1, 0.03, 0.012), oak);
+    m.position.set(x, y, FZ);
+    m.castShadow = true;
+    g.add(m);
+  }
+
+  const vert = new THREE.Mesh(chipGeo(0.16, 0.20, 0.11, 0.035, 0.013), maple2);
+  vert.position.set(0.17, 0.22, FZ);
+  vert.castShadow = true;
+  g.add(vert);
+
+  const horiz = new THREE.Mesh(chipGeo(0.30, 0.16, 0.11, 0.035, 0.013), maple);
+  horiz.position.set(-0.14, -0.22, FZ);
+  horiz.castShadow = true;
+  g.add(horiz);
+
+  const redBlock = new THREE.Mesh(chipGeo(0.34, 0.17, 0.11, 0.035, 0.013), red);
+  redBlock.position.set(-0.13, 0, FZ);
+  redBlock.castShadow = true;
+  g.add(redBlock);
+
+  // Chevron outside the gap: one bar, placed twice at +/-45 degrees. Mirroring
+  // with a negative scale would invert the winding and light it wrong. It sits
+  // above the rails in z rather than beside them in x, so it can tuck close to
+  // the wall without intersecting it.
+  const barGeo = flatExtrude(roundedRect(0.13, 0.045, 0.022), 0.028);
+  for (const [rot, oy] of [[-Math.PI / 4, 0.028], [Math.PI / 4, -0.028]]) {
+    const m = new THREE.Mesh(barGeo, goldMat);
+    m.rotation.z = rot;
+    m.position.set(0.465, oy, 0.16);
+    g.add(m);
+  }
+
+  return {
+    group: g,
+    update(t) {
+      // A blocker shuffles clear, then the red block drives out through the gap
+      // and pops back at the start. Nothing here moves on the board's own.
+      const p = saw(t, 3.6);
+      const nudge = p < 0.22 ? easeInOut(p / 0.22) : (p > 0.9 ? 1 - easeInOut((p - 0.9) / 0.1) : 1);
+      vert.position.y = 0.22 + nudge * 0.08;
+
+      const back = p > 0.88 ? easeInOut((p - 0.88) / 0.12) : 0;
+      if (back > 0) {
+        redBlock.position.x = -0.13;
+        redBlock.scale.setScalar(Math.max(0.001, back));
+      } else {
+        const run = p <= 0.3 ? 0 : Math.min(1, (p - 0.3) / 0.42);
+        // Shrunk away just past the frame, so it never draws over the next tile.
+        const out = run > 0.6 ? (run - 0.6) / 0.4 : 0;
+        redBlock.position.x = -0.13 + run * run * 0.57;
+        redBlock.scale.setScalar(Math.max(0.001, 1 - out));
+      }
+      goldMat.emissiveIntensity = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(t * 2.4));
+    },
+  };
+}
+
 const BUILDERS = {
   'memory': iconMemory,
   'sliding-puzzle': iconSlidingPuzzle,
@@ -1396,6 +1503,7 @@ const BUILDERS = {
   'warehouse-keeper': iconWarehouseKeeper,
   'circuits': iconCircuits,
   'flag-quiz': iconFlagQuiz,
+  'unblock-me': iconUnblockMe,
   'sweden': iconSweden,
 };
 

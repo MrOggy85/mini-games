@@ -23,6 +23,24 @@ the same `GAMES` entry, `BUILDERS` icon and fallback SVG as a local one, but it 
 no directory, no manifest, no `icon.svg` and no `sw.js` entry — and it dead-ends
 when the PWA is offline.
 
+## Hand-Authored Levels
+
+Three games ship hand-authored level data, and authoring an unsolvable board is
+easy: `warehouse-keeper` shipped one (level 8, no solution over all 507,049
+reachable states) and `circuits`' first candidate level had 0 solutions out of
+256. **Never add a level without a machine check.** The three approaches here,
+in increasing order of how much they'd protect the next one:
+
+- `circuits` — `auditLevels()` brute-forces every rotation at boot and logs to
+  the console. Silent unless something is wrong.
+- `warehouse-keeper` — nothing. Verify by hand before editing `LEVELS`; see its
+  own `CLAUDE.md` for the BFS to write.
+- `unblock-me` — both a boot audit and `make verify`, which runs the game's own
+  solver in node and exits non-zero on failure. The solver lives in the game's
+  HTML (single-file rule), and `tools/verify-levels.mjs` slices it out rather
+  than reimplementing it, so CI and the device can't disagree. Copy this pattern
+  for the next game with authored levels.
+
 ## Target Devices
 
 Games are designed for **iPad and iPhone**. All UI must be touch-friendly with appropriately sized tap targets.
@@ -104,14 +122,16 @@ Each page has a full-bleed `icon.svg` (the source of truth) plus three generated
 
 Games are being moved to three.js for an extruded, depth-lit board look (issue #63).
 Converted so far: `glide`, `trace`, `guide-the-way`, `warehouse-keeper`, `vantage`,
-`circuits`, and the portal page (`/index.html`).
+`circuits`, `unblock-me`, and the portal page (`/index.html`).
 `games/glide/index.html` is the reference implementation; `trace` additionally shows a
 variable-size board, per-instance tile colours and a swept path tube; `guide-the-way`
 shows a full-viewport animated environment behind a board framed into a DOM-defined
 slot; `warehouse-keeper` adds procedural canvas textures, an env-mapped glossy board
 and a fogged landscape; `circuits` adds instanced beads and lightning bolts driven off
 a BFS over the puzzle graph; `vantage` renders four separate camera views into
-DOM-defined rects on one canvas via scissored viewports; the portal uses a
+DOM-defined rects on one canvas via scissored viewports; `unblock-me` adds
+procedural wood grain and a continuous pointer drag whose world position comes from
+raycasting the plane through the blocks' top faces; the portal uses a
 pixel-mapped camera to line glossy tile slabs up with the DOM grid that defines them.
 
 Each game keeps its own palette — the 3D treatment is a rendering change, not a
@@ -196,8 +216,8 @@ knowing before editing it:
   tiles behind them on an iOS momentum flick — the same reason `guide-the-way` sets
   `overflow: hidden`. `layout()` picks the column count by scoring every count from
   2 to 6 against the art square it would yield. This is tuned for ~11-12 tiles,
-  and there are now 12: a 13th shrinks every tile, and past ~16 the grid needs
-  pagination instead of more rows.
+  and there are now 13: each further tile shrinks every other one, and past ~16
+  the grid needs pagination instead of more rows.
 
 - **The tile rim carries the contrast, not the face.** The portal is the one bright
   page here, which inverts the failure mode in **Color & Contrast** above: a pale
