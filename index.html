@@ -476,6 +476,21 @@ html.webgl .games a:focus-visible {
       <span class="card-name">Unblock Me</span>
     </a>
 
+    <a href="/games/water-jugs/" data-game="water-jugs" class="dark">
+      <div class="card-art">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Water Jugs: a tall jug pouring into a shorter one -->
+          <path d="M35,25 Q42,20 48,34" stroke="#8ecfff" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+          <circle cx="46.5" cy="31" r="2.2" fill="#8ecfff"/>
+          <rect x="12" y="17" width="22" height="48" rx="6" fill="#232853" stroke="#3a3f6e" stroke-width="2"/>
+          <path d="M15,41 h16 v20 a3.5,3.5 0 0 1 -3.5,3.5 h-9 a3.5,3.5 0 0 1 -3.5,-3.5 z" fill="#3d8bdb"/>
+          <rect x="45" y="33" width="19" height="32" rx="6" fill="#232853" stroke="#3a3f6e" stroke-width="2"/>
+          <path d="M47.5,48 h14 v11 a3.5,3.5 0 0 1 -3.5,3.5 h-7 a3.5,3.5 0 0 1 -3.5,-3.5 z" fill="#3d8bdb"/>
+        </svg>
+      </div>
+      <span class="card-name">Water Jugs</span>
+    </a>
+
     <a href="https://sweden.mroggy85.deno.net/" data-game="sweden">
       <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -531,6 +546,7 @@ const GAMES = {
   'circuits':         { face: 0x12142b, rim: 0x080a18, burst: ['#ffd93d', '#ffe27a', '#c7cbe8'] },
   'flag-quiz':        { face: 0x12142b, rim: 0x080a18, burst: ['#ff6b6b', '#ffb3b3', '#e8eaff'] },
   'unblock-me':       { face: 0xfff2e0, rim: 0xa83218, burst: ['#e8664a', '#dcb075', '#ffc25c'] },
+  'water-jugs':       { face: 0x12142b, rim: 0x080a18, burst: ['#4a9eff', '#8ecfff', '#ffffff'] },
   // Off-site (Deno Deploy), so nothing here is in sw.js and the tile dead-ends
   // offline. It is otherwise an ordinary anchor and needs no special casing.
   'sweden':           { face: 0xeef4ff, rim: 0x005293, burst: ['#005293', '#fecc02', '#ffffff'] },
@@ -1503,6 +1519,67 @@ function iconUnblockMe() {
   };
 }
 
+function iconWaterJugs() {
+  const g = new THREE.Group();
+  // Translucent so the water block reads through the body instead of being
+  // fully occluded by it — there's no vendored glass/refraction shader here,
+  // just alpha blending, which is enough at this size.
+  const glass = mat(0x2c3363, { roughness: 0.28, metalness: 0.05, transparent: true, opacity: 0.45 });
+  const water = mat(0x3d8bdb, { roughness: 0.2, metalness: 0.05, emissive: 0x1c4a86, emissiveIntensity: 0.25 });
+  const dropletMat = mat(0x8ecfff, { roughness: 0.15, emissive: 0x8ecfff, emissiveIntensity: 0.5 });
+
+  const D = 0.20;
+  const INSET = 0.035;
+  const JUGS = [
+    { x: -0.22, w: 0.30, h: 0.58, maxFill: 0.46 },
+    { x: 0.22, w: 0.25, h: 0.40, maxFill: 0.30 },
+  ];
+  const bottomOf = (jug) => -jug.h / 2 + INSET;
+
+  const waters = [];
+  for (const jug of JUGS) {
+    const body = new THREE.Mesh(chipGeo(jug.w, jug.h, D, 0.045, 0.014), glass);
+    body.position.set(jug.x, 0, 0);
+    body.castShadow = true;
+    g.add(body);
+
+    // Unit-height box, scaled per frame — a chip's rounded bevel would need a
+    // minimum height to stay valid, which a near-empty jug can't guarantee.
+    const w = new THREE.Mesh(new THREE.BoxGeometry(jug.w - INSET * 2, 1, D - INSET * 2), water);
+    w.position.set(jug.x, bottomOf(jug), D / 2);
+    g.add(w);
+    waters.push({ mesh: w, jug });
+  }
+
+  const drop = new THREE.Mesh(new THREE.SphereGeometry(0.026, 10, 8), dropletMat);
+  drop.position.set(JUGS[0].x, 0.4, D * 0.8);
+  g.add(drop);
+
+  return {
+    group: g,
+    update(t) {
+      // Levels breathe in and out of phase, standing in for a slow back-and-forth
+      // pour — not tied to the droplet, same as the flag icon's wave isn't tied
+      // to anything either.
+      for (const { mesh, jug } of waters) {
+        const sign = jug.x < 0 ? 1 : -1;
+        const frac = 0.5 + 0.4 * Math.sin(t * 0.9 * sign);
+        const fillH = Math.max(0.006, jug.maxFill * frac);
+        mesh.scale.y = fillH;
+        mesh.position.y = bottomOf(jug) + fillH / 2;
+      }
+
+      const p = saw(t, 3.2);
+      const goingRight = p < 0.5;
+      const u = easeInOut(goingRight ? p / 0.5 : (p - 0.5) / 0.5);
+      const fromX = goingRight ? JUGS[0].x + 0.09 : JUGS[1].x - 0.08;
+      const toX = goingRight ? JUGS[1].x - 0.08 : JUGS[0].x + 0.09;
+      drop.position.x = fromX + (toX - fromX) * u;
+      drop.position.y = 0.40 + Math.sin(u * Math.PI) * 0.09;
+    },
+  };
+}
+
 const BUILDERS = {
   'memory': iconMemory,
   'sliding-puzzle': iconSlidingPuzzle,
@@ -1516,6 +1593,7 @@ const BUILDERS = {
   'circuits': iconCircuits,
   'flag-quiz': iconFlagQuiz,
   'unblock-me': iconUnblockMe,
+  'water-jugs': iconWaterJugs,
   'sweden': iconSweden,
 };
 

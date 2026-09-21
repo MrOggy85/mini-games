@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/water-jugs/manifest.json">
+<link rel="icon" href="/games/water-jugs/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/games/water-jugs/apple-touch-icon.png">
+<title>Water Jugs</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0d0d1a;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  overflow-x: hidden;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #9a9ab0;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 14px 16px 0;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #4a9eff; }
+
+#game-wrap {
+  width: 100%;
+  max-width: 460px;
+  padding: 10px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-top: 6px;
+}
+
+#subtitle {
+  font-size: 13px;
+  color: #9a9ab0;
+  text-align: center;
+  margin-top: -10px;
+}
+
+#status-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #9a9ab0;
+  text-transform: uppercase;
+}
+#status-row span { color: #e0e0e0; }
+
+#target-banner {
+  width: 100%;
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #1c2044;
+  border: 1px solid #3a3f6e;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+#target-banner span { color: #8ecfff; }
+
+#level-name {
+  font-size: 13px;
+  color: #9a9ab0;
+  font-weight: 600;
+  margin-top: -6px;
+}
+
+#board {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+}
+
+.jug-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.jug-readout {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e0e0;
+  min-height: 20px;
+}
+.jug-readout .cap { color: #9a9ab0; font-weight: 500; }
+
+.jug {
+  position: relative;
+  width: 88px;
+  border-radius: 8px 8px 16px 16px;
+  background: #1c2044;
+  border: 2px solid #3a3f6e;
+  overflow: hidden;
+}
+
+.jug-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  background: linear-gradient(180deg, #59a8ff, #2f7dd1);
+  transition: height 0.35s ease;
+}
+
+.jug-btns {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.jug-btn {
+  flex: 1;
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 1px solid #3a3f6e;
+  background: #1c2044;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+}
+.jug-btn:active { transform: scale(0.96); }
+.jug-btn:disabled { opacity: 0.35; }
+
+.pour-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 40px;
+}
+
+.pour-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid #3a3f6e;
+  background: #243056;
+  color: #8ecfff;
+  font-size: 1.5rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+}
+.pour-btn:active { transform: scale(0.94); }
+.pour-btn:disabled { opacity: 0.3; }
+
+#reset-btn {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid #3a3f6e;
+  background: transparent;
+  color: #9a9ab0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 48px;
+}
+#reset-btn:active { transform: scale(0.98); }
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 6, 14, 0.88);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+#overlay.show { display: flex; }
+
+.overlay-card {
+  background: #1c2044;
+  border: 1px solid #3a3f6e;
+  border-radius: 20px;
+  padding: 32px 28px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+}
+.overlay-card h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #8ecfff;
+  margin-bottom: 10px;
+}
+.overlay-card p {
+  color: #c0c0d0;
+  font-size: 1rem;
+  margin-bottom: 22px;
+}
+.overlay-card p span {
+  color: #e0e0e0;
+  font-weight: 700;
+}
+
+#overlay-btn {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: none;
+  background: #4a9eff;
+  color: #06060e;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  min-height: 52px;
+}
+#overlay-btn:active { transform: scale(0.98); }
+</style>
+</head>
+<body>
+
+<a href="/" class="back-link">&larr; All Games</a>
+
+<div id="game-wrap">
+  <h1>Water Jugs</h1>
+  <div id="subtitle">Fill, empty, and pour to measure out the exact target amount.</div>
+
+  <div id="status-row">
+    <div>Level <span id="level-num">1</span> / <span id="level-total">5</span></div>
+    <div>Moves: <span id="move-count">0</span></div>
+  </div>
+
+  <div id="target-banner">
+    Target: <span id="target-value">4</span>L
+  </div>
+  <div id="level-name"></div>
+
+  <div id="board">
+    <div class="jug-col">
+      <div class="jug-readout"><span id="amount-a">0</span><span class="cap">/<span id="cap-a">5</span>L</span></div>
+      <div class="jug" id="jug-a"><div class="jug-fill" id="fill-a"></div></div>
+      <div class="jug-btns">
+        <button class="jug-btn" id="fill-a-btn">Fill</button>
+        <button class="jug-btn" id="empty-a-btn">Empty</button>
+      </div>
+    </div>
+
+    <div class="pour-col">
+      <button class="pour-btn" id="pour-a-b" aria-label="Pour left jug into right jug">&rarr;</button>
+      <button class="pour-btn" id="pour-b-a" aria-label="Pour right jug into left jug">&larr;</button>
+    </div>
+
+    <div class="jug-col">
+      <div class="jug-readout"><span id="amount-b">0</span><span class="cap">/<span id="cap-b">3</span>L</span></div>
+      <div class="jug" id="jug-b"><div class="jug-fill" id="fill-b"></div></div>
+      <div class="jug-btns">
+        <button class="jug-btn" id="fill-b-btn">Fill</button>
+        <button class="jug-btn" id="empty-b-btn">Empty</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="reset-btn">Reset Level</button>
+</div>
+
+<div id="overlay">
+  <div class="overlay-card">
+    <h2 id="overlay-title">Solved!</h2>
+    <p id="overlay-body">Measured it in <span id="overlay-moves">0</span> moves (best possible: <span id="overlay-par">0</span>).</p>
+    <button id="overlay-btn">Next Level</button>
+  </div>
+</div>
+
+<script>
+// Squash pulse and particle burst — copied from /templates/juice.js.
+function juiceSquash(el, opts) {
+  opts = opts || {};
+  var sx = opts.sx != null ? opts.sx : 1.15;
+  var sy = opts.sy != null ? opts.sy : 0.9;
+  var duration = opts.duration || 220;
+  el.animate([
+    { transform: 'scale(1,1)' },
+    { transform: 'scale(' + sx + ',' + sy + ')', offset: 0.35 },
+    { transform: 'scale(' + (2 - sx) + ',' + (2 - sy) + ')', offset: 0.6 },
+    { transform: 'scale(1,1)' }
+  ], { duration: duration, easing: 'ease-out' });
+}
+function juiceBurst(x, y, colors, opts) {
+  opts = opts || {};
+  var count = opts.count || 14;
+  var spread = opts.spread || 70;
+  var duration = opts.duration || 500;
+  for (var i = 0; i < count; i++) {
+    var el = document.createElement('div');
+    var angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    var dist = spread * (0.5 + Math.random() * 0.5);
+    var dx = Math.cos(angle) * dist;
+    var dy = Math.sin(angle) * dist;
+    var size = 4 + Math.random() * 4;
+    el.style.cssText =
+      'position:fixed;left:' + x + 'px;top:' + y + 'px;' +
+      'width:' + size + 'px;height:' + size + 'px;border-radius:50%;' +
+      'background:' + colors[i % colors.length] + ';' +
+      'pointer-events:none;z-index:999;';
+    document.body.appendChild(el);
+    (function(particle, tx, ty) {
+      particle.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(0.3)', opacity: 0 }
+      ], { duration: duration, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function() {
+        if (particle.parentNode) particle.parentNode.removeChild(particle);
+      };
+    }(el, dx, dy));
+  }
+}
+
+// Levels are hand-authored, so a bad pair (or a target that isn't a multiple
+// of gcd(a, b)) could ship unsolvable. auditLevels() below brute-force BFS's
+// every level's state graph at load and logs an error if one has no solution
+// — see CLAUDE.md "Hand-Authored Levels".
+var LEVELS = [
+  { a: 3, b: 2, target: 1, name: 'Warm-up' },
+  { a: 5, b: 3, target: 4, name: 'The classic' },
+  { a: 7, b: 4, target: 5, name: 'A harder pour' },
+  { a: 9, b: 4, target: 6, name: 'Getting tight' },
+  { a: 11, b: 7, target: 2, name: 'Full tank' }
+];
+
+// BFS over the (amountA, amountB) state graph. Returns the minimum number of
+// fill/empty/pour moves to reach `target` in either jug, or null if the state
+// is unreachable.
+function solveMinMoves(capA, capB, target) {
+  if (target === 0) return 0;
+  var key = function(x, y) { return x + ',' + y; };
+  var seen = {};
+  seen[key(0, 0)] = true;
+  var frontier = [[0, 0]];
+  var depth = 0;
+  while (frontier.length) {
+    depth++;
+    var next = [];
+    for (var i = 0; i < frontier.length; i++) {
+      var x = frontier[i][0], y = frontier[i][1];
+      var pourAB = Math.min(x, capB - y);
+      var pourBA = Math.min(y, capA - x);
+      var moves = [
+        [capA, y], [x, capB], [0, y], [x, 0],
+        [x - pourAB, y + pourAB],
+        [x + pourBA, y - pourBA]
+      ];
+      for (var j = 0; j < moves.length; j++) {
+        var nx = moves[j][0], ny = moves[j][1];
+        var k = key(nx, ny);
+        if (seen[k]) continue;
+        seen[k] = true;
+        if (nx === target || ny === target) return depth;
+        next.push([nx, ny]);
+      }
+    }
+    frontier = next;
+    if (depth > 500) break;
+  }
+  return null;
+}
+
+function auditLevels() {
+  var problems = [];
+  LEVELS.forEach(function(lvl, i) {
+    var n = i + 1;
+    if (lvl.target > Math.max(lvl.a, lvl.b)) {
+      problems.push('level ' + n + ': target ' + lvl.target + ' exceeds both capacities');
+      return;
+    }
+    var par = solveMinMoves(lvl.a, lvl.b, lvl.target);
+    if (par === null) {
+      problems.push('level ' + n + ': UNSOLVABLE (' + lvl.a + 'L + ' + lvl.b + 'L -> ' + lvl.target + 'L)');
+      return;
+    }
+    lvl.par = par;
+  });
+  if (problems.length) console.error('[water-jugs] level audit failed:\n  ' + problems.join('\n  '));
+}
+auditLevels();
+
+var levelNumEl = document.getElementById('level-num');
+var levelTotalEl = document.getElementById('level-total');
+var levelNameEl = document.getElementById('level-name');
+var moveCountEl = document.getElementById('move-count');
+var targetValueEl = document.getElementById('target-value');
+var capAEl = document.getElementById('cap-a');
+var capBEl = document.getElementById('cap-b');
+var amountAEl = document.getElementById('amount-a');
+var amountBEl = document.getElementById('amount-b');
+var jugAEl = document.getElementById('jug-a');
+var jugBEl = document.getElementById('jug-b');
+var fillAEl = document.getElementById('fill-a');
+var fillBEl = document.getElementById('fill-b');
+var fillABtn = document.getElementById('fill-a-btn');
+var emptyABtn = document.getElementById('empty-a-btn');
+var fillBBtn = document.getElementById('fill-b-btn');
+var emptyBBtn = document.getElementById('empty-b-btn');
+var pourABBtn = document.getElementById('pour-a-b');
+var pourBABtn = document.getElementById('pour-b-a');
+var resetBtn = document.getElementById('reset-btn');
+var overlay = document.getElementById('overlay');
+var overlayTitle = document.getElementById('overlay-title');
+var overlayMoves = document.getElementById('overlay-moves');
+var overlayPar = document.getElementById('overlay-par');
+var overlayBtn = document.getElementById('overlay-btn');
+
+var levelIndex = 0;
+var a = 0, b = 0;
+var moves = 0;
+var won = false;
+
+// Taller jugs get a proportionally taller barrel, clamped so a big level
+// still fits a phone screen.
+function jugHeightPx(capacity, otherCapacity) {
+  var maxCap = Math.max(capacity, otherCapacity);
+  return Math.max(90, Math.min(220, 70 + (capacity / maxCap) * 150));
+}
+
+function render() {
+  var lvl = LEVELS[levelIndex];
+  levelNumEl.textContent = levelIndex + 1;
+  levelTotalEl.textContent = LEVELS.length;
+  levelNameEl.textContent = lvl.name;
+  targetValueEl.textContent = lvl.target;
+  moveCountEl.textContent = moves;
+  capAEl.textContent = lvl.a;
+  capBEl.textContent = lvl.b;
+  amountAEl.textContent = a;
+  amountBEl.textContent = b;
+
+  jugAEl.style.height = jugHeightPx(lvl.a, lvl.b) + 'px';
+  jugBEl.style.height = jugHeightPx(lvl.b, lvl.a) + 'px';
+  fillAEl.style.height = (a / lvl.a * 100) + '%';
+  fillBEl.style.height = (b / lvl.b * 100) + '%';
+
+  fillABtn.disabled = won || a === lvl.a;
+  emptyABtn.disabled = won || a === 0;
+  fillBBtn.disabled = won || b === lvl.b;
+  emptyBBtn.disabled = won || b === 0;
+  pourABBtn.disabled = won || a === 0 || b === lvl.b;
+  pourBABtn.disabled = won || b === 0 || a === lvl.a;
+}
+
+function checkWin() {
+  var lvl = LEVELS[levelIndex];
+  if (a === lvl.target || b === lvl.target) {
+    won = true;
+    render();
+    var targetJug = a === lvl.target ? jugAEl : jugBEl;
+    juiceSquash(targetJug);
+    var rect = targetJug.getBoundingClientRect();
+    juiceBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, ['#4a9eff', '#8ecfff', '#ffffff']);
+    setTimeout(showWin, 500);
+  }
+}
+
+function showWin() {
+  var lvl = LEVELS[levelIndex];
+  var isLast = levelIndex === LEVELS.length - 1;
+  overlayTitle.textContent = isLast ? 'All levels solved!' : 'Solved!';
+  overlayMoves.textContent = moves;
+  overlayPar.textContent = lvl.par;
+  overlayBtn.textContent = isLast ? 'Play Again' : 'Next Level';
+  overlay.classList.add('show');
+}
+
+function doAction(fn) {
+  if (won) return;
+  fn();
+  moves++;
+  render();
+  checkWin();
+}
+
+function resetLevel() {
+  a = 0;
+  b = 0;
+  moves = 0;
+  won = false;
+  overlay.classList.remove('show');
+  render();
+}
+
+fillABtn.addEventListener('click', function() {
+  doAction(function() { a = LEVELS[levelIndex].a; });
+});
+emptyABtn.addEventListener('click', function() {
+  doAction(function() { a = 0; });
+});
+fillBBtn.addEventListener('click', function() {
+  doAction(function() { b = LEVELS[levelIndex].b; });
+});
+emptyBBtn.addEventListener('click', function() {
+  doAction(function() { b = 0; });
+});
+pourABBtn.addEventListener('click', function() {
+  doAction(function() {
+    var lvl = LEVELS[levelIndex];
+    var amount = Math.min(a, lvl.b - b);
+    a -= amount;
+    b += amount;
+  });
+});
+pourBABtn.addEventListener('click', function() {
+  doAction(function() {
+    var lvl = LEVELS[levelIndex];
+    var amount = Math.min(b, lvl.a - a);
+    b -= amount;
+    a += amount;
+  });
+});
+resetBtn.addEventListener('click', resetLevel);
+overlayBtn.addEventListener('click', function() {
+  var isLast = levelIndex === LEVELS.length - 1;
+  levelIndex = isLast ? 0 : levelIndex + 1;
+  resetLevel();
+});
+
+resetLevel();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update();
+    });
+  });
+}
+</script>
+</body>
+</html>
