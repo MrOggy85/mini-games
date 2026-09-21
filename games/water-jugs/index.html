@@ -584,7 +584,13 @@ const INNER_R = 0.36;
 const JUG_X = { a: -0.95, b: 0.95 };
 const SLAB_W = 3.6, SLAB_D = 1.95, SLAB_H = 0.22;
 const BASE_H = 0.68, TOP_H = 2.15;
-const PITCH = THREE.MathUtils.degToRad(56);
+// Low pitch = near side-on. The two jugs sit side-by-side (not front/back),
+// so the usual "steeper pitch hides less behind a tall piece" tradeoff (see
+// CLAUDE.md "Pick the tilt...") doesn't apply here — nothing occludes
+// anything else — so this can go almost to eye level and still read cleanly.
+// A shallow, mostly-side view is also what shows a tall, narrow jug's fill
+// line top-to-bottom, which a steep look-down angle compresses toward the rim.
+const PITCH = THREE.MathUtils.degToRad(18);
 // Tallest a jug can ever be (level with the largest capacity), used to size
 // the camera fit once rather than re-fitting on every level change.
 const MAX_H = BASE_H + (TOP_H - BASE_H);
@@ -864,7 +870,7 @@ function setStream(from, to) {
   const mid = from.clone().lerp(to, 0.5);
   mid.y -= 0.04;
   const curve = new THREE.CatmullRomCurve3([from, mid, to]);
-  const geo = new THREE.TubeGeometry(curve, 10, 0.03, 6, false);
+  const geo = new THREE.TubeGeometry(curve, 10, 0.045, 8, false);
   if (!streamMesh) {
     streamMesh = new THREE.Mesh(geo, streamMat);
     streamMesh.renderOrder = 4;
@@ -1128,8 +1134,8 @@ function animateFill(jug, fromAmt, toAmt) {
     if (!REDUCED) setStream(jugWorldPos(jug, spoutY), jugWorldPos(jug, h));
   }, () => {
     clearStream();
-    kickSlosh(jug, 0.3 + (toH - fromH) * 0.55);
-    spawnSplash(jugWorldPos(jug, toH), 12, { spreadXZ: 0.55, upMin: 0.3, upMax: 0.8, life: 0.5, scale: 0.018 });
+    kickSlosh(jug, 0.4 + (toH - fromH) * 0.7);
+    spawnSplash(jugWorldPos(jug, toH), 20, { spreadXZ: 0.75, upMin: 0.4, upMax: 1.1, life: 0.6, scale: 0.022 });
   });
 }
 
@@ -1163,10 +1169,10 @@ function animatePour(src, dst, fromSrc, toSrc, fromDst, toDst) {
     if (!REDUCED) setStream(jugWorldPos(src, rimY), jugWorldPos(dst, dh));
   }, () => {
     clearStream();
-    kickSlosh(src, 0.15);
-    kickSlosh(dst, 0.3 + (toDstH - fromDstH) * 0.6);
-    spawnSplash(jugWorldPos(dst, toDstH), Math.round(THREE.MathUtils.clamp(8 + (toDst - fromDst) * 4, 8, 26)), {
-      spreadXZ: 0.6, upMin: 0.35, upMax: 0.9, life: 0.55, scale: 0.02
+    kickSlosh(src, 0.2);
+    kickSlosh(dst, 0.4 + (toDstH - fromDstH) * 0.75);
+    spawnSplash(jugWorldPos(dst, toDstH), Math.round(THREE.MathUtils.clamp(12 + (toDst - fromDst) * 5, 12, 34)), {
+      spreadXZ: 0.8, upMin: 0.45, upMax: 1.15, life: 0.65, scale: 0.024
     });
   });
 }
