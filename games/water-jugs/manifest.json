@@ -1,0 +1,14 @@
+{
+  "name": "Water Jugs",
+  "short_name": "Water Jugs",
+  "description": "Fill, empty, and pour between two jugs to measure out the exact target amount",
+  "start_url": "/games/water-jugs/",
+  "display": "standalone",
+  "background_color": "#0d0d1a",
+  "theme_color": "#0d0d1a",
+  "icons": [
+    { "src": "/games/water-jugs/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/games/water-jugs/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/games/water-jugs/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
