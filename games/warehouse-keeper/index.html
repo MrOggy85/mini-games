@@ -11,6 +11,19 @@
 <link rel="apple-touch-icon" href="/games/warehouse-keeper/apple-touch-icon.png">
 <title>Warehouse Keeper</title>
 <style>
+/* iOS 26 and later draw the browser's toolbars as translucent glass over the
+   page, and `viewport-fit=cover` plus a translucent status bar runs the page
+   under the status bar and the Dynamic Island as well. Anything positioned
+   from a viewport edge has to be offset by the safe-area insets or it lands
+   under that chrome — which is what hid the back link and the settings
+   button. Zero on every desktop browser and on a device with no insets. */
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body { height: 100%; }
@@ -24,7 +37,8 @@ body {
   flex-direction: column;
   align-items: center;
   overflow: hidden;
-  padding: 10px 12px 16px;
+  padding: calc(var(--sa-top) + 10px) calc(var(--sa-right) + 12px)
+           calc(var(--sa-bottom) + 16px) calc(var(--sa-left) + 12px);
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -248,14 +262,15 @@ body > * { position: relative; z-index: 1; }
 }
 
 #settingsBtn {
-  position: fixed; top: 12px; right: 14px; z-index: 200;
+  position: fixed; top: calc(var(--sa-top) + 12px); right: calc(var(--sa-right) + 14px); z-index: 200;
   background: rgba(255,255,255,0.85); border: none; border-radius: 50%;
   width: 40px; height: 40px; font-size: 19px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: #6b5a30; box-shadow: 0 3px 0 rgba(150,120,80,0.4), 0 4px 10px rgba(0,0,0,0.14);
 }
 #settingsPanel {
-  display: none; position: fixed; top: 60px; right: 14px; z-index: 199;
+  display: none; position: fixed; top: calc(var(--sa-top) + 60px);
+  right: calc(var(--sa-right) + 14px); z-index: 199;
   background: #fff; border-radius: 14px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 16px 18px; min-width: 175px;
 }
