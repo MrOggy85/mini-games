@@ -11,6 +11,19 @@
 <link rel="apple-touch-icon" href="/games/glide/apple-touch-icon.png">
 <title>Glide</title>
 <style>
+/* iOS 26 and later draw the browser's toolbars as translucent glass over the
+   page, and `viewport-fit=cover` plus a translucent status bar runs the page
+   under the status bar and the Dynamic Island as well. Anything positioned
+   from a viewport edge has to be offset by the safe-area insets or it lands
+   under that chrome — which is what hid the back link and the settings
+   button. Zero on every desktop browser and on a device with no insets. */
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
@@ -26,7 +39,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 16px 32px;
+  padding: calc(var(--sa-top) + 16px) calc(var(--sa-right) + 16px)
+           calc(var(--sa-bottom) + 32px) calc(var(--sa-left) + 16px);
   color: #ccc;
   overflow: hidden;
 }
@@ -560,8 +574,15 @@ function fitCamera(startDist) {
 }
 
 function layout() {
-  const availW = window.innerWidth - 24;
-  const availH = Math.max(190, window.innerHeight - 290);
+  // Size against what is left of the viewport after body's padding, which
+  // carries the safe-area insets — otherwise the board is fitted to space the
+  // iOS toolbars have already taken and its bottom row ends up under them.
+  // 242 is the old 290 constant less the 16/32 padding it used to include.
+  const bp = getComputedStyle(document.body);
+  const padX = parseFloat(bp.paddingLeft) + parseFloat(bp.paddingRight);
+  const padY = parseFloat(bp.paddingTop) + parseFloat(bp.paddingBottom);
+  const availW = window.innerWidth - padX;
+  const availH = Math.max(190, window.innerHeight - padY - 242);
   const est = orthoAspect();
   const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
   let aspect = est.aspect;

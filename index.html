@@ -12,6 +12,19 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Mini Games</title>
 <style>
+/* iOS 26 and later draw the browser's toolbars as translucent glass over the
+   page, and `viewport-fit=cover` plus a translucent status bar runs the page
+   under the status bar and the Dynamic Island as well. Anything positioned
+   from a viewport edge has to be offset by the safe-area insets or it lands
+   under that chrome. Zero on every desktop browser and on a device with no
+   insets. */
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -51,10 +64,10 @@ body {
   flex-direction: column;
   text-align: center;
   padding:
-    calc(env(safe-area-inset-top) + clamp(0.5rem, 2.4vmin, 1.6rem))
-    calc(env(safe-area-inset-right) + clamp(0.6rem, 2vmin, 1.4rem))
-    calc(env(safe-area-inset-bottom) + clamp(0.6rem, 2vmin, 1.2rem))
-    calc(env(safe-area-inset-left) + clamp(0.6rem, 2vmin, 1.4rem));
+    calc(var(--sa-top) + clamp(0.5rem, 2.4vmin, 1.6rem))
+    calc(var(--sa-right) + clamp(0.6rem, 2vmin, 1.4rem))
+    calc(var(--sa-bottom) + clamp(0.6rem, 2vmin, 1.2rem))
+    calc(var(--sa-left) + clamp(0.6rem, 2vmin, 1.4rem));
   /* Only the anchors take taps; everything else lets them through. */
   pointer-events: none;
 }

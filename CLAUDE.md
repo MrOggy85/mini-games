@@ -45,6 +45,46 @@ in increasing order of how much they'd protect the next one:
 
 Games are designed for **iPad and iPhone**. All UI must be touch-friendly with appropriately sized tap targets.
 
+### Safe areas — the iOS chrome overlaps the page
+
+Every page sets `viewport-fit=cover` and `apple-mobile-web-app-status-bar-style:
+black-translucent`, so the page runs edge to edge: under the status bar and the
+Dynamic Island, and — since iOS 26 — under Safari's translucent Liquid Glass
+toolbars. Nothing is clipped, it is *covered*: the back link and the settings
+button were drawn under the top chrome, dimmed by the blur and mostly untappable.
+
+So every page opens its `<style>` with
+
+```css
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+```
+
+and **every offset measured from a viewport edge goes through one of them** —
+body padding, a `position: fixed` back link or settings button, the settings
+panel hanging off it. All four are `0px` on a desktop browser and on a device
+with no insets, so the padding constants read the same as before.
+
+The insets are dynamic (rotate the device, and top trades places with left or
+right), which is why they belong in CSS rather than a measured constant. Two
+consequences for the JS:
+
+- **A board sized against `window.innerHeight` is sized against space it does not
+  get.** Prefer measuring the DOM box the board is framed into — a `#board-slot`
+  rect, `#stage.clientHeight` — which already has the insets taken out of it.
+  Where a magic viewport constant survives (`glide`), subtract body's computed
+  padding from the viewport before using it.
+- `document.body.clientWidth/clientHeight` is *not* the content box: it includes
+  padding. Subtract the computed padding, or measure a child.
+
+Because the vars are indirected, insets can be simulated in a desktop browser by
+setting `--sa-top` and friends on `document.documentElement` — which is how this
+was checked without an iPad.
+
 ## Color & Contrast
 
 Games use dark, near-black backgrounds, but must still be playable outdoors or on a dimmed screen.

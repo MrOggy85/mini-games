@@ -11,6 +11,19 @@
 <link rel="apple-touch-icon" href="/games/circuits/apple-touch-icon.png">
 <title>Circuits</title>
 <style>
+/* iOS 26 and later draw the browser's toolbars as translucent glass over the
+   page, and `viewport-fit=cover` plus a translucent status bar runs the page
+   under the status bar and the Dynamic Island as well. Anything positioned
+   from a viewport edge has to be offset by the safe-area insets or it lands
+   under that chrome — which is what hid the back link and the settings
+   button. Zero on every desktop browser and on a device with no insets. */
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body { height: 100%; }
@@ -25,7 +38,8 @@ body {
   align-items: center;
   overflow: hidden;
   /* Top padding clears the fixed back link and settings button. */
-  padding: 58px 12px 18px;
+  padding: calc(var(--sa-top) + 58px) calc(var(--sa-right) + 12px)
+           calc(var(--sa-bottom) + 18px) calc(var(--sa-left) + 12px);
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -65,8 +79,8 @@ body > * { position: relative; z-index: 1; }
 
 .back-link {
   position: fixed;
-  top: 10px;
-  left: 10px;
+  top: calc(var(--sa-top) + 10px);
+  left: calc(var(--sa-left) + 10px);
   z-index: 5;
   display: flex;
   align-items: center;
@@ -233,14 +247,15 @@ body > * { position: relative; z-index: 1; }
 }
 
 #settingsBtn {
-  position: fixed; top: 12px; right: 14px; z-index: 200;
+  position: fixed; top: calc(var(--sa-top) + 12px); right: calc(var(--sa-right) + 14px); z-index: 200;
   background: rgba(10,30,48,0.8); border: 1px solid rgba(34,211,255,0.45);
   border-radius: 10px; width: 48px; height: 48px; font-size: 21px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: #9fe8ff; box-shadow: 0 0 14px rgba(34,211,255,0.25);
 }
 #settingsPanel {
-  display: none; position: fixed; top: 68px; right: 14px; z-index: 199;
+  display: none; position: fixed; top: calc(var(--sa-top) + 68px);
+  right: calc(var(--sa-right) + 14px); z-index: 199;
   background: #0a1a2c; border: 1px solid rgba(34,211,255,0.35); border-radius: 10px;
   box-shadow: 0 0 30px rgba(34,211,255,0.2); padding: 18px 20px; min-width: 190px;
 }

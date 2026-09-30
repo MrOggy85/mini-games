@@ -12,6 +12,19 @@
 <link rel="apple-touch-icon" href="/games/unblock-me/apple-touch-icon.png">
 <title>Unblock Me</title>
 <style>
+/* iOS 26 and later draw the browser's toolbars as translucent glass over the
+   page, and `viewport-fit=cover` plus a translucent status bar runs the page
+   under the status bar and the Dynamic Island as well. Anything positioned
+   from a viewport edge has to be offset by the safe-area insets or it lands
+   under that chrome — which is what hid the back link and the settings
+   button. Zero on every desktop browser and on a device with no insets. */
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
@@ -27,8 +40,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 12px calc(env(safe-area-inset-bottom) + 14px);
-  padding-top: calc(env(safe-area-inset-top) + 12px);
+  padding: calc(var(--sa-top) + 12px) calc(var(--sa-right) + 12px)
+           calc(var(--sa-bottom) + 14px) calc(var(--sa-left) + 12px);
   color: #c9b393;
   overflow: hidden;
   user-select: none;
