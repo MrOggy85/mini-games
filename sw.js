@@ -11,7 +11,7 @@
 //
 // CACHE_NAME still needs bumping when the asset LIST changes (a new game, a new
 // icon); it is no longer the only thing that makes existing files update.
-const CACHE_NAME = 'mini-games-v25';
+const CACHE_NAME = 'mini-games-v26';
 
 // How long a navigation waits for the network before painting from cache. The
 // response still lands in the cache when it eventually arrives.
@@ -33,6 +33,7 @@ const GAMES = [
   'flag-quiz',
   'unblock-me',
   'water-jugs',
+  'touch-town',
 ];
 const ICONS = ['icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 

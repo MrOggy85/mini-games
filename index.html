@@ -504,6 +504,28 @@ html.webgl .games a:focus-visible {
       <span class="card-name">Water Jugs</span>
     </a>
 
+    <a href="/games/touch-town/" data-game="touch-town">
+      <div class="card-art">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Touch Town: a house and a tower beside a rail track, under a cloud -->
+          <rect x="4" y="6" width="72" height="68" rx="8" fill="#8fd3ff"/>
+          <circle cx="20" cy="20" r="5" fill="#fff"/><circle cx="27" cy="21" r="7" fill="#fff"/><circle cx="35" cy="22" r="4.5" fill="#fff"/>
+          <path d="M4,38 H76 V66 a8,8 0 0 1 -8,8 H12 a8,8 0 0 1 -8,-8 Z" fill="#8fdcae"/>
+          <path d="M35,74 L38,38 H42 L55,74 Z" fill="#d9ceb4"/>
+          <path d="M38,74 L39.5,38 M51,74 L41,38" stroke="#fff" stroke-width="2.2"/>
+          <rect x="10" y="46" width="20" height="17" fill="#ffd24a"/>
+          <path d="M7,46 L20,31 L33,46 Z" fill="#e0524f"/>
+          <rect x="17" y="54" width="6" height="9" fill="#8d6e63"/>
+          <rect x="58" y="40" width="11" height="22" fill="#2f4a8a"/>
+          <rect x="60.5" y="44" width="2.5" height="2.5" fill="#fff6dc"/><rect x="64.5" y="44" width="2.5" height="2.5" fill="#fff6dc"/>
+          <rect x="60.5" y="50" width="2.5" height="2.5" fill="#fff6dc"/><rect x="64.5" y="50" width="2.5" height="2.5" fill="#fff6dc"/>
+          <rect x="34" y="60" width="14" height="9" rx="2" fill="#e0524f"/>
+          <rect x="34" y="58.5" width="14" height="3" fill="#2f4a8a"/>
+        </svg>
+      </div>
+      <span class="card-name">Touch Town</span>
+    </a>
+
     <a href="https://sweden.mroggy85.deno.net/" data-game="sweden">
       <div class="card-art">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -560,6 +582,7 @@ const GAMES = {
   'flag-quiz':        { face: 0x12142b, rim: 0x080a18, burst: ['#ff6b6b', '#ffb3b3', '#e8eaff'] },
   'unblock-me':       { face: 0xfff2e0, rim: 0xa83218, burst: ['#e8664a', '#dcb075', '#ffc25c'] },
   'water-jugs':       { face: 0x12142b, rim: 0x080a18, burst: ['#4a9eff', '#8ecfff', '#ffffff'] },
+  'touch-town':       { face: 0xeaf7ff, rim: 0x1f6f8f, burst: ['#ef5b5b', '#ffd24a', '#2f4a8a'] },
   // Off-site (Deno Deploy), so nothing here is in sw.js and the tile dead-ends
   // offline. It is otherwise an ordinary anchor and needs no special casing.
   'sweden':           { face: 0xeef4ff, rim: 0x005293, burst: ['#005293', '#fecc02', '#ffffff'] },
@@ -1593,6 +1616,76 @@ function iconWaterJugs() {
   };
 }
 
+function iconTouchTown() {
+  const g = new THREE.Group();
+  const wall = mat(0xffd24a, { roughness: 0.4 });
+  const roofM = mat(0xe0524f, { roughness: 0.4 });
+  const tower = mat(0x2f4a8a, { roughness: 0.4 });
+  const bed = mat(0xd9ceb4, { roughness: 0.8 });
+  const rail = mat(0xffffff, { roughness: 0.3 });
+  const cab = mat(0xe0524f, { roughness: 0.35 });
+  const FZ = 0.1; // front of the strip the buildings stand on
+
+  const ground = new THREE.Mesh(chipGeo(0.86, 0.14, 0.08, 0.04, 0.012), mat(0x8fdcae, { roughness: 0.6 }));
+  ground.position.set(0, -0.3, 0.04);
+  g.add(ground);
+
+  // A track running left to right along the front of the strip.
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.07, 0.02), bed);
+  strip.position.set(0, -0.29, 0.1);
+  g.add(strip);
+  for (const dy of [-0.012, 0.012]) {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.008, 0.012), rail);
+    r.position.set(0, -0.29 + dy, 0.115);
+    g.add(r);
+  }
+
+  const house = new THREE.Group();
+  const body = new THREE.Mesh(chipGeo(0.3, 0.22, 0.2, 0.02, 0.01), wall);
+  body.position.y = 0.11;
+  house.add(body);
+  // Four-sided cone is a pyramid roof once turned 45 degrees.
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.17, 4), roofM);
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = 0.22 + 0.085;
+  house.add(roof);
+  house.position.set(-0.22, -0.22, FZ);
+  house.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+  g.add(house);
+
+  const tw = new THREE.Mesh(chipGeo(0.17, 0.46, 0.18, 0.02, 0.01), tower);
+  tw.position.set(0.24, -0.22 + 0.23, FZ);
+  tw.castShadow = true;
+  g.add(tw);
+
+  const train = new THREE.Group();
+  const loco = new THREE.Mesh(chipGeo(0.17, 0.1, 0.1, 0.02, 0.008), cab);
+  loco.position.set(0, 0.05, 0);
+  train.add(loco);
+  const wagon = new THREE.Mesh(chipGeo(0.13, 0.08, 0.1, 0.02, 0.008), mat(0x34b3a0, { roughness: 0.4 }));
+  wagon.position.set(-0.16, 0.04, 0);
+  train.add(wagon);
+  train.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+  train.position.set(0, -0.28, 0.16);
+  g.add(train);
+
+  return {
+    group: g,
+    update(t) {
+      // The train runs the length of the strip and slips out of sight at each
+      // end, the house pops up with a bounce once per lap.
+      const p = saw(t, 5);
+      train.position.x = -0.3 + p * 0.74;
+      // Shrunk away at both ends, never drawn over the next tile.
+      train.scale.setScalar(Math.max(0.001, Math.min(1, p / 0.1, (1 - p) / 0.1)));
+      const lap = saw(t, 5);
+      const a = Math.min(1, lap / 0.25);
+      const bounce = a < 0.6 ? (1 - (1 - a / 0.6) ** 2) * 1.15 : 1.15 - 0.15 * easeInOut((a - 0.6) / 0.4);
+      house.scale.setScalar(Math.max(0.001, a >= 1 ? 1 : bounce));
+    },
+  };
+}
+
 const BUILDERS = {
   'memory': iconMemory,
   'sliding-puzzle': iconSlidingPuzzle,
@@ -1607,6 +1700,7 @@ const BUILDERS = {
   'flag-quiz': iconFlagQuiz,
   'unblock-me': iconUnblockMe,
   'water-jugs': iconWaterJugs,
+  'touch-town': iconTouchTown,
   'sweden': iconSweden,
 };
 

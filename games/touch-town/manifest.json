@@ -1,0 +1,14 @@
+{
+  "name": "Touch Town",
+  "short_name": "Touch Town",
+  "description": "Tap the moving toy landscape to build rails, trains and a little town",
+  "start_url": "/games/touch-town/",
+  "display": "standalone",
+  "background_color": "#9fd8ff",
+  "theme_color": "#9fd8ff",
+  "icons": [
+    { "src": "/games/touch-town/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/games/touch-town/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/games/touch-town/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
