@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/touch-town/manifest.json">
+<link rel="icon" href="/games/touch-town/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/games/touch-town/apple-touch-icon.png">
+<title>Touch Town</title>
+<style>
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #9fd8ff;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The canvas runs edge to edge, under the iOS chrome: it is scenery only. The
+   two controls below are the only things that have to respect the insets. */
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* Pills rather than bare text: the page behind them is moving sky and grass,
+   so a translucent white plate keeps the gray label readable on both. */
+.back-link, #mute {
+  position: fixed;
+  top: calc(var(--sa-top) + 10px);
+  z-index: 2;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: #5b6b80;
+  background: rgba(255, 255, 255, 0.72);
+  border: 0;
+  border-radius: 22px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.back-link { left: calc(var(--sa-left) + 12px); padding: 0 16px; }
+.back-link:hover { color: #2f7fe0; }
+#mute {
+  right: calc(var(--sa-right) + 12px);
+  width: 44px;
+  justify-content: center;
+  cursor: pointer;
+}
+#mute:hover { color: #2f7fe0; }
+#mute svg { width: 22px; height: 22px; }
+#mute .slash { display: none; }
+#mute.off .waves { display: none; }
+#mute.off .slash { display: block; }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<a href="/" class="back-link">&larr; All Games</a>
+<button id="mute" type="button" aria-label="Sound on or off">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4,9 H8 L13,5 V19 L8,15 H4 Z" fill="currentColor"/>
+    <path class="waves" d="M16.5,9 Q19,12 16.5,15 M19,6.5 Q23,12 19,17.5"/>
+    <path class="slash" d="M17,9 L22,15 M22,9 L17,15"/>
+  </svg>
+</button>
+
+<script>
+(function () {
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Touch Town. A toy landscape that is always drifting toward the horizon;
+// every tap lays a rail, grows a little community along it and sends a train.
+//
+// World model: every object stores a world x (1 = half the "unit" below) and a
+// world depth `wz`. Its depth from the viewer is `wz + scroll`, so scrolling is
+// one number going up and nothing is moved per object. Projection is
+// s = F / (F + depth): s = 1 at the bottom edge, -> 0 at the horizon.
+// ---------------------------------------------------------------------------
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+
+const F = 10;               // perspective strength
+const SPEED = REDUCED ? 2 : 6; // depth units per second -> ~25s from edge to horizon
+const CULL = 165;           // depth beyond which things are past the horizon
+const SPAWN_D = -9;         // depth new scenery appears at (below the screen)
+const CAP = 300;            // max live objects
+const MAX_TRACKS = 24;
+const BAND = 10;            // ground stripe length in depth units
+
+let W = 0, H = 0, dpr = 1, hy = 0, yb = 0, U = 1;
+
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  hy = H * 0.3;               // horizon
+  yb = H * 1.04;              // where depth 0 lands
+  U = Math.max(W * 0.5, H * 0.36); // pixels per world x unit at s = 1
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+resize();
+
+const sOf = (depth) => F / (F + depth);
+const yOf = (s) => hy + (yb - hy) * s;
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (a) => a[(Math.random() * a.length) | 0];
+const easeInOut = (p) => p * p * (3 - 2 * p);
+
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, ((n >> 16) & 255) * f) | 0;
+  const g = Math.min(255, ((n >> 8) & 255) * f) | 0;
+  const b = Math.min(255, (n & 255) * f) | 0;
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+// ---------------------------------------------------------------------------
+// Sound — synthesized, created on the first touch (iOS needs a gesture).
+// ---------------------------------------------------------------------------
+let audio = null;
+let muted = false;
+try { muted = localStorage.getItem('touch-town-muted') === '1'; } catch (e) {}
+const muteBtn = document.getElementById('mute');
+muteBtn.classList.toggle('off', muted);
+
+function ensureAudio() {
+  if (audio) { if (audio.state === 'suspended') audio.resume(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (AC) { try { audio = new AC(); } catch (e) { audio = null; } }
+}
+
+function tone(freq, dur, opts) {
+  if (!audio || muted) return;
+  opts = opts || {};
+  const t0 = audio.currentTime + (opts.delay || 0);
+  const o = audio.createOscillator();
+  const g = audio.createGain();
+  o.type = opts.type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, t0 + dur);
+  const v = opts.vol || 0.12;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(v, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(audio.destination);
+  o.start(t0);
+  o.stop(t0 + dur + 0.03);
+}
+
+const PENT = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+let lastPop = 0;
+function sfxPop() {
+  const now = performance.now();
+  if (now - lastPop < 55) return; // a dense community must not stack into a buzz
+  lastPop = now;
+  tone(pick(PENT), 0.16, { type: 'triangle', vol: 0.09, to: pick(PENT) * 1.02 });
+}
+function sfxTap() { tone(330, 0.14, { type: 'sine', vol: 0.14, to: 560 }); }
+function sfxWhistle() {
+  tone(520, 0.18, { type: 'triangle', vol: 0.09 });
+  tone(660, 0.3, { type: 'triangle', vol: 0.09, delay: 0.16 });
+}
+function sfxWiggle() { tone(700, 0.1, { type: 'square', vol: 0.04, to: 500 }); tone(760, 0.1, { type: 'square', vol: 0.04, to: 560, delay: 0.1 }); }
+
+muteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.classList.toggle('off', muted);
+  try { localStorage.setItem('touch-town-muted', muted ? '1' : '0'); } catch (e) {}
+  ensureAudio();
+  if (!muted) sfxTap();
+});
+
+// ---------------------------------------------------------------------------
+// World state
+// ---------------------------------------------------------------------------
+let now = 0;       // game clock, seconds
+let scroll = 0;
+const objects = [];   // sortable things standing on the ground
+const flats = [];     // roads and tracks, painted on the ground before objects
+const trains = [];
+const ripples = [];
+const list = [];      // per-frame draw list, reused
+
+// Local drawing units: 450 local px = one world x unit at s = 1, so a house is
+// about 60 local px wide and every drawer below is written in plain pixels.
+const LOCAL = 450;
+
+const THEMES = [
+  ['#ffd24a'],
+  ['#ef5b5b', '#2f4a8a'],
+  ['#ff9a3c', '#ffd24a'],
+  ['#2f4a8a', '#ffd24a'],
+  ['#ef5b5b'],
+  ['#ff9a3c', '#2f4a8a'],
+  ['#2f4a8a'],
+];
+const SHIRTS = ['#ef5b5b', '#2f4a8a', '#ffd24a', '#ff9a3c', '#a78bfa', '#34b3a0'];
+const SKINS = ['#ffd9b8', '#e8b48c', '#c68a5e', '#8d5a3b'];
+
+// Half-width and height in local px, for popping and for hit-testing taps.
+const SIZE = {
+  house: [38, 76], apartment: [26, 104], tree: [22, 56], person: [6, 22], hill: [0, 0],
+  stadium: [95, 56], ferris: [66, 150], carousel: [52, 92], school: [72, 90],
+  castle: [72, 100], station: [70, 50],
+};
+const LANDMARKS = ['stadium', 'ferris', 'carousel', 'school', 'castle', 'station'];
+const TAPPABLE = { house: 1, apartment: 1, stadium: 1, ferris: 1, carousel: 1, school: 1, castle: 1, station: 1 };
+
+function addObject(type, x, wz, extra) {
+  const o = { type, x, wz, birth: now, c: '#ffd24a', roof: '#e0524f', sc: 1, wig: -9, vx: 0, life: 0, seed: Math.random(), d: 0, instant: false };
+  if (extra) Object.assign(o, extra);
+  objects.push(o);
+  return o;
+}
+
+function addBuilding(type, x, wz, theme, birth) {
+  const wall = pick(theme);
+  addObject(type, x, wz, {
+    c: wall,
+    roof: pick(['#e0524f', '#ff9a3c', '#2f4a8a', '#8d6e63']),
+    birth,
+    sc: rand(0.9, 1.15),
+  });
+}
+
+// --- tracks ----------------------------------------------------------------
+const TRACK_N = 34;   // segments
+const TRACK_DZ = 2;   // depth units per segment
+
+function trackX(tr, i) { return tr.x0 + tr.amp * Math.sin(i * tr.freq + tr.ph) - tr.amp * Math.sin(tr.ph); }
+
+function layTrack(wx, depth) {
+  const tr = {
+    x0: wx, wz0: depth - scroll, t0: now, i: 0,
+    amp: rand(0.02, 0.07) * (wx > 0 ? -1 : 1), freq: rand(0.12, 0.22), ph: rand(0, 6.28),
+  };
+  flats.push({ kind: 'track', tr });
+  let n = 0;
+  for (const f of flats) if (f.kind === 'track') n++;
+  if (n > MAX_TRACKS) {
+    const k = flats.findIndex((f) => f.kind === 'track');
+    flats.splice(k, 1);
+  }
+  return tr;
+}
+
+function growCommunity(tr) {
+  const theme = pick(THEMES);
+  const grow = 1.15; // seconds the rail takes to reach the horizon end
+  const at = (i) => now + 0.2 + (i / TRACK_N) * grow + rand(0, 0.6);
+  const place = (type, i, side, off, extra) => {
+    const x = trackX(tr, i) + side * off;
+    return addObject(type, x, tr.wz0 + i * TRACK_DZ, Object.assign({ birth: at(i) }, extra));
+  };
+
+  const count = 9 + ((Math.random() * 7) | 0);
+  for (let n = 0; n < count; n++) {
+    const i = 1 + (n / count) * (TRACK_N - 4) + rand(0, 1.5);
+    const side = n % 2 ? 1 : -1;
+    const off = rand(0.17, 0.42);
+    const apt = Math.random() < 0.28;
+    const o = place(apt ? 'apartment' : 'house', i, side, off);
+    o.c = pick(theme);
+    o.roof = pick(['#e0524f', '#ff9a3c', '#2f4a8a', '#8d6e63']);
+    o.sc = rand(0.9, 1.15);
+  }
+  // Trees and people fill the gaps.
+  for (let n = 0; n < 8; n++) {
+    place('tree', rand(0.5, TRACK_N - 2), Math.random() < 0.5 ? -1 : 1, rand(0.1, 0.55), { sc: rand(0.8, 1.3) });
+  }
+  for (let n = 0; n < 5; n++) {
+    place('person', rand(0.5, TRACK_N - 2), Math.random() < 0.5 ? -1 : 1, rand(0.08, 0.2), { c: pick(SHIRTS), skin: pick(SKINS) });
+  }
+  if (Math.random() < 0.4) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    place(pick(LANDMARKS), rand(8, TRACK_N - 8), side, rand(0.32, 0.48), { sc: 1 });
+  }
+
+  // The train leaves once the rail is down and the town has mostly popped up.
+  const colors = ['#ffd24a', '#34b3a0', '#a78bfa', '#ff9a3c'];
+  trains.push({
+    tr, t0: now + 1.5, started: false,
+    cars: [0, 1, 2, 3].map((n) => ({ type: 'car', n, c: n === 0 ? '#e0524f' : colors[(Math.random() * colors.length) | 0], x: 0, wz: 0, d: 0, ok: false, instant: true, wig: -9, life: 0, sc: 1.15 })),
+  });
+}
+
+function spawnAt(px, py) {
+  const s = Math.min(1, Math.max(0.13, (py - hy) / (yb - hy)));
+  const depth = F / s - F;
+  const wx = (px - W / 2) / (U * s);
+  const tr = layTrack(wx, depth);
+  growCommunity(tr);
+  ripples.push({ x: px, y: py, t: now });
+  sfxTap();
+}
+
+// --- tapping an existing building -----------------------------------------
+function hitBuilding(px, py) {
+  let best = null;
+  for (const o of objects) {
+    if (!TAPPABLE[o.type] || now - o.birth < 0.55) continue;
+    const s = sOf(o.wz + scroll);
+    if (s > 2.2 || s < 0.08) continue;
+    const k = (s * U) / LOCAL * o.sc;
+    const sx = W / 2 + o.x * U * s, sy = yOf(s);
+    const sz = SIZE[o.type];
+    if (Math.abs(px - sx) <= sz[0] * k * 1.15 && py <= sy + 10 * k && py >= sy - sz[1] * k * 1.1) {
+      if (!best || o.wz < best.wz) best = o;
+    }
+  }
+  return best;
+}
+
+function wiggle(o) {
+  o.wig = now;
+  sfxWiggle();
+  for (let n = 0; n < 3; n++) {
+    addObject('person', o.x, o.wz - 1.5, {
+      c: pick(SHIRTS), skin: pick(SKINS), vx: rand(0.05, 0.12) * (n % 2 ? 1 : -1) * rand(0.8, 1.2),
+      life: 4, birth: now + n * 0.15, wd: rand(0, 6),
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scenery that scrolls in by itself
+// ---------------------------------------------------------------------------
+function sceneryChunk(depth) {
+  const wz = depth - scroll;
+  const r = Math.random();
+  if (r < 0.3) {
+    // Tree hills on one or both sides.
+    for (const side of Math.random() < 0.5 ? [-1, 1] : [pick([-1, 1])]) {
+      const n = 2 + ((Math.random() * 3) | 0);
+      for (let k = 0; k < n; k++) {
+        addObject('hill', side * rand(0.55, 1.5), wz + rand(0, 14), { sc: rand(1.2, 2.4), instant: true });
+      }
+    }
+  } else if (r < 0.6) {
+    // A forest.
+    const cx = rand(-1.3, 1.3), cw = rand(0.3, 0.6);
+    const n = 12 + ((Math.random() * 8) | 0);
+    for (let k = 0; k < n; k++) {
+      addObject('tree', cx + rand(-cw, cw), wz + rand(0, 12), { sc: rand(0.8, 1.4), instant: true });
+    }
+  } else if (r < 0.82) {
+    // A winding road.
+    const sx = rand(-1.1, 1.1), amp = rand(0.15, 0.4), fr = rand(0.06, 0.12), ph = rand(0, 6.28);
+    flats.push({ kind: 'road', x0: sx, amp, freq: fr, ph, wz0: wz, n: 40, wid: 0.075 });
+  } else {
+    addObject('castle', pick([-1, 1]) * rand(0.5, 1.2), wz, { instant: true });
+    for (let k = 0; k < 4; k++) addObject('tree', rand(-1.3, 1.3), wz + rand(-3, 5), { sc: rand(0.8, 1.2), instant: true });
+  }
+}
+
+let sceneryTimer = 2;
+// Prefill so the first frame is not an empty meadow.
+for (let d = 12; d < 150; d += rand(10, 18)) sceneryChunk(d);
+
+// ---------------------------------------------------------------------------
+// Sky
+// ---------------------------------------------------------------------------
+const clouds = [];
+for (let n = 0; n < 7; n++) clouds.push({ x: Math.random(), y: rand(0.05, 0.8), s: rand(0.7, 1.4), v: rand(0.006, 0.016) });
+let flyer = null; // blimp or balloon
+let flyerTimer = 6;
+
+function cloud(x, y, sc) {
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.beginPath();
+  ctx.arc(x, y, 16 * sc, 0, 6.3);
+  ctx.arc(x + 20 * sc, y - 8 * sc, 21 * sc, 0, 6.3);
+  ctx.arc(x + 44 * sc, y, 17 * sc, 0, 6.3);
+  ctx.rect(x, y, 44 * sc, 17 * sc);
+  ctx.fill();
+}
+
+function drawFlyer(f) {
+  const k = Math.max(0.7, Math.min(1.5, H / 700));
+  ctx.save();
+  ctx.translate(f.x * W, f.y + Math.sin(now * 1.2) * 4);
+  ctx.scale(k * f.dir, k);
+  if (f.kind === 'blimp') {
+    ctx.fillStyle = '#ef5b5b';
+    ctx.beginPath(); ctx.ellipse(0, 0, 54, 20, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-10, -19, 10, 38);
+    ctx.fillStyle = '#2f4a8a';
+    ctx.beginPath(); ctx.moveTo(-46, -4); ctx.lineTo(-66, -20); ctx.lineTo(-62, 0); ctx.lineTo(-66, 20); ctx.lineTo(-46, 4); ctx.fill();
+    ctx.fillStyle = '#ffd24a';
+    ctx.fillRect(-12, 20, 24, 9);
+  } else {
+    const cols = ['#ef5b5b', '#ffd24a', '#2f4a8a', '#ff9a3c'];
+    for (let n = 0; n < 4; n++) {
+      ctx.fillStyle = cols[n];
+      ctx.beginPath(); ctx.ellipse(0, 0, 26, 32, 0, 0, 6.3);
+      ctx.save(); ctx.clip();
+      ctx.fillRect(-26 + n * 13, -34, 13, 70);
+      ctx.restore();
+    }
+    ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-12, 28); ctx.lineTo(-8, 44); ctx.moveTo(12, 28); ctx.lineTo(8, 44); ctx.stroke();
+    ctx.fillStyle = '#8d6e63'; ctx.fillRect(-9, 44, 18, 11);
+  }
+  ctx.restore();
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, hy);
+  g.addColorStop(0, '#7ec8ff');
+  g.addColorStop(1, '#d6f0ff');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, hy + 2);
+
+  for (const c of clouds) {
+    cloud(c.x * (W + 160) - 100, 20 + c.y * (hy - 40), c.s * Math.max(0.8, H / 800));
+  }
+  if (flyer) drawFlyer(flyer);
+
+  // Far hills on the horizon.
+  ctx.fillStyle = '#bfe8d2';
+  ctx.beginPath();
+  ctx.moveTo(0, hy + 1);
+  for (let x = 0; x <= W; x += 20) ctx.lineTo(x, hy - 6 - 5 * Math.sin(x * 0.011) - 4 * Math.sin(x * 0.027 + 1));
+  ctx.lineTo(W, hy + 1);
+  ctx.fill();
+}
+
+// ---------------------------------------------------------------------------
+// Ground
+// ---------------------------------------------------------------------------
+function drawGround() {
+  ctx.fillStyle = '#a5e4bd';
+  ctx.fillRect(0, hy, W, H - hy + 2);
+  ctx.fillStyle = '#93d9ae';
+  const j0 = Math.floor((SPAWN_D - scroll) / BAND);
+  for (let j = j0; ; j++) {
+    const dn = j * BAND + scroll, df = dn + BAND;
+    if (dn > CULL + BAND) break;
+    if (j & 1) continue;
+    const yN = yOf(sOf(Math.max(dn, -9))), yF = yOf(sOf(Math.min(df, 400)));
+    if (yN < hy) continue;
+    ctx.fillRect(0, yF, W, yN - yF + 1);
+  }
+  const haze = ctx.createLinearGradient(0, hy, 0, hy + 46);
+  haze.addColorStop(0, 'rgba(214,240,255,0.85)');
+  haze.addColorStop(1, 'rgba(214,240,255,0)');
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, hy, W, 46);
+}
+
+function drawRoad(r) {
+  if (r.wz0 + scroll > CULL) return;
+  // Segment by segment so the width can shrink with distance.
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#e8d9b0';
+  let prev = null;
+  for (let i = 0; i <= r.n; i++) {
+    const wz = r.wz0 + i * 2.5;
+    const d = wz + scroll;
+    if (d < SPAWN_D) { prev = null; continue; }
+    if (d > CULL) break;
+    const s = sOf(d);
+    const x = W / 2 + (r.x0 + r.amp * Math.sin(i * r.freq * 2.5 + r.ph)) * U * s, y = yOf(s);
+    if (prev) {
+      ctx.lineWidth = Math.max(1, r.wid * U * s);
+      ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.lineTo(x, y); ctx.stroke();
+    }
+    prev = [x, y];
+  }
+}
+
+function drawTrack(tr) {
+  const p = Math.min(1, (now - tr.t0) / 1.15);
+  const len = p * TRACK_N;
+  const nWhole = Math.floor(len);
+  if (tr.wz0 + scroll > CULL) return;
+
+  const proj = (i) => {
+    const wz = tr.wz0 + i * TRACK_DZ;
+    const d = wz + scroll;
+    const s = sOf(Math.max(d, SPAWN_D));
+    return { x: trackX(tr, i), s, d };
+  };
+  const pts = [];
+  for (let i = 0; i <= nWhole; i++) pts.push(proj(i));
+  if (len > nWhole && nWhole < TRACK_N) {
+    const a = proj(nWhole), b = proj(nWhole + 1), f = len - nWhole;
+    pts.push({ x: a.x + (b.x - a.x) * f, s: a.s + (b.s - a.s) * f, d: a.d + (b.d - a.d) * f });
+  }
+  if (pts.length < 2) return;
+
+  // 1. beige ballast bed, 2. sleepers, 3. white rails — each segment gets its
+  // own line width so the track narrows toward the horizon.
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (a.d > CULL) break;
+    const s = (a.s + b.s) / 2;
+    ctx.strokeStyle = '#dccfb2';
+    ctx.lineWidth = Math.max(1.5, 0.11 * U * s);
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + a.x * U * a.s, yOf(a.s));
+    ctx.lineTo(W / 2 + b.x * U * b.s, yOf(b.s));
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = '#8d6e63';
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i];
+    if (a.d > CULL || a.d < SPAWN_D) continue;
+    ctx.lineWidth = Math.max(1, 0.012 * U * a.s);
+    const y = yOf(a.s), cx = W / 2 + a.x * U * a.s, hw = 0.045 * U * a.s;
+    ctx.beginPath(); ctx.moveTo(cx - hw, y); ctx.lineTo(cx + hw, y); ctx.stroke();
+  }
+  ctx.strokeStyle = '#ffffff';
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (a.d > CULL) break;
+    ctx.lineWidth = Math.max(1, 0.012 * U * (a.s + b.s) / 2);
+    ctx.beginPath();
+    for (const off of [-0.03, 0.03]) {
+      ctx.moveTo(W / 2 + (a.x + off) * U * a.s, yOf(a.s));
+      ctx.lineTo(W / 2 + (b.x + off) * U * b.s, yOf(b.s));
+    }
+    ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drawers. Origin is the base centre of the thing, y up is negative.
+// ---------------------------------------------------------------------------
+function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }
+function tri(x1, y1, x2, y2, x3, y3, c) {
+  ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.fill();
+}
+function circ(x, y, r, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.3); ctx.fill(); }
+
+const WIN = '#fff6dc', GLASS = '#9edcff', DOOR = '#8d6e63';
+
+const DRAW = {
+  house(o) {
+    rect(-30, -44, 60, 44, o.c);
+    rect(18, -44, 12, 44, shade(o.c, 0.82));
+    tri(-38, -44, 0, -76, 38, -44, o.roof);
+    rect(-8, -22, 16, 22, DOOR);
+    rect(-26, -36, 12, 12, GLASS);
+    rect(12, -36, 12, 12, GLASS);
+    rect(-26, -31, 12, 2, WIN);
+  },
+  apartment(o) {
+    rect(-24, -96, 48, 96, o.c);
+    rect(14, -96, 10, 96, shade(o.c, 0.82));
+    rect(-26, -102, 52, 8, o.roof);
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
+      rect(-18 + c * 14, -88 + r * 16, 8, 10, ((r + c + ((o.seed * 7) | 0)) & 1) ? WIN : GLASS);
+    }
+    rect(-6, -14, 12, 14, DOOR);
+  },
+  tree(o) {
+    rect(-4, -18, 8, 18, '#8d6e63');
+    circ(0, -36, 20, '#3fae6a');
+    circ(-6, -42, 12, '#59c77f');
+  },
+  person(o) {
+    const bob = o.vx ? Math.abs(Math.sin(now * 9 + (o.wd || 0))) * 2 : 0;
+    ctx.translate(0, -bob);
+    rect(-3.5, -13, 7, 13, o.c);
+    circ(0, -17, 4.8, o.skin || '#ffd9b8');
+  },
+  hill() {
+    ctx.fillStyle = '#6fcb94';
+    ctx.beginPath(); ctx.ellipse(0, 0, 90, 56, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#86d9a8';
+    ctx.beginPath(); ctx.ellipse(-14, -4, 52, 34, 0, Math.PI, 0); ctx.fill();
+    for (const [x, y] of [[-30, -38], [18, -42], [40, -22]]) {
+      rect(x - 2, y, 4, 9, '#8d6e63');
+      circ(x, y - 4, 10, '#3fae6a');
+    }
+  },
+  stadium() {
+    rect(-90, -30, 180, 30, '#e3e6f2');
+    ctx.fillStyle = '#e3e6f2';
+    ctx.beginPath(); ctx.ellipse(0, -30, 90, 22, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#c9cee2';
+    ctx.beginPath(); ctx.ellipse(0, -32, 74, 15, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#5ac27a';
+    ctx.beginPath(); ctx.ellipse(0, -32, 56, 10, 0, 0, 6.3); ctx.fill();
+    rect(-90, -30, 180, 6, '#ef5b5b');
+    for (const x of [-84, 84]) { rect(x - 2, -58, 4, 30, '#6b7085'); rect(x - 7, -64, 14, 7, '#ffe27a'); }
+  },
+  ferris() {
+    const cy = -86, R = 58;
+    ctx.strokeStyle = '#2f4a8a'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-34, 0); ctx.lineTo(0, cy); ctx.lineTo(34, 0); ctx.stroke();
+    const a0 = now * 0.6;
+    ctx.strokeStyle = '#ef5b5b'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, cy, R, 0, 6.3); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let k = 0; k < 4; k++) {
+      const a = a0 + k * Math.PI / 4;
+      ctx.moveTo(Math.cos(a) * R, cy + Math.sin(a) * R); ctx.lineTo(-Math.cos(a) * R, cy - Math.sin(a) * R);
+    }
+    ctx.stroke();
+    const cols = ['#ffd24a', '#34b3a0', '#a78bfa', '#ff9a3c'];
+    for (let k = 0; k < 8; k++) {
+      const a = a0 + k * Math.PI / 4;
+      circ(Math.cos(a) * R, cy + Math.sin(a) * R + 7, 8, cols[k & 3]);
+    }
+    circ(0, cy, 5, '#2f4a8a');
+  },
+  carousel() {
+    rect(-44, -14, 88, 14, '#ffd24a');
+    for (const x of [-34, -12, 12, 34]) rect(x - 2, -52, 4, 40, '#fff');
+    circ(-22, -28, 6, '#ef5b5b'); circ(0, -28, 6, '#34b3a0'); circ(22, -28, 6, '#a78bfa');
+    tri(-52, -52, 0, -94, 52, -52, '#ef5b5b');
+    tri(-26, -52, 0, -94, -4, -52, '#ffffff');
+    tri(14, -52, 0, -94, 30, -52, '#ffffff');
+    circ(0, -96, 4, '#ffd24a');
+  },
+  school() {
+    rect(-70, -48, 140, 48, '#ffb347');
+    rect(-16, -78, 32, 34, '#ff9a3c');
+    tri(-22, -78, 0, -98, 22, -78, '#e0524f');
+    circ(0, -62, 8, '#fff'); rect(-0.8, -67, 1.6, 6, '#2f4a8a'); rect(0, -62, 5, 1.6, '#2f4a8a');
+    rect(-9, -20, 18, 20, DOOR);
+    for (const x of [-56, -40, -24, 10 + 6, 32, 48]) rect(x, -36, 10, 12, GLASS);
+    rect(46, -100, 2.5, 36, '#6b7085'); tri(48, -100, 66, -94, 48, -88, '#ef5b5b');
+  },
+  castle() {
+    rect(-50, -60, 100, 60, '#d3d6e4');
+    for (const x of [-46, -30, -14, 2, 18, 34]) rect(x, -68, 12, 9, '#d3d6e4');
+    for (const x of [-70, 40]) {
+      rect(x, -88, 30, 88, '#c3c7da');
+      tri(x - 4, -88, x + 15, -112, x + 34, -88, '#ef5b5b');
+      rect(x + 11, -70, 8, 14, '#6b7085');
+    }
+    ctx.fillStyle = '#6b5a4a';
+    ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(-14, -22); ctx.arc(0, -22, 14, Math.PI, 0); ctx.lineTo(14, 0); ctx.fill();
+    rect(-1, -128, 2, 18, '#6b7085'); tri(1, -128, 14, -123, 1, -118, '#ffd24a');
+  },
+  station() {
+    rect(-56, -36, 112, 36, '#ff8f5a');
+    rect(-66, -46, 132, 10, '#2f4a8a');
+    rect(-66, -34, 132, 4, 'rgba(0,0,0,0.12)');
+    circ(0, -52, 9, '#fff'); rect(-0.8, -57, 1.6, 6, '#2f4a8a'); rect(0, -52, 5, 1.6, '#2f4a8a');
+    rect(-9, -24, 18, 24, DOOR);
+    for (const x of [-48, -34, 22, 36]) rect(x, -28, 10, 12, GLASS);
+  },
+  car(o) {
+    // Seen from behind, rolling away.
+    rect(-13, -4, 26, 4, '#3a3f55');
+    rect(-12, -21, 24, 18, o.c);
+    rect(-12, -21, 24, 4, shade(o.c, 0.78));
+    if (o.n === 0) {
+      rect(-8, -33, 16, 12, shade(o.c, 0.9));
+      rect(-6, -30, 12, 6, GLASS);
+      rect(-4, -42, 8, 9, '#3a3f55');
+    } else {
+      rect(-7, -16, 14, 8, WIN);
+    }
+  },
+};
+
+function popScale(a) {
+  if (a <= 0) return 0;
+  if (a >= 1) return 1;
+  if (a < 0.6) { const u = a / 0.6; return (1 - (1 - u) * (1 - u)) * 1.2; }
+  return 1.2 - 0.2 * easeInOut((a - 0.6) / 0.4);
+}
+
+function drawObject(o) {
+  const s = sOf(o.d);
+  if (s > 2.4 || s < 0.012) return;
+  const k = (s * U) / LOCAL;
+  const sy = yOf(s);
+  const sx = W / 2 + o.x * U * s;
+  const sz = SIZE[o.type];
+  if (sz && sy - sz[1] * k * o.sc > H) return; // fully below the screen
+  const a = o.instant ? 1 : (now - o.birth) / 0.55;
+  if (a <= 0 && !o.instant) return;
+  let sc = o.instant ? 1 : popScale(a);
+  if (o.life) {
+    const left = o.life - (now - o.birth);
+    if (left < 0.6) sc *= Math.max(0, left / 0.6);
+  }
+  sc *= o.sc * k;
+  if (sc <= 0) return;
+
+  ctx.save();
+  ctx.translate(sx, sy);
+  const wt = now - o.wig;
+  if (wt < 0.8) ctx.rotate(Math.sin(wt * 28) * 0.12 * (1 - wt / 0.8));
+  ctx.scale(sc, sc);
+  DRAW[o.type](o);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Frame
+// ---------------------------------------------------------------------------
+function updateTrains() {
+  for (let t = trains.length - 1; t >= 0; t--) {
+    const tn = trains[t];
+    if (now < tn.t0) continue;
+    if (!tn.started) { tn.started = true; sfxWhistle(); }
+    const head = (now - tn.t0) * 7;
+    const lastIdx = head - 3 * 1.7;
+    if (lastIdx > TRACK_N + 1 || flats.every((f) => f.tr !== tn.tr)) { trains.splice(t, 1); continue; }
+    for (const c of tn.cars) {
+      const i = head - c.n * 1.7;
+      c.ok = i >= 0 && i <= TRACK_N;
+      c.x = trackX(tn.tr, i);
+      c.wz = tn.tr.wz0 + i * TRACK_DZ;
+      c.sc = 1.15;
+    }
+    for (const c of tn.cars) if (c.ok) list.push(c);
+  }
+}
+
+function frame(dt) {
+  now += dt;
+  scroll += SPEED * dt;
+
+  // Scenery arrives from below the screen on its own.
+  sceneryTimer -= dt;
+  if (sceneryTimer <= 0) { sceneryChunk(SPAWN_D); sceneryTimer = rand(3, 6); }
+
+  if (!REDUCED) {
+    for (const c of clouds) { c.x += c.v * dt; if (c.x > 1.05) c.x = -0.15; }
+    flyerTimer -= dt;
+    if (!flyer && flyerTimer <= 0) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      flyer = { kind: Math.random() < 0.5 ? 'blimp' : 'balloon', x: dir > 0 ? -0.15 : 1.15, dir, y: hy * rand(0.2, 0.5) };
+    }
+    if (flyer) {
+      flyer.x += flyer.dir * 0.022 * dt;
+      if (flyer.x < -0.2 || flyer.x > 1.2) { flyer = null; flyerTimer = rand(18, 35); }
+    }
+  }
+
+  // Cull what has passed the horizon, then enforce the cap by dropping the
+  // farthest first — the ones nobody can see well anyway.
+  let w = 0;
+  for (let i = 0; i < objects.length; i++) {
+    const o = objects[i];
+    if (o.wz + scroll > CULL) continue;
+    if (o.life && now - o.birth > o.life) continue;
+    objects[w++] = o;
+  }
+  objects.length = w;
+  if (objects.length > CAP) {
+    objects.sort((a, b) => a.wz - b.wz);
+    objects.length = CAP;
+  }
+  for (let i = flats.length - 1; i >= 0; i--) {
+    const f = flats[i];
+    if ((f.kind === 'track' ? f.tr.wz0 : f.wz0) + scroll > CULL) flats.splice(i, 1);
+  }
+
+  for (const o of objects) {
+    if (o.vx) o.x += o.vx * dt;
+  }
+
+  list.length = 0;
+  for (const o of objects) { o.d = o.wz + scroll; list.push(o); }
+  updateTrains();
+  for (const c of list) if (c.type === 'car') c.d = c.wz + scroll;
+  list.sort((a, b) => b.d - a.d);
+
+  // --- paint ---
+  drawSky();
+  drawGround();
+  for (const f of flats) { if (f.kind === 'track') drawTrack(f.tr); else drawRoad(f); }
+  for (const o of list) drawObject(o);
+
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i], a = (now - r.t) / 0.45;
+    if (a >= 1) { ripples.splice(i, 1); continue; }
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.9 * (1 - a)) + ')';
+    ctx.lineWidth = 5 * (1 - a) + 1;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 10 + a * 46, 0, 6.3); ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Input — Pointer Events, one entry per finger so several kids can play at once.
+// ---------------------------------------------------------------------------
+const down = new Map();
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  ensureAudio();
+  const hit = hitBuilding(e.clientX, e.clientY);
+  if (hit) wiggle(hit); else spawnAt(e.clientX, e.clientY);
+  down.set(e.pointerId, { x: e.clientX, y: e.clientY, t: now });
+});
+
+// Dragging a finger across the ground keeps building, but throttled so a
+// scribble can't bury the frame rate.
+canvas.addEventListener('pointermove', (e) => {
+  const p = down.get(e.pointerId);
+  if (!p) return;
+  if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 130 && now - p.t > 0.5) {
+    p.x = e.clientX; p.y = e.clientY; p.t = now;
+    spawnAt(e.clientX, e.clientY);
+  }
+});
+const lift = (e) => down.delete(e.pointerId);
+canvas.addEventListener('pointerup', lift);
+canvas.addEventListener('pointercancel', lift);
+canvas.addEventListener('pointerleave', lift);
+
+// No long-press menus, no iOS pinch/gesture zoom, no scrolling.
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('selectstart', (e) => e.preventDefault());
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(ev, (e) => e.preventDefault());
+}
+document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+let last = 0;
+function loop(ts) {
+  const dt = last ? Math.min(0.05, (ts - last) / 1000) : 0;
+  last = ts;
+  frame(dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+document.addEventListener('visibilitychange', () => { last = 0; });
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update();
+    });
+  });
+}
+})();
+</script>
+</body>
+</html>
