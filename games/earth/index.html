@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/games/earth/manifest.json">
+<link rel="icon" href="/games/earth/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/games/earth/apple-touch-icon.png">
+<title>Living Earth</title>
+<style>
+:root {
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0b1030;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Segoe UI', sans-serif;
+}
+
+#world {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* The two top controls sit on a moving picture, so both are pills with a
+   translucent plate rather than bare text. */
+.top {
+  position: fixed;
+  top: calc(var(--sa-top) + 10px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: 22px;
+  background: rgba(10, 16, 40, 0.72);
+  color: #dfe6f5;
+  font-size: 14px;
+  font-weight: 600;
+}
+.back-link {
+  left: calc(var(--sa-left) + 12px);
+  padding: 0 16px;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #8ec3ff; }
+#langs { right: calc(var(--sa-right) + 12px); padding: 0 4px; }
+#langs button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  border-radius: 22px;
+  cursor: pointer;
+}
+#langs button.on { background: #ffd24a; color: #23304a; }
+
+/* Spot names float over the map in screen pixels, so they stay one readable
+   size however far the camera is pulled back. */
+#labels { position: fixed; inset: 0; z-index: 1; pointer-events: none; transition: opacity 0.25s; }
+#labels.hide { opacity: 0; }
+.label {
+  position: absolute;
+  left: 0; top: 0;
+  max-width: 150px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(10, 16, 40, 0.78);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#intro {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sa-bottom) + 12px);
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  padding: 10px 18px;
+  border-radius: 22px;
+  background: rgba(10, 16, 40, 0.85);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+#intro b { color: #ffd24a; margin-right: 8px; }
+#intro.hide { opacity: 0; }
+
+#sheet {
+  position: fixed;
+  z-index: 4;
+  background: #fff9ec;
+  color: #23304a;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  touch-action: pan-y;
+  transition: transform 0.45s cubic-bezier(.2, .8, .2, 1);
+  border-top: 6px solid var(--accent, #ffd24a);
+}
+/* Portrait: a sheet from the bottom. Landscape: a column on the right. */
+@media (orientation: portrait) {
+  #sheet {
+    left: 0; right: 0; bottom: 0;
+    max-height: 46vh;
+    padding: 14px calc(var(--sa-right) + 18px) calc(var(--sa-bottom) + 12px) calc(var(--sa-left) + 18px);
+    border-radius: 22px 22px 0 0;
+    transform: translateY(110%);
+  }
+}
+@media (orientation: landscape) {
+  #sheet {
+    top: 0; right: 0; bottom: 0;
+    width: min(360px, 40vw);
+    padding: calc(var(--sa-top) + 64px) calc(var(--sa-right) + 18px) calc(var(--sa-bottom) + 14px) 18px;
+    border-top: 0;
+    border-left: 6px solid var(--accent, #ffd24a);
+    border-radius: 22px 0 0 22px;
+    transform: translateX(110%);
+  }
+}
+#sheet.open { transform: none; }
+#s-title { font-size: 22px; line-height: 1.2; }
+#s-body { font-size: 15px; line-height: 1.55; }
+#s-hint {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #ffe9a8;
+}
+#s-hint::before { content: '👆 '; }
+.nav { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
+.nav button {
+  flex: 1;
+  min-height: 48px;
+  border: 0;
+  border-radius: 24px;
+  background: #e4ebf7;
+  color: #23304a;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nav button#b-map { background: #23304a; color: #fff; flex: 1.4; }
+.nav button:active { filter: brightness(0.9); }
+</style>
+</head>
+<body>
+<svg id="world" xmlns="http://www.w3.org/2000/svg" aria-label="Living Earth"></svg>
+<div id="labels"></div>
+<a href="/" class="top back-link">&larr; All Games</a>
+<div class="top" id="langs">
+  <button type="button" data-lang="en">EN</button>
+  <button type="button" data-lang="ja">日本語</button>
+  <button type="button" data-lang="sv">SV</button>
+</div>
+<div id="intro"><b>🌏</b><span id="intro-text"></span></div>
+<div id="sheet" role="dialog" aria-live="polite">
+  <h2 id="s-title"></h2>
+  <p id="s-body"></p>
+  <p id="s-hint"></p>
+  <div class="nav">
+    <button type="button" id="b-prev" aria-label="Previous">&lsaquo;</button>
+    <button type="button" id="b-map">&larr; <span id="b-map-t"></span></button>
+    <button type="button" id="b-next" aria-label="Next">&rsaquo;</button>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Living Earth. One tall cross-section of the planet, from space down to the
+// plates under our feet, drawn as a single SVG "world". Each phenomenon is a
+// tile on that map. Tapping a tile moves the camera (the SVG viewBox) in on it,
+// opens a caption and lets you poke it: the volcano erupts, the tornado follows
+// your finger. Everything is drawn here; there are no image assets.
+//
+// Each tile is authored in its own local coordinates (0,0 = its top-left) and
+// owns an update(dt, ad) that animates it. `ad` is the "alive" time step: it is
+// the real dt normally, and 0 under prefers-reduced-motion until the player
+// pokes the tile, so the map is genuinely still unless asked to move.
+// ---------------------------------------------------------------------------
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ------------------------------------------------------------- translations
+const UI = {
+  en: { title: 'Living Earth', intro: 'Tap a spot to zoom in', map: 'Map', prev: 'Previous', next: 'Next' },
+  ja: { title: 'いきている ちきゅう', intro: 'きになる ところを タップ！', map: 'ちず', prev: 'まえ', next: 'つぎ' },
+  sv: { title: 'Levande jord', intro: 'Tryck på en plats för att zooma in', map: 'Karta', prev: 'Föregående', next: 'Nästa' },
+};
+
+const TXT = {
+  aurora: {
+    en: ['Aurora', 'Tiny particles blown out by the Sun crash into the air high above the poles. The air glows green, pink and purple like giant curtains.', 'Tap to send a burst of sun particles!'],
+    ja: ['オーロラ', 'たいように ふきとばされた ちいさな つぶが、きょくの うえの たかい そらで くうきに ぶつかると、カーテンのように ひかります。', 'タップして たいようの つぶを とばそう！'],
+    sv: ['Norrsken', 'Små partiklar från solen kolliderar med luften högt över polerna. Då börjar luften lysa i grönt, rosa och lila som stora gardiner.', 'Tryck för att skicka iväg solpartiklar!'],
+  },
+  satellite: {
+    en: ['Satellites', 'Satellites circle the Earth far above the sky. They take pictures of clouds and typhoons, and they help your phone and car know where you are.', 'Tap to make the satellite take a picture and send it down!'],
+    ja: ['じんこうえいせい', 'じんこうえいせいは、そらの ずっと うえを ちきゅうの まわりを まわっています。くもや たいふうの しゃしんを とったり、いまの ばしょを おしえたり します。', 'タップして しゃしんを とって おくろう！'],
+    sv: ['Satelliter', 'Satelliter cirklar runt jorden långt ovanför himlen. De fotograferar moln och stormar, och de hjälper mobilen och bilen att veta var du är.', 'Tryck så tar satelliten en bild och skickar ner den!'],
+  },
+  wind: {
+    en: ['Wind & clouds', 'Sunshine warms the ground and the warm air rises. Cooler air rushes in to take its place. That moving air is the wind, and it pushes the clouds along.', 'Tap to blow a big gust of wind!'],
+    ja: ['かぜと くも', 'たいように あたためられた くうきは うえに のぼり、そこへ つめたい くうきが ながれこみます。この くうきの うごきが かぜで、くもも はこびます。', 'タップして つよい かぜを ふかせよう！'],
+    sv: ['Vind & moln', 'Solen värmer marken och den varma luften stiger. Kallare luft rusar in i stället. Den rörliga luften är vinden, och den blåser molnen framför sig.', 'Tryck för att blåsa upp en stor vindpust!'],
+  },
+  lightning: {
+    en: ['Lightning', 'Inside a storm cloud, bits of ice bump together. The top gets a + charge and the bottom a − charge. When it gets too strong, electricity zaps down as lightning!', 'Tap anywhere to make lightning strike!'],
+    ja: ['かみなり', 'かみなりぐもの なかでは こおりの つぶが ぶつかりあい、うえに プラス、したに マイナスの でんきが たまります。たまりすぎると ビリビリッと おちて かみなりに なります。', 'タップした ところに かみなりを おとそう！'],
+    sv: ['Blixt', 'Inne i ett åskmoln knuffas iskristaller mot varandra. Toppen blir + och botten blir −. När det blir för starkt hoppar elektriciteten ner som en blixt!', 'Tryck var som helst så slår blixten ner!'],
+  },
+  rainbow: {
+    en: ['Rainbow', 'When sunlight shines through raindrops, the light bends and splits into seven colours. You see a rainbow when the Sun is behind you and the rain is in front.', 'Tap to hide the Sun behind the cloud. Tap again to bring it back!'],
+    ja: ['にじ', 'たいようの ひかりが あめつぶを とおると、ひかりが まがって 7つの いろに わかれます。うしろに たいよう、まえに あめが あるとき、にじが みえます。', 'タップして たいようを くもに かくそう。もういちどで でてくるよ！'],
+    sv: ['Regnbåge', 'När solljus lyser genom regndroppar bryts ljuset och delas upp i sju färger. Du ser en regnbåge när solen är bakom dig och regnet framför dig.', 'Tryck för att gömma solen bakom molnet. Tryck igen så kommer den tillbaka!'],
+  },
+  precip: {
+    en: ['Rain, snow & hail', 'Warm, wet air rises and cools into a cloud. High up it is freezing, so tiny ice grains grow. If they melt on the way down it rains. If it is cold it snows. If the wind tosses them up and down they grow into hail.', 'Tap to switch between rain, snow and hail!'],
+    ja: ['あめ・ゆき・ひょう', 'あたたかく しめった くうきが のぼって ひえると くもに なります。うえは とても つめたいので、こおりの つぶが そだちます。とけると あめ、さむいと ゆき、うえしたに ふきあげられて おおきくなると ひょうに なります。', 'タップして あめ・ゆき・ひょうを きりかえよう！'],
+    sv: ['Regn, snö & hagel', 'Varm fuktig luft stiger och kyls ner till ett moln. Högt upp är det iskallt och små iskorn växer. Smälter de på vägen ner blir det regn, är det kallt blir det snö, och kastar vinden dem upp och ner växer de till hagel.', 'Tryck för att växla mellan regn, snö och hagel!'],
+  },
+  tornado: {
+    en: ['Tornado', 'A tornado is a spinning column of air that reaches from a storm cloud down to the ground. It is narrow, but its winds can lift roofs and throw things around.', 'Tap to steer the tornado to where you tap!'],
+    ja: ['たつまき', 'たつまきは、かみなりぐもから じめんまで とどく、ぐるぐる まわる くうきの はしらです。はばは せまいけれど、ものすごい かぜで やねを とばすことも あります。', 'タップした ほうへ たつまきを うごかそう！'],
+    sv: ['Tornado', 'En tornado är en snurrande luftpelare från ett åskmoln ner till marken. Den är smal, men vindarna kan lyfta tak och slunga iväg saker.', 'Tryck för att styra tornadon dit du trycker!'],
+  },
+  typhoon: {
+    en: ['Typhoon', 'A typhoon is a giant swirl of clouds that grows over warm sea water. Seen from space it has a calm eye in the middle, surrounded by heavy rain and strong wind.', 'Tap to steer the typhoon and make it stronger!'],
+    ja: ['たいふう', 'たいふうは、あたたかい うみの うえで そだつ おおきな くもの うずまきです。うちゅうから みると まんなかに しずかな「め」があり、まわりは つよい あめと かぜです。', 'タップして たいふうを うごかして、つよくしよう！'],
+    sv: ['Tyfon', 'En tyfon är en jättelik molnvirvel som växer över varmt havsvatten. Från rymden syns ett lugnt öga i mitten, omgivet av kraftigt regn och stark vind.', 'Tryck för att styra tyfonen och göra den starkare!'],
+  },
+  volcano: {
+    en: ['Volcano', 'Deep underground, rock melts into a hot liquid called magma. When the pressure builds up, it pushes up through the volcano and bursts out as lava, ash and smoke.', 'Tap the volcano to make it erupt!'],
+    ja: ['かざん', 'ちかの ふかい ところで、いわが とけて マグマに なります。マグマが おしあげられると、かざんから ようがんや はいや けむりが ふきだします。', 'かざんを タップして ふんかさせよう！'],
+    sv: ['Vulkan', 'Djupt under jorden smälter berget till en het vätska som kallas magma. När trycket blir stort trycks magman upp genom vulkanen och sprutar ut som lava, aska och rök.', 'Tryck på vulkanen så får den utbrott!'],
+  },
+  avalanche: {
+    en: ['Avalanche', 'On a steep snowy mountain, a slab of snow can break loose and slide down fast, like a white river. It can bury trees and roads in seconds.', 'Tap the slope to start an avalanche!'],
+    ja: ['なだれ', 'ゆきの つもった きゅうな やまで、ゆきの かたまりが くずれて、しろい かわのように いっきに すべりおちるのが なだれです。', 'ゆきの しゃめんを タップして なだれを おこそう！'],
+    sv: ['Lavin', 'På ett brant snöberg kan en snöplatta lossna och rasa nedför som en vit flod. Den kan begrava träd och vägar på några sekunder.', 'Tryck på sluttningen så startar en lavin!'],
+  },
+  tsunami: {
+    en: ['Tsunami', 'An earthquake under the sea shoves the water, and a very long wave races across the ocean. Near the coast the sea gets shallow, so the wave grows tall and floods the land.', 'Tap to shake the sea floor and send a tsunami!'],
+    ja: ['つなみ', 'うみの そこで じしんが おきると、みずが おされて、とても ながい なみが ひろがります。かいがんに ちかづくと うみが あさく なって、なみが たかく なり、りくに おしよせます。', 'タップして うみの そこを ゆらし、つなみを おこそう！'],
+    sv: ['Tsunami', 'En jordbävning under havet knuffar vattnet, och en mycket lång våg rusar över havet. Nära kusten blir havet grunt, så vågen växer sig hög och översvämmar land.', 'Tryck för att skaka havsbotten och skicka en tsunami!'],
+  },
+  currents: {
+    en: ['Ocean currents', 'The sea never sits still. Warm water flows along the surface, then cools, sinks and flows back deep down. This giant loop carries heat around the whole world.', 'Tap to drop a rubber duck and watch it ride the current!'],
+    ja: ['かいりゅう', 'うみの みずは ずっと うごいています。あたたかい みずは ひょうめんを ながれ、ひえて しずむと、ふかい ところを もどります。この おおきな ながれが、ねつを せかいじゅうに はこびます。', 'タップして ゴムの あひるを ながそう！'],
+    sv: ['Havsströmmar', 'Havet står aldrig stilla. Varmt vatten strömmar vid ytan, kyls ner, sjunker och rinner tillbaka djupt nere. Den här jätteslingan flyttar värme runt hela jorden.', 'Tryck för att släppa en badanka och se den följa strömmen!'],
+  },
+  river: {
+    en: ['River & basin', 'Rain and melting snow run down the mountains and gather into streams, then a river. The river winds across a wide flat basin and carries the water to a lake or the sea.', 'Tap to make it rain and float a paper boat!'],
+    ja: ['かわと ぼんち', 'あめや とけた ゆきが やまを ながれおりて ちいさな ながれに なり、かわに なります。かわは ひろい ぼんちを うねうね とおって、みずうみや うみに ながれます。', 'タップして あめを ふらせ、かみの ふねを ながそう！'],
+    sv: ['Flod & dalgång', 'Regn och smältande snö rinner nedför bergen och samlas till bäckar och sedan en flod. Floden slingrar sig över en bred slätt och för vattnet till en sjö eller havet.', 'Tryck så regnar det och en pappersbåt flyter iväg!'],
+  },
+  landslide: {
+    en: ['Landslide', 'After lots of rain, the soil on a hillside gets soaked and heavy and loses its grip. Then mud, rocks and trees can slide down all at once.', 'Tap to make rain until the hill slips!'],
+    ja: ['がけくずれ', 'たくさん あめが ふると、さかの つちが みずを すって おもく なり、ささえる ちからが よわく なります。すると どろや いしや きが いっぺんに すべりおちます。', 'タップして あめを ふらせ、さかが くずれるまで やってみよう！'],
+    sv: ['Jordskred', 'Efter mycket regn blir jorden i en sluttning blöt och tung och tappar greppet. Då kan lera, stenar och träd glida nedför på en gång.', 'Tryck för att få det att regna tills sluttningen rasar!'],
+  },
+  plates: {
+    en: ['Plates & earthquakes', 'The ground is made of huge slabs of rock called plates that creep a few centimetres a year. When one plate dives under another, it sticks, then suddenly slips, and the ground shakes. That is an earthquake.', 'Tap inside the Earth to make an earthquake!'],
+    ja: ['プレートと じしん', 'じめんは、1ねんに すうセンチだけ うごく おおきな いわの プレートで できています。プレートが ほかの プレートの したに もぐりこむとき ひっかかって、とつぜん ずれると じめんが ゆれます。これが じしんです。', 'ちきゅうの なかを タップして じしんを おこそう！'],
+    sv: ['Plattor & jordbävningar', 'Marken består av enorma bergsplattor som kryper några centimeter om året. När en platta dyker under en annan fastnar den, men glider plötsligt loss och marken skakar. Det är en jordbävning.', 'Tryck inne i jorden för att skapa en jordbävning!'],
+  },
+};
+
+let lang = 'en';
+try {
+  const saved = localStorage.getItem('earth-lang');
+  if (saved && UI[saved]) lang = saved;
+  else {
+    const nav = (navigator.language || 'en').slice(0, 2);
+    if (UI[nav]) lang = nav;
+  }
+} catch (e) {}
+
+// ------------------------------------------------------------------ helpers
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('world');
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+const TAU = Math.PI * 2;
+
+function E(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function A(e, attrs) { for (const k in attrs) e.setAttribute(k, attrs[k]); }
+const f1 = (n) => n.toFixed(1);
+function mv(e, x, y, r, s) {
+  let t = `translate(${f1(x)} ${f1(y)})`;
+  if (r) t += ` rotate(${f1(r)})`;
+  if (s !== undefined && s !== 1) t += ` scale(${s.toFixed(3)})`;
+  e.setAttribute('transform', t);
+}
+const pathOf = (pts) => 'M' + pts.map((p) => f1(p[0]) + ' ' + f1(p[1])).join('L');
+const polyOf = (pts) => pathOf(pts) + 'Z';
+
+const defs = E('defs', null, svg);
+let gid = 0;
+function G(stops, o) {
+  o = o || {};
+  const id = 'g' + gid++;
+  const g = E('linearGradient', { id, x1: o.x1 || 0, y1: o.y1 === undefined ? 0 : o.y1, x2: o.x2 || 0, y2: o.y2 === undefined ? 1 : o.y2 }, defs);
+  if (o.units) g.setAttribute('gradientUnits', o.units);
+  for (const s of stops) E('stop', { offset: s[0], 'stop-color': s[1], 'stop-opacity': s[2] === undefined ? 1 : s[2] }, g);
+  return `url(#${id})`;
+}
+function RG(stops) {
+  const id = 'g' + gid++;
+  const g = E('radialGradient', { id }, defs);
+  for (const s of stops) E('stop', { offset: s[0], 'stop-color': s[1], 'stop-opacity': s[2] === undefined ? 1 : s[2] }, g);
+  return `url(#${id})`;
+}
+
+// A fixed set of reusable elements. Spawning never allocates, so a burst of
+// particles on an iPad doesn't churn the garbage collector.
+class Pool {
+  constructor(parent, n, mk) {
+    this.a = [];
+    for (let i = 0; i < n; i++) {
+      const el = mk();
+      el.style.display = 'none';
+      parent.appendChild(el);
+      this.a.push({ el, on: false, age: 0 });
+    }
+  }
+  spawn(init) {
+    for (const p of this.a) {
+      if (!p.on) { p.on = true; p.age = 0; p.el.style.display = ''; init(p); return p; }
+    }
+    return null;
+  }
+  step(dt, fn) {
+    for (const p of this.a) {
+      if (!p.on) continue;
+      p.age += dt;
+      if (fn(p, dt) === false) { p.on = false; p.el.style.display = 'none'; }
+    }
+  }
+  clear() { for (const p of this.a) { p.on = false; p.el.style.display = 'none'; } }
+  get live() { return this.a.some((p) => p.on); }
+}
+
+function cloud(parent, x, y, sc, fill, op) {
+  const g = E('g', null, parent);
+  for (const c of [[-26, 4, 16], [-6, -6, 22], [18, 0, 18], [36, 6, 13], [4, 8, 18]]) E('circle', { cx: c[0], cy: c[1], r: c[2], fill }, g);
+  if (op !== undefined) g.setAttribute('opacity', op);
+  mv(g, x, y, 0, sc);
+  return g;
+}
+
+function stars(parent, n, w, h) {
+  const a = [];
+  for (let i = 0; i < n; i++) {
+    const c = E('circle', { cx: f1(rnd(4, w - 4)), cy: f1(rnd(4, h)), r: f1(rnd(0.7, 1.7)), fill: '#fff' }, parent);
+    a.push({ c, ph: rnd(0, TAU), sp: rnd(1, 3) });
+  }
+  return a;
+}
+const twinkle = (a, T) => { for (const s of a) s.c.setAttribute('opacity', (0.45 + 0.55 * Math.sin(T * s.sp + s.ph) ** 2).toFixed(2)); };
+
+// A slice of the globe seen from space, for the two space tiles.
+function earthArc(c, w, h) {
+  const R = 400, cx = w / 2, cy = h + 330;
+  E('circle', { cx, cy, r: R + 12, fill: 'none', stroke: '#7fd6ff', 'stroke-width': 18, opacity: 0.18 }, c);
+  E('circle', { cx, cy, r: R + 4, fill: 'none', stroke: '#9be3ff', 'stroke-width': 7, opacity: 0.55 }, c);
+  E('circle', { cx, cy, r: R, fill: G([[0, '#3c93e0'], [1, '#0f3f86']]) }, c);
+  for (const b of [[-150, -52, 56, 14], [60, -34, 70, 12], [170, -66, 40, 11], [-40, -22, 34, 9]]) {
+    E('ellipse', { cx: cx + b[0], cy: h + b[1], rx: b[2], ry: b[3], fill: '#4cae68', opacity: 0.9 }, c);
+  }
+  for (const b of [[-90, -50, 40, 6], [110, -48, 50, 6], [-200, -26, 36, 5]]) {
+    E('ellipse', { cx: cx + b[0], cy: h + b[1], rx: b[2], ry: b[3], fill: '#fff', opacity: 0.8 }, c);
+  }
+  return (x) => cy - Math.sqrt(Math.max(0, R * R - (x - cx) * (x - cx)));
+}
+
+// ------------------------------------------------------------------- tiles
+const spots = [];
+const worldLayer = E('g', null, svg);
+const bgLayer = E('g', null, worldLayer);
+const WORLD = { w: 1200, h: 1932 };
+
+function makeSpot(id, x, y, w, h, zoom, accent, build) {
+  const s = { id, x, y, w, h, accent, wake: 0, T: 0, zoom: [x + zoom[0], y + zoom[1], zoom[2], zoom[3]] };
+  s.g = E('g', { transform: `translate(${x} ${y})` }, worldLayer);
+  const cp = E('clipPath', { id: 'clip-' + id }, defs);
+  E('rect', { width: w, height: h, rx: 24 }, cp);
+  s.c = E('g', { 'clip-path': `url(#clip-${id})` }, s.g);
+  build(s);
+  E('rect', { width: w, height: h, rx: 24, fill: 'none', stroke: '#fff', 'stroke-opacity': 0.8, 'stroke-width': 3 }, s.g);
+  spots.push(s);
+  return s;
+}
+
+// The backdrop shows through the gaps between tiles: space, sky, then earth.
+(function backdrop() {
+  const g = bgLayer;
+  const grad = G([[0, '#050a26'], [0.12, '#1a2a6b'], [0.16, '#5aa9e8'], [0.45, '#bfe6ff'], [0.78, '#cfe9d6'], [0.79, '#6b4630'], [1, '#2a1410']], { units: 'userSpaceOnUse', y1: 0, y2: WORLD.h });
+  E('rect', { x: -4000, y: -4000, width: WORLD.w + 8000, height: WORLD.h + 8000, fill: grad }, g);
+})();
+
+// ---------------------------------------------------------------- aurora
+makeSpot('aurora', 8, 8, 584, 244, [0, 0, 584, 244], '#5dffa0', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#04081f'], [1, '#12285e']]) }, c);
+  const st = stars(c, 46, w, h - 50);
+  const sun = E('g', null, c), rays = E('g', null, sun);
+  for (let i = 0; i < 10; i++) E('rect', { x: -2, y: -40, width: 4, height: 14, rx: 2, fill: '#ffd84a', transform: `rotate(${i * 36})` }, rays);
+  E('circle', { r: 22, fill: '#ffd84a' }, sun);
+  E('circle', { r: 14, fill: '#fff3a8' }, sun);
+  mv(sun, 56, 54);
+  const baseY = earthArc(c, w, h);
+  const cols = [['#5dffa0', 150, 460], ['#4de0ff', 190, 420], ['#ff7de0', 230, 390]];
+  const cur = cols.map((k) => E('path', { fill: G([[0, k[0], 0.95], [1, k[0], 0]], { y1: 1, y2: 0 }) }, c));
+  const sol = new Pool(c, 26, () => E('circle', { r: 3.2, fill: '#ffe27a' }));
+  let boost = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    boost = Math.max(0, boost - ad * 0.3);
+    twinkle(st, T);
+    rays.setAttribute('transform', `rotate(${f1(T * 12)})`);
+    cur.forEach((p, i) => {
+      const N = 22, x0 = cols[i][1], x1 = cols[i][2];
+      const top = [], base = [];
+      for (let j = 0; j <= N; j++) {
+        const x = lerp(x0, x1, j / N);
+        const b = baseY(x) + 6;
+        const hgt = (46 + 34 * Math.sin(j * 0.55 + T * 1.1 + i * 2) + 14 * Math.sin(j * 1.3 - T * 1.7)) * (0.85 + boost * 0.55);
+        top.push([x, b - hgt]);
+        base.push([x, b]);
+      }
+      p.setAttribute('d', polyOf(top.concat(base.reverse())));
+      p.setAttribute('opacity', (i === 2 ? 0.25 + boost * 0.7 : 0.55 + boost * 0.4).toFixed(2));
+    });
+    sol.step(ad, (p) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      const u = p.age / p.life;
+      if (u >= 1) { boost = Math.min(1.4, boost + 0.05); return false; }
+      A(p.el, { cx: f1(lerp(p.x0, p.tx, u)), cy: f1(lerp(p.y0, p.ty, u) - Math.sin(u * Math.PI) * 38), opacity: 1 });
+    });
+  };
+  s.tap = () => {
+    boost = Math.max(boost, 0.5);
+    s.wake = 6;
+    for (let i = 0; i < 16; i++) {
+      sol.spawn((p) => {
+        p.age = -rnd(0, 0.6);
+        p.life = rnd(0.9, 1.4);
+        p.x0 = 56 + rnd(-8, 8); p.y0 = 54 + rnd(-8, 8);
+        p.tx = rnd(160, 470); p.ty = baseY(p.tx) - rnd(0, 36);
+      });
+    }
+  };
+});
+
+// ------------------------------------------------------------- satellite
+makeSpot('satellite', 608, 8, 584, 244, [0, 0, 584, 244], '#7dffb0', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#04081f'], [1, '#12285e']]) }, c);
+  const st = stars(c, 40, w, h - 50);
+  const baseY = earthArc(c, w, h);
+  const OX = 292, OY = 250, RX = 280, RY = 190;
+  E('ellipse', { cx: OX, cy: OY, rx: RX, ry: RY, fill: 'none', stroke: '#fff', 'stroke-opacity': 0.25, 'stroke-dasharray': '4 7', 'stroke-width': 1.5 }, c);
+  // Ground station.
+  const gx = 140, gy = baseY(gx);
+  const stn = E('g', null, c);
+  E('path', { d: 'M-5,0 L0,-16 L5,0Z', fill: '#e8eaff' }, stn);
+  const dish = E('g', null, stn);
+  E('path', { d: 'M-11,-18 Q0,-6 11,-18Z', fill: '#e8eaff', stroke: '#8fa0c8', 'stroke-width': 1.5 }, dish);
+  E('line', { x1: 0, y1: -14, x2: 0, y2: -24, stroke: '#ffd24a', 'stroke-width': 2 }, dish);
+  mv(stn, gx, gy + 3);
+  const cone = E('polygon', { fill: G([[0, '#ffe27a', 0.85], [1, '#ffe27a', 0.1]]) }, c);
+  const link = E('line', { stroke: '#7dffb0', 'stroke-width': 2.5, 'stroke-dasharray': '7 7' }, c);
+  const rings = new Pool(c, 9, () => E('circle', { fill: 'none', stroke: '#7dffb0', 'stroke-width': 2 }));
+  // The satellite itself.
+  const sat = E('g', null, c);
+  for (const sx of [-1, 1]) {
+    E('rect', { x: sx < 0 ? -34 : 11, y: -5, width: 23, height: 10, rx: 1.5, fill: '#2f6fd0', stroke: '#9ec4ff', 'stroke-width': 1 }, sat);
+    E('path', { d: `M${sx * 15},-5 V5 M${sx * 22},-5 V5 M${sx * 29},-5 V5`, stroke: '#9ec4ff', 'stroke-width': 0.8 }, sat);
+  }
+  E('rect', { x: -10, y: -9, width: 20, height: 18, rx: 3, fill: '#f2c14e', stroke: '#b98a1d', 'stroke-width': 1.5 }, sat);
+  E('circle', { cx: 0, cy: 0, r: 4.5, fill: '#23304a' }, sat);
+  const flash = E('circle', { r: 16, fill: '#fff', opacity: 0 }, sat);
+  let ping = 0, sx = 0, sy = 0, vis = 1;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    twinkle(st, T);
+    const ph = (T * 0.045) % 1;
+    const a = Math.PI * (0.93 - 0.86 * ph);
+    sx = OX + RX * Math.cos(a); sy = OY - RY * Math.sin(a);
+    vis = Math.min(1, ph / 0.06, (1 - ph) / 0.06);
+    sat.setAttribute('opacity', vis.toFixed(2));
+    mv(sat, sx, sy, Math.atan2(RY * Math.cos(a), RX * Math.sin(a)) * 180 / Math.PI, 0.9);
+    ping = Math.max(0, ping - ad * 0.55);
+    flash.setAttribute('opacity', (Math.max(0, ping - 0.8) * 3).toFixed(2));
+    const on = ping > 0;
+    cone.style.display = link.style.display = on ? '' : 'none';
+    if (on) {
+      const ey = Math.min(h + 4, baseY(clamp(sx, 66, 518)));
+      const k = Math.min(1, ping * 1.6);
+      A(cone, { points: `${f1(sx)},${f1(sy)} ${f1(sx - 46)},${f1(ey)} ${f1(sx + 46)},${f1(ey)}`, opacity: (k * (ping > 0.35 ? 1 : ping / 0.35)).toFixed(2) });
+      A(link, { x1: f1(sx), y1: f1(sy), x2: gx, y2: gy - 22, 'stroke-dashoffset': f1(-T * 40), opacity: ping < 0.5 ? (ping * 2).toFixed(2) : 1 });
+      dish.setAttribute('transform', `rotate(${f1(Math.sin(T * 14) * 8 * Math.min(1, ping * 2))} 0 -10)`);
+    } else dish.setAttribute('transform', '');
+    rings.step(ad, (p) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      const u = p.age / 1.4;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(sx), cy: f1(sy), r: f1(10 + u * 70), opacity: (1 - u).toFixed(2) });
+    });
+  };
+  s.tap = () => {
+    const ph = (s.T * 0.045) % 1;
+    if (ph < 0.12 || ph > 0.88) s.T = 0.35 / 0.045;
+    ping = 1;
+    s.wake = 6;
+    for (let i = 0; i < 3; i++) rings.spawn((p) => { p.age = -i * 0.25; });
+  };
+});
+
+// ------------------------------------------------------------------ wind
+makeSpot('wind', 8, 268, 384, 296, [0, 0, 384, 296], '#8fd0ff', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#7cc4f5'], [1, '#e2f4ff']]) }, c);
+  const sunG = E('g', null, c);
+  E('circle', { cx: 330, cy: 46, r: 24, fill: '#ffe27a' }, sunG);
+  E('circle', { cx: 330, cy: 46, r: 34, fill: '#ffe27a', opacity: 0.3 }, sunG);
+  const clouds = [[40, 60, 1.1, 22], [200, 110, 0.8, 14], [310, 35, 0.7, 10], [120, 28, 0.6, 8]].map((k) => ({ g: cloud(c, 0, 0, 1, '#fff'), x: k[0], y: k[1], sc: k[2], sp: k[3] }));
+  E('path', { d: `M0,${h} V210 Q90,170 190,215 T${w},200 V${h}Z`, fill: '#7ccf8a' }, c);
+  E('path', { d: `M0,${h} V250 Q110,220 230,255 T${w},240 V${h}Z`, fill: '#5fba74' }, c);
+  // Tree swaying at left.
+  const tree = E('g', null, c);
+  E('rect', { x: -4, y: -46, width: 8, height: 46, fill: '#8d6e63' }, tree);
+  E('circle', { cx: 0, cy: -60, r: 26, fill: '#3fa65a' }, tree);
+  E('circle', { cx: -14, cy: -48, r: 16, fill: '#4cb868' }, tree);
+  mv(tree, 62, 238);
+  // Turbine at right.
+  E('path', { d: 'M296,252 L300,150 L304,252Z', fill: '#f4f6fa', stroke: '#c9d0dc', 'stroke-width': 1 }, c);
+  const rotor = E('g', null, c);
+  for (let i = 0; i < 3; i++) E('path', { d: 'M0,0 L-5,-8 L0,-58 L5,-8Z', fill: '#fff', stroke: '#c9d0dc', 'stroke-width': 1, transform: `rotate(${i * 120})` }, rotor);
+  E('circle', { r: 6, fill: '#e0524f' }, rotor);
+  const sock = E('g', null, c);
+  mv(rotor, 300, 150);
+  // Gust streaks.
+  const streaks = new Pool(c, 9, () => E('path', { d: 'M0,0 H44 q12,0 12,-9 q0,-8 -9,-5', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.9 }));
+  let gust = 0, ang = 0, sway = 0;
+  const spawnStreak = (x) => streaks.spawn((p) => { p.x = x === undefined ? rnd(-60, w) : x; p.y = rnd(30, 200); p.v = rnd(70, 110); });
+  for (let i = 0; i < 6; i++) spawnStreak();
+  s.update = (dt, ad) => {
+    gust = Math.max(0, gust - ad * 0.3);
+    const gs = 1 + gust * 3.5;
+    clouds.forEach((k) => {
+      k.x += k.sp * gs * ad;
+      if (k.x > w + 70) k.x = -70;
+      mv(k.g, k.x, k.y, 0, k.sc);
+    });
+    ang += (45 + gust * 520) * ad;
+    mv(rotor, 300, 150, ang);
+    sway = Math.sin(s.T * 2.2) * (3 + gust * 9);
+    mv(tree, 62, 238, sway * 0.6);
+    streaks.step(ad, (p, dt2) => {
+      p.x += p.v * gs * dt2;
+      if (p.x > w + 20) {
+        if (gust > 0.05 || Math.random() < 0.5) { p.x = -60; p.y = rnd(30, 200); }
+        else return false;
+      }
+      mv(p.el, p.x, p.y);
+      p.el.setAttribute('opacity', (0.25 + Math.min(1, 0.5 + gust)).toFixed(2));
+    });
+    if (ad > 0 && Math.random() < ad * (0.8 + gust * 8)) spawnStreak(-60);
+  };
+  s.tap = () => {
+    gust = 1; s.wake = 6;
+    for (let i = 0; i < 4; i++) spawnStreak(rnd(-100, 0));
+  };
+});
+
+// -------------------------------------------------------------- lightning
+makeSpot('lightning', 408, 268, 384, 296, [0, 0, 384, 296], '#ffe45c', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  const shake = E('g', null, c);
+  E('rect', { width: w, height: h, fill: G([[0, '#262c4a'], [1, '#5b6585']]) }, shake);
+  const cl = E('g', null, shake);
+  cloud(cl, 192, 62, 2.6, '#6a7192');
+  cloud(cl, 120, 74, 1.7, '#565d7d');
+  cloud(cl, 270, 70, 1.8, '#565d7d');
+  const glow = E('ellipse', { cx: 192, cy: 80, rx: 130, ry: 38, fill: '#fff6b0', opacity: 0 }, shake);
+  E('rect', { y: 252, width: w, height: 60, fill: '#2f6b46' }, shake);
+  E('rect', { y: 252, width: w, height: 8, fill: '#3d8559' }, shake);
+  // Tree and rod.
+  E('rect', { x: 86, y: 214, width: 8, height: 40, fill: '#6d5144' }, shake);
+  E('circle', { cx: 90, cy: 200, r: 24, fill: '#2f8a4f' }, shake);
+  E('path', { d: 'M296,254 L300,160 L304,254 M297,230 H303 M298,200 H302', stroke: '#c9d0dc', 'stroke-width': 3, fill: 'none' }, shake);
+  E('circle', { cx: 300, cy: 158, r: 4, fill: '#ffd24a' }, shake);
+  // Charges: + clings to the top of the cloud, − to the bottom.
+  const ch = [];
+  for (let i = 0; i < 8; i++) {
+    const plus = i < 4;
+    const e = E('path', { d: plus ? 'M-5,0 H5 M0,-5 V5' : 'M-5,0 H5', stroke: plus ? '#ff9a9a' : '#9ac8ff', 'stroke-width': 2.5, 'stroke-linecap': 'round', fill: 'none' }, shake);
+    ch.push({ e, x: 110 + (i % 4) * 50 + rnd(-8, 8), y: plus ? 34 + rnd(0, 10) : 100 + rnd(0, 6), ph: rnd(0, TAU) });
+  }
+  const bolts = new Pool(shake, 3, () => {
+    const g = E('g', null);
+    E('path', { fill: 'none', stroke: '#fff3a0', 'stroke-width': 12, 'stroke-linejoin': 'round', opacity: 0.35 }, g);
+    E('path', { fill: 'none', stroke: '#ffe45c', 'stroke-width': 5, 'stroke-linejoin': 'round' }, g);
+    E('path', { fill: 'none', stroke: '#fff', 'stroke-width': 2, 'stroke-linejoin': 'round' }, g);
+    return g;
+  });
+  const sparks = new Pool(shake, 24, () => E('circle', { r: 2.4, fill: '#ffe45c' }));
+  const rings = new Pool(shake, 3, () => E('ellipse', { fill: 'none', stroke: '#fff', 'stroke-width': 2.5 }));
+  const flashR = E('rect', { width: w, height: h, fill: '#fff', opacity: 0 }, c);
+  let flash = 0, sh = 0;
+  const jag = (x0, y0, x1, y1, n, amp) => {
+    const p = [[x0, y0]];
+    for (let i = 1; i < n; i++) { const t = i / n; p.push([lerp(x0, x1, t) + rnd(-amp, amp), lerp(y0, y1, t) + rnd(-5, 5)]); }
+    p.push([x1, y1]);
+    return p;
+  };
+  s.update = (dt, ad) => {
+    const T = s.T;
+    flash = Math.max(0, flash - ad * 4);
+    sh = Math.max(0, sh - ad * 3);
+    flashR.setAttribute('opacity', (flash * 0.7).toFixed(2));
+    const lit = flash > 0 ? flash : Math.max(0, Math.sin(T * 1.3) * Math.sin(T * 7.1) - 0.78) * 1.4;
+    glow.setAttribute('opacity', Math.min(0.8, lit).toFixed(2));
+    mv(shake, rnd(-1, 1) * sh * 7, rnd(-1, 1) * sh * 4);
+    for (const k of ch) mv(k.e, k.x + Math.sin(T * 1.6 + k.ph) * 6, k.y + Math.cos(T * 2 + k.ph) * 3);
+    bolts.step(ad, (p) => {
+      const a = p.age;
+      if (a > 0.55) return false;
+      p.el.setAttribute('opacity', (a < 0.1 ? 1 : a < 0.18 ? 0.25 : a < 0.28 ? 0.95 : Math.max(0, 1 - (a - 0.28) * 3.5)).toFixed(2));
+    });
+    sparks.step(ad, (p, d) => {
+      p.vy += 360 * d;
+      p.x += p.vx * d; p.y += p.vy * d;
+      if (p.age > 0.7) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), opacity: (1 - p.age / 0.7).toFixed(2) });
+    });
+    rings.step(ad, (p) => {
+      const u = p.age / 0.9;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(p.x), cy: 254, rx: f1(8 + u * 90), ry: f1(3 + u * 12), opacity: (1 - u).toFixed(2) });
+    });
+  };
+  s.tap = (x) => {
+    s.wake = 3;
+    let tx = clamp(x, 24, w - 24), ty = 254;
+    if (Math.abs(tx - 90) < 36) { tx = 90; ty = 178; } else if (Math.abs(tx - 300) < 36) { tx = 300; ty = 156; }
+    const path = jag(tx + rnd(-24, 24), 96, tx, ty, 9, 22);
+    const mid = path[4];
+    const br1 = jag(mid[0], mid[1], mid[0] + rnd(-70, 70), mid[1] + rnd(40, 90), 4, 12);
+    const d = pathOf(path) + pathOf(br1).replace('M', 'M');
+    bolts.spawn((p) => { for (const e of p.el.children) e.setAttribute('d', d); });
+    flash = 1; sh = 1;
+    rings.spawn((p) => { p.x = tx; });
+    for (let i = 0; i < 12; i++) sparks.spawn((p) => { p.x = tx; p.y = ty; p.vx = rnd(-120, 120); p.vy = rnd(-220, -60); });
+  };
+});
+
+// ---------------------------------------------------------------- rainbow
+makeSpot('rainbow', 808, 268, 384, 296, [0, 0, 384, 296], '#ff7de0', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#8fcdf5'], [1, '#e9f6ff']]) }, c);
+  const cxr = 210, cyr = 258;
+  const arcs = ['#ff4d4d', '#ff9a3d', '#ffe14d', '#5bd66f', '#3ec6e0', '#4a7ff0', '#9a5cf0'].map((col, i) => {
+    const r = 170 - i * 11;
+    return E('path', { d: `M${cxr - r},${cyr} A${r},${r} 0 0 1 ${cxr + r},${cyr}`, fill: 'none', stroke: col, 'stroke-width': 11 }, c);
+  });
+  const rg = E('g', null, c);
+  for (const k of arcs) rg.appendChild(k);
+  // Rain cloud right, drops below it.
+  cloud(c, 300, 56, 1.5, '#8b96ae');
+  const rain = new Pool(c, 40, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#4a8fdb' }));
+  E('path', { d: `M0,${h} V240 Q120,215 230,245 T${w},232 V${h}Z`, fill: '#7ccf8a' }, c);
+  E('path', { d: `M0,${h} V268 Q140,246 250,270 T${w},262 V${h}Z`, fill: '#5fba74' }, c);
+  // Sun at left, with a cloud that slides over it.
+  const sun = E('g', null, c);
+  const rays = E('g', null, sun);
+  for (let i = 0; i < 10; i++) E('rect', { x: -2.5, y: -46, width: 5, height: 14, rx: 2.5, fill: '#ffd84a', transform: `rotate(${i * 36})` }, rays);
+  E('circle', { r: 28, fill: '#ffd84a' }, sun);
+  E('circle', { r: 19, fill: '#fff3a8' }, sun);
+  mv(sun, 52, 150);
+  const cover = cloud(c, 0, 0, 1.7, '#a9b3c8');
+  const sparkle = new Pool(c, 16, () => E('path', { d: 'M0,-6 L1.6,-1.6 L6,0 L1.6,1.6 L0,6 L-1.6,1.6 L-6,0 L-1.6,-1.6Z', fill: '#fff' }));
+  let sunny = 1, sv = 1, cv = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    sv = lerp(sv, sunny, 1 - Math.exp(-ad * 3));
+    cv = lerp(cv, 1 - sunny, 1 - Math.exp(-ad * 3));
+    rays.setAttribute('transform', `rotate(${f1(T * 10)})`);
+    mv(cover, lerp(-110, 52, cv), 150, 0, 1.7);
+    rg.setAttribute('opacity', Math.max(0, sv * (0.88 + 0.1 * Math.sin(T * 1.5)) - 0.04).toFixed(2));
+    if (ad > 0 && Math.random() < ad * 30) rain.spawn((p) => { p.x = rnd(235, 370); p.y = 70; p.v = rnd(150, 200); });
+    rain.step(ad, (p, d) => {
+      p.y += p.v * d;
+      if (p.y > 235) return false;
+      A(p.el, { x: f1(p.x), y: f1(p.y) });
+    });
+    sparkle.step(ad, (p, d) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      p.el.setAttribute('opacity', 1);
+      p.y -= 8 * d;
+      if (p.age > 1) return false;
+      const k = Math.sin(p.age * Math.PI);
+      mv(p.el, p.x, p.y, p.age * 90, k * p.sc);
+    });
+  };
+  s.tap = () => {
+    sunny = sunny > 0.5 ? 0 : 1;
+    s.wake = 5;
+    if (sunny) {
+      for (let i = 0; i < 14; i++) sparkle.spawn((p) => {
+        const a = rnd(Math.PI, TAU), r = 100 + rnd(-6, 6);
+        p.x = cxr + Math.cos(a) * r * 1.2; p.y = cyr + Math.sin(a) * r * 0.9 + 30; p.sc = rnd(0.7, 1.4); p.age = -rnd(0, 0.4);
+      });
+    }
+  };
+  for (let i = 0; i < 20; i++) rain.spawn((p) => { p.x = rnd(235, 370); p.y = rnd(70, 230); p.v = rnd(150, 200); });
+});
+
+// ----------------------------------------------------------------- precip
+makeSpot('precip', 8, 578, 384, 296, [0, 0, 384, 296], '#4a8fdb', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#6fb4ec'], [1, '#d6ecfb']]) }, c);
+  // Freezing level.
+  E('line', { x1: 0, y1: 96, x2: w, y2: 96, stroke: '#fff', 'stroke-width': 1.5, 'stroke-dasharray': '3 6', opacity: 0.8 }, c);
+  const t0 = E('g', null, c);
+  E('rect', { x: 6, y: 78, width: 36, height: 16, rx: 8, fill: '#23304a', opacity: 0.8 }, t0);
+  E('path', { d: 'M13,86 h5 M15.5,83.5 v5', stroke: '#fff', 'stroke-width': 0 }, t0);
+  const tt = E('text', { x: 24, y: 90, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: '#bfe6ff', 'font-family': 'sans-serif' }, t0);
+  tt.textContent = '0°C';
+  // Cumulonimbus: tall, flat anvil on top, dark base.
+  const cb = E('g', null, c);
+  cloud(cb, 150, 112, 1.3, '#cfd6e4');
+  cloud(cb, 230, 96, 1.7, '#e4e9f3');
+  cloud(cb, 280, 120, 1.1, '#cfd6e4');
+  cloud(cb, 200, 54, 1.9, '#f4f7fc');
+  cloud(cb, 250, 42, 1.2, '#fff');
+  E('rect', { x: 110, y: 128, width: 210, height: 14, rx: 7, fill: '#8e97ae' }, cb);
+  const ground = E('rect', { y: 246, width: w, height: 60, fill: '#6fcf7a' }, c);
+  const gTop = E('rect', { y: 246, width: w, height: 8, fill: '#8fe09a' }, c);
+  // Sun heating the ground at left, warm air rising into the cloud.
+  E('circle', { cx: 36, cy: 214, r: 18, fill: '#ffd84a' }, c);
+  const up = new Pool(c, 10, () => E('circle', { r: 3.2, fill: '#fff', stroke: '#6fb4ec', 'stroke-width': 1 }));
+  // Precipitation.
+  let mode = 0; // 0 rain, 1 snow, 2 hail
+  const fall = new Pool(c, 70, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#4a8fdb' }));
+  const styleP = (p) => {
+    const e = p.el;
+    if (mode === 0) A(e, { rx: 0.9, width: 1.8, height: 10, fill: '#4a8fdb', stroke: 'none' });
+    else if (mode === 1) A(e, { rx: 2.6, width: 5.2, height: 5.2, fill: '#fff', stroke: '#9fc7ee', 'stroke-width': 0.8 });
+    else A(e, { rx: 3.6, width: 7.2, height: 7.2, fill: '#eaf4ff', stroke: '#7e94b0', 'stroke-width': 1 });
+    p.m = mode;
+  };
+  const emit = (y) => fall.spawn((p) => { styleP(p); p.x = rnd(130, 310); p.y = y === undefined ? 142 : y; p.v = mode === 0 ? rnd(190, 240) : mode === 1 ? rnd(35, 55) : rnd(240, 300); p.ph = rnd(0, TAU); p.b = 0; });
+  // Mode icons along the bottom-left.
+  const icons = E('g', null, c);
+  const iconEls = [0, 1, 2].map((i) => {
+    const g = E('g', null, icons);
+    E('circle', { r: 17, fill: '#fff', stroke: '#23304a', 'stroke-width': 2.5 }, g);
+    if (i === 0) E('path', { d: 'M-5,-4 L-8,5 M0,-6 L-3,7 M5,-4 L2,5', stroke: '#4a8fdb', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+    else if (i === 1) E('path', { d: 'M0,-9 V9 M-8,-4.5 L8,4.5 M-8,4.5 L8,-4.5', stroke: '#6fa6d8', 'stroke-width': 2.2, 'stroke-linecap': 'round' }, g);
+    else { E('circle', { cx: -3, cy: -2, r: 4.5, fill: '#dce9f7', stroke: '#7e94b0', 'stroke-width': 1.5 }, g); E('circle', { cx: 4, cy: 4, r: 4, fill: '#dce9f7', stroke: '#7e94b0', 'stroke-width': 1.5 }, g); }
+    mv(g, 28 + i * 40, 276 - 2);
+    return g;
+  });
+  let snow = 0;
+  s.update = (dt, ad) => {
+    snow = lerp(snow, mode === 1 ? 1 : 0, 1 - Math.exp(-ad * 3));
+    const gc = [lerp(0x6f, 0xf4, snow), lerp(0xcf, 0xf8, snow), lerp(0x7a, 0xff, snow)].map(Math.round);
+    ground.setAttribute('fill', `rgb(${gc})`);
+    gTop.setAttribute('fill', `rgb(${gc.map((v) => Math.min(255, v + 20))})`);
+    iconEls.forEach((g, i) => mv(g, 28 + i * 40, 276 - 2 - (i === mode ? 5 : 0), 0, i === mode ? 1.15 : 0.9));
+    // Rising warm vapour.
+    if (ad > 0 && Math.random() < ad * 3) up.spawn((p) => { p.x = rnd(26, 86); p.y = 232; p.ph = rnd(0, TAU); });
+    up.step(ad, (p, d) => {
+      p.y -= 70 * d;
+      p.x += Math.sin(p.age * 3 + p.ph) * 10 * d + 38 * d * smooth((150 - p.y) / 60);
+      if (p.y < 100) { p.y = 232; p.x = rnd(26, 86); }
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), opacity: p.y < 150 ? 0 : 0.95 });
+    });
+    if (ad > 0) { let n = ad * 26; while (n > 0) { if (Math.random() < n) emit(); n -= 1; } }
+    fall.step(ad, (p, d) => {
+      if (p.m === 1) { p.x += Math.sin(p.age * 2.4 + p.ph) * 14 * d; }
+      p.y += p.v * d;
+      if (p.m === 2 && p.y > 246 && p.b < 1) { p.y = 246; p.v = -p.v * 0.35; p.b++; }
+      if (p.m === 2 && p.b > 0) p.v += 900 * d;
+      if (p.y > 250 && p.v > 0) return false;
+      if (p.m === 0) A(p.el, { x: f1(p.x), y: f1(p.y) });
+      else A(p.el, { x: f1(p.x), y: f1(p.y) });
+    });
+  };
+  s.tap = () => {
+    mode = (mode + 1) % 3;
+    fall.clear();
+    s.wake = 5;
+    for (let i = 0; i < 40; i++) emit(rnd(142, 244));
+  };
+  for (let i = 0; i < 40; i++) emit(rnd(142, 244));
+});
+
+// ---------------------------------------------------------------- tornado
+makeSpot('tornado', 408, 578, 384, 296, [0, 0, 384, 296], '#9aa7b8', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#59647a'], [0.7, '#a9b6a4'], [1, '#c6c59a']]) }, c);
+  E('path', { d: `M0,${h} V250 Q100,236 200,250 T${w},244 V${h}Z`, fill: '#b6a463' }, c);
+  E('path', { d: `M0,${h} V270 Q130,258 250,272 T${w},266 V${h}Z`, fill: '#9e8d4f' }, c);
+  const cl = E('g', null, c);
+  cloud(cl, 80, 40, 2.4, '#4a5368');
+  cloud(cl, 210, 34, 2.8, '#3f475a');
+  cloud(cl, 330, 44, 2.2, '#4a5368');
+  const houses = [60, 168, 322].map((hx) => {
+    const g = E('g', null, c);
+    E('rect', { x: -12, y: -18, width: 24, height: 18, fill: '#f4d9a0' }, g);
+    E('path', { d: 'M-16,-18 L0,-32 L16,-18Z', fill: '#d9604f' }, g);
+    E('rect', { x: -3, y: -10, width: 6, height: 10, fill: '#8d6e63' }, g);
+    mv(g, hx, 262);
+    return { g, x: hx, hot: 0 };
+  });
+  const layers = [];
+  const N = 15;
+  const fun = E('g', null, c);
+  for (let i = 0; i < N; i++) layers.push(E('ellipse', { fill: i % 2 ? '#7d8799' : '#939caa', stroke: '#5f687a', 'stroke-width': 1.2 }, fun));
+  const dust = new Pool(c, 16, () => E('circle', { r: 8, fill: '#b9a46a' }));
+  const deb = new Pool(c, 16, () => E('rect', { width: 6, height: 4, fill: '#d9604f' }));
+  let tx = 192, target = 192, lean = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    tx += (target - tx) * (1 - Math.exp(-ad * 1.6));
+    lean = lerp(lean, clamp((target - tx) * 0.25, -22, 22), 1 - Math.exp(-ad * 4));
+    for (let i = 0; i < N; i++) {
+      const u = i / (N - 1); // 0 at the cloud, 1 at the ground
+      const y = lerp(70, 252, u);
+      const rx = lerp(86, 8, Math.pow(u, 0.8));
+      const ox = lean * u * 1.4 + Math.sin(T * 3.2 + i * 0.6) * (3 + 10 * (1 - u)) * 0.6;
+      A(layers[i], { cx: f1(tx + ox), cy: f1(y), rx: f1(rx + Math.sin(T * 5 + i) * 1.5), ry: f1(lerp(11, 4, u)) });
+    }
+    houses.forEach((hh) => {
+      const near = Math.abs(hh.x - tx) < 40;
+      hh.hot = lerp(hh.hot, near ? 1 : 0, 1 - Math.exp(-ad * 5));
+      mv(hh.g, hh.x + Math.sin(T * 40) * 1.6 * hh.hot, 262, Math.sin(T * 33) * 4 * hh.hot);
+      if (near && ad > 0 && Math.random() < ad * 10) deb.spawn((p) => { p.a = rnd(0, TAU); p.h = 0; p.r = rnd(8, 20); p.col = Math.random() < 0.5 ? '#d9604f' : '#f4d9a0'; p.el.setAttribute('fill', p.col); });
+    });
+    if (ad > 0 && Math.random() < ad * 14) dust.spawn((p) => { p.x = tx + rnd(-14, 14); });
+    dust.step(ad, (p, d) => {
+      const u = p.age / 1.1;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(p.x + u * 30 * (p.x > tx ? 1 : -1)), cy: f1(256 - u * 22), r: f1(5 + u * 12), opacity: (0.6 * (1 - u)).toFixed(2) });
+    });
+    deb.step(ad, (p, d) => {
+      p.h += d * 0.55; p.a += d * (6 - p.h * 2);
+      if (p.h >= 1) return false;
+      const u = p.h;
+      const y = lerp(252, 76, u), rx = lerp(8, 70, u) + p.r * u;
+      const cx = tx + lean * (1 - u) * 1.4 + Math.cos(p.a) * rx;
+      mv(p.el, cx, y + Math.sin(p.a) * 6, p.a * 60);
+      p.el.setAttribute('opacity', (1 - smooth((u - 0.8) / 0.2)).toFixed(2));
+    });
+  };
+  s.tap = (x) => {
+    target = clamp(x, 52, w - 52);
+    s.wake = 8;
+    for (let i = 0; i < 8; i++) deb.spawn((p) => { p.a = rnd(0, TAU); p.h = 0; p.r = rnd(8, 24); p.age = 0; p.el.setAttribute('fill', '#d9604f'); });
+  };
+});
+
+// ---------------------------------------------------------------- typhoon
+makeSpot('typhoon', 808, 578, 384, 296, [0, 0, 384, 296], '#e8f4ff', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#0f4c8f'], [1, '#1a7bc0']]) }, c);
+  // Latitude lines and warm water under the storm.
+  for (let i = 1; i < 6; i++) E('line', { x1: 0, y1: i * 50, x2: w, y2: i * 50 - 14, stroke: '#fff', opacity: 0.1, 'stroke-width': 1.5 }, c);
+  const warm = E('circle', { r: 110, fill: RG([[0, '#ff9a4d', 0.55], [1, '#ff9a4d', 0]]) }, c);
+  // An archipelago in the corner.
+  const isl = E('g', { fill: '#5bb870', stroke: '#2f7f4a', 'stroke-width': 2 }, c);
+  E('path', { d: 'M290,20 Q320,10 350,30 Q372,44 384,70 L384,0 L300,0Z' }, isl);
+  E('path', { d: 'M262,62 Q276,54 286,66 Q276,78 262,72Z' }, isl);
+  E('path', { d: 'M322,88 Q338,84 346,96 Q336,106 322,100Z' }, isl);
+  const ty = E('g', null, c);
+  const body = E('g', null, ty);
+  E('circle', { r: 118, fill: RG([[0, '#fff', 0.55], [0.55, '#fff', 0.25], [1, '#fff', 0]]) }, body);
+  const arms = [];
+  for (let k = 0; k < 4; k++) {
+    const pts = [];
+    for (let r = 16; r <= 118; r += 5) { const a = k * (TAU / 4) + (r - 16) * 0.024; pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
+    const d = pathOf(pts);
+    for (const [sw, op] of [[24, 0.28], [14, 0.5], [6, 0.9]]) E('path', { d, fill: 'none', stroke: '#fff', 'stroke-width': sw, 'stroke-linecap': 'round', opacity: op }, body);
+    arms.push(d);
+  }
+  E('circle', { r: 17, fill: '#1c63a8' }, ty);
+  E('circle', { r: 17, fill: 'none', stroke: '#fff', 'stroke-width': 4, opacity: 0.95 }, ty);
+  const ripples = new Pool(c, 4, () => E('circle', { fill: 'none', stroke: '#fff', 'stroke-width': 2 }));
+  const spray = new Pool(c, 20, () => E('rect', { width: 10, height: 2.4, rx: 1.2, fill: '#fff' }));
+  let px = 170, py = 160, tx = 170, ty2 = 160, rot = 0, pow = 0;
+  s.update = (dt, ad) => {
+    pow = Math.max(0, pow - ad * 0.18);
+    px += (tx - px) * (1 - Math.exp(-ad * 1.4));
+    py += (ty2 - py) * (1 - Math.exp(-ad * 1.4));
+    rot -= (24 + pow * 90) * ad;
+    const sc = 0.78 + pow * 0.3;
+    mv(ty, px, py, 0, sc);
+    body.setAttribute('transform', `rotate(${f1(rot)})`);
+    mv(warm, px, py, 0, 0.8 + pow * 0.5);
+    ripples.step(ad, (p) => {
+      const u = p.age / 1.2;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(4 + u * 40), opacity: (1 - u).toFixed(2) });
+    });
+    if (pow > 0.2 && ad > 0 && Math.random() < ad * 18 * pow) spray.spawn((p) => { p.a = rnd(0, TAU); p.r = 20; });
+    spray.step(ad, (p, d) => {
+      p.r += 90 * d; p.a -= 1.2 * d;
+      if (p.r > 130) return false;
+      mv(p.el, px + Math.cos(p.a) * p.r * sc, py + Math.sin(p.a) * p.r * sc, p.a * 57.3 + 90);
+      p.el.setAttribute('opacity', (1 - p.r / 130).toFixed(2));
+    });
+  };
+  s.tap = (x, y) => {
+    tx = clamp(x, 80, w - 80); ty2 = clamp(y, 90, h - 70);
+    pow = 1;
+    s.wake = 8;
+    ripples.spawn((p) => { p.x = x; p.y = y; });
+  };
+});
+
+// ---------------------------------------------------------------- volcano
+makeSpot('volcano', 8, 888, 384, 312, [0, 0, 384, 312], '#ff6a2b', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  const sh = E('g', null, c);
+  E('rect', { width: w, height: h, fill: G([[0, '#7cc4f5'], [1, '#e6f5ff']]) }, sh);
+  cloud(sh, 70, 44, 0.9, '#fff', 0.9);
+  // Mountain, the cut-away earth below it and the magma chamber.
+  const mt = [[-20, 206], [90, 152], [150, 112], [172, 86], [212, 86], [234, 112], [300, 152], [404, 206]];
+  E('rect', { y: 206, width: w, height: h - 206, fill: '#6b4630' }, sh);
+  for (let i = 0; i < 6; i++) E('rect', { y: 224 + i * 18, width: w, height: 3, fill: '#5a3a28', opacity: 0.7 }, sh);
+  E('path', { d: polyOf(mt.concat([[404, 210], [-20, 210]])), fill: '#8a6a52' }, sh);
+  E('path', { d: polyOf([[150, 112], [172, 86], [192, 86], [160, 150], [90, 152]]), fill: '#9d7c62' }, sh);
+  E('path', { d: 'M-20,206 H404', stroke: '#4a8f55', 'stroke-width': 7 }, sh);
+  const chamber = E('ellipse', { cx: 192, cy: 272, rx: 96, ry: 36, fill: RG([[0, '#ffd24a'], [0.6, '#ff7a2b'], [1, '#c8341a']]) }, sh);
+  E('ellipse', { cx: 192, cy: 272, rx: 96, ry: 36, fill: 'none', stroke: '#3c2517', 'stroke-width': 4 }, sh);
+  const pipe = E('path', { d: 'M185,240 L185,92 L199,92 L199,240Z', fill: '#ff7a2b' }, sh);
+  E('path', { d: 'M192,240 V96', stroke: '#ffd24a', 'stroke-width': 3, opacity: 0.8 }, sh);
+  const bub = new Pool(sh, 10, () => E('circle', { r: 4, fill: '#ffe27a' }));
+  const smoke = new Pool(sh, 18, () => E('circle', { r: 10, fill: '#7d7f88' }));
+  const flows = [
+    'M180,88 L150,112 L90,152 L-12,206',
+    'M204,88 L234,112 L300,152 L396,206',
+  ].map((d) => { const p = E('path', { d, fill: 'none', stroke: '#ff5a1f', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, sh); const len = p.getTotalLength(); A(p, { 'stroke-dasharray': len, 'stroke-dashoffset': len, opacity: 0 }); return { p, len }; });
+  const crater = E('ellipse', { cx: 192, cy: 86, rx: 24, ry: 9, fill: '#ffb22b' }, sh);
+  const bombs = new Pool(sh, 30, () => E('circle', { r: 5, fill: '#ff6a2b', stroke: '#ffd24a', 'stroke-width': 1.5 }));
+  const flashC = E('circle', { cx: 192, cy: 86, r: 60, fill: RG([[0, '#fff3a8', 0.9], [1, '#ff9a3d', 0]]), opacity: 0 }, sh);
+  let er = 0, flowP = 0, flowOp = 0, quake = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    er = Math.max(0, er - ad / 3);
+    quake = Math.max(0, quake - ad * 1.6);
+    mv(sh, Math.sin(T * 60) * 3 * quake, Math.cos(T * 52) * 2 * quake);
+    chamber.setAttribute('opacity', (0.88 + 0.12 * Math.sin(T * 2 + er * 6)).toFixed(2));
+    A(crater, { fill: er > 0 ? '#ffe45c' : '#ff9a2b' });
+    flashC.setAttribute('opacity', Math.max(0, er - 0.6).toFixed(2));
+    if (flowP > 0 || er > 0) {
+      flowP = Math.min(1.001, flowP + ad / 3.2);
+      flowOp = er > 0 ? 1 : Math.max(0, flowOp - ad / 4);
+      flows.forEach((f) => A(f.p, { 'stroke-dashoffset': f1(f.len * (1 - ease(Math.min(1, flowP)))), opacity: flowOp.toFixed(2) }));
+      if (er <= 0 && flowOp <= 0) { flowP = 0; flows.forEach((f) => A(f.p, { 'stroke-dashoffset': f.len })); }
+    }
+    if (ad > 0 && Math.random() < ad * 2.5) bub.spawn((p) => { p.x = 192 + rnd(-70, 70); p.y = 285; p.vx = rnd(-8, 8); });
+    bub.step(ad, (p, d) => {
+      p.y -= 18 * d; p.x += p.vx * d;
+      if (p.age > 1.4 || p.y < 255) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(2.5 + Math.sin(p.age * 5) * 0.8), opacity: Math.min(1, (1.4 - p.age) * 2).toFixed(2) });
+    });
+    const rate = er > 0 ? 16 : 1.6;
+    if (ad > 0 && Math.random() < ad * rate) smoke.spawn((p) => { p.x = 192 + rnd(-10, 10); p.er = er > 0; });
+    smoke.step(ad, (p, d) => {
+      const life = p.er ? 4.5 : 5;
+      const u = p.age / life;
+      if (u >= 1) return false;
+      const wind = 26 + (p.er ? 10 : 0);
+      A(p.el, { cx: f1(p.x + u * wind * 4), cy: f1(82 - u * (p.er ? 90 : 55) * 2.2), r: f1((p.er ? 12 : 8) + u * (p.er ? 34 : 22)), fill: p.er ? '#4a4a55' : '#9a9ca6', opacity: (0.75 * (1 - u)).toFixed(2) });
+    });
+    bombs.step(ad, (p, d) => {
+      p.vy += 330 * d; p.x += p.vx * d; p.y += p.vy * d;
+      if (p.y > 206) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(p.r) });
+    });
+  };
+  s.tap = () => {
+    er = 1; flowP = Math.max(0.001, flowP); quake = 1;
+    s.wake = 9;
+    for (let i = 0; i < 24; i++) bombs.spawn((p) => { p.x = 192 + rnd(-8, 8); p.y = 86; p.vx = rnd(-95, 95); p.vy = -rnd(190, 340); p.r = rnd(3, 6.5); });
+  };
+});
+
+// -------------------------------------------------------------- avalanche
+makeSpot('avalanche', 408, 888, 384, 312, [0, 0, 384, 312], '#cfe2f5', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#9cc9ee'], [1, '#e7f2fb']]) }, c);
+  const sc = E('g', null, c);
+  const cl = cloud(sc, 0, 0, 0.9, '#fff', 0.9);
+  const P = [[-10, 90], [60, 44], [130, 98], [240, 168], [384, 232]];
+  const slopeY = (x) => {
+    if (x <= P[0][0]) return P[0][1];
+    for (let i = 0; i < P.length - 1; i++) {
+      if (x <= P[i + 1][0]) return lerp(P[i][1], P[i + 1][1], (x - P[i][0]) / (P[i + 1][0] - P[i][0]));
+    }
+    return P[P.length - 1][1] + (x - P[P.length - 1][0]) * 0.45;
+  };
+  const dirAt = (x) => { const m = (slopeY(x + 4) - slopeY(x - 4)) / 8; const l = Math.hypot(1, m); return [1 / l, m / l]; };
+  E('path', { d: polyOf(P.concat([[384, h], [-10, h]])), fill: G([[0, '#8aa3c3'], [1, '#5f7a9c']]) }, c);
+  // Sharp rock ribs.
+  E('path', { d: 'M60,44 L90,150 L40,200 Z M130,98 L170,210 L120,240Z', fill: '#4f6788', opacity: 0.55 }, c);
+  const snowLine = P.map((p) => [p[0], p[1] + 15]);
+  E('path', { d: pathOf(snowLine), fill: 'none', stroke: '#fff', 'stroke-width': 40, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, c);
+  E('path', { d: pathOf(snowLine.map((p) => [p[0], p[1] + 10])), fill: 'none', stroke: '#dbe9f7', 'stroke-width': 14, 'stroke-linejoin': 'round', opacity: 0.8 }, c);
+  // Pines at the foot of the slope.
+  const trees = E('g', null, c);
+  for (const tx of [290, 318, 346, 372]) {
+    const ty = slopeY(tx) + 38;
+    E('path', { d: `M${tx},${ty - 38} l-13,38 h26Z`, fill: '#2f7f55' }, trees);
+    E('path', { d: `M${tx},${ty - 52} l-10,28 h20Z`, fill: '#3c966a' }, trees);
+    E('path', { d: `M${tx - 6},${ty - 30} q6,-6 12,0 q-6,3 -12,0Z`, fill: '#fff' }, trees);
+  }
+  const pile = E('ellipse', { cx: 360, cy: 296, rx: 70, ry: 18, fill: '#fff', stroke: '#cfe2f5', 'stroke-width': 2 }, c);
+  const flakes = new Pool(c, 26, () => E('circle', { r: 2, fill: '#fff' }));
+  const crack = E('path', { fill: 'none', stroke: '#6d86a8', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0 }, c);
+  const powder = new Pool(c, 30, () => E('circle', { fill: '#fff' }));
+  const chunks = new Pool(c, 46, () => E('circle', { fill: '#fff', stroke: '#c5d8ee', 'stroke-width': 1.2 }));
+  let pileK = 0.15, crackT = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    mv(cl, 60 + ((T * 6) % 440) - 40, 36, 0, 0.9);
+    pileK = Math.max(0.15, pileK - ad * 0.03);
+    A(pile, { ry: f1(8 + pileK * 40), rx: f1(30 + pileK * 70) });
+    if (ad > 0 && Math.random() < ad * 8) flakes.spawn((p) => { p.x = rnd(0, w); p.y = -4; p.ph = rnd(0, TAU); });
+    flakes.step(ad, (p, d) => {
+      p.y += 28 * d; p.x += Math.sin(p.age * 2 + p.ph) * 10 * d;
+      if (p.y > h) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y) });
+    });
+    crackT = Math.max(0, crackT - ad);
+    crack.setAttribute('opacity', Math.min(1, crackT * 2).toFixed(2));
+    chunks.step(ad, (p, d) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      p.v += 230 * d;
+      const dir = dirAt(p.x);
+      p.x += dir[0] * p.v * d;
+      if (p.x > 410) { pileK = Math.min(1, pileK + 0.025); return false; }
+      const y = slopeY(p.x) + 12 - Math.abs(Math.sin(p.age * 9 + p.ph)) * p.hop;
+      A(p.el, { cx: f1(p.x), cy: f1(y), r: f1(p.r), opacity: 1 });
+      if (Math.random() < d * 10) powder.spawn((q) => { q.x = p.x - 10; q.y = y - 4; q.r0 = rnd(8, 14); });
+    });
+    powder.step(ad, (p, d) => {
+      const u = p.age / 1.5;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y - u * 26), r: f1(p.r0 + u * 26), opacity: (0.55 * (1 - u)).toFixed(2) });
+    });
+  };
+  s.tap = (x) => {
+    const sx = clamp(x, 80, 280);
+    s.wake = 9;
+    const y = slopeY(sx) + 8;
+    const d = dirAt(sx);
+    const nx = -d[1], ny = d[0];
+    A(crack, { d: `M${f1(sx - nx * 26)},${f1(y - ny * 26)} l${f1(nx * 12)},${f1(ny * 12 + 4)} l${f1(-nx * 6 + 5)},${f1(-ny * 6)} l${f1(nx * 14)},${f1(ny * 14 + 3)} l${f1(-nx * 5 - 4)},${f1(-ny * 5)} l${f1(nx * 16)},${f1(ny * 16)}` });
+    crackT = 0.5;
+    for (let i = 0; i < 40; i++) chunks.spawn((p) => {
+      p.x = sx + rnd(-26, 30); p.v = rnd(10, 50); p.r = rnd(3.5, 9); p.age = -rnd(0.35, 1.1); p.hop = rnd(3, 11); p.ph = rnd(0, TAU);
+    });
+  };
+});
+
+// ----------------------------------------------------------------- tsunami
+makeSpot('tsunami', 808, 888, 384, 312, [0, 0, 384, 312], '#2aa7ff', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  const sh = E('g', null, c);
+  E('rect', { width: w, height: h, fill: G([[0, '#8fd0ff'], [1, '#e9f6ff']]) }, sh);
+  E('circle', { cx: 60, cy: 48, r: 22, fill: '#ffe27a' }, sh);
+  cloud(sh, 250, 44, 0.8, '#fff', 0.9);
+  const BED = [[0, 292], [150, 268], [230, 206], [285, 156], [330, 124], [384, 110]];
+  const bed = (x) => { for (let i = 0; i < BED.length - 1; i++) if (x <= BED[i + 1][0]) return lerp(BED[i][1], BED[i + 1][1], (x - BED[i][0]) / (BED[i + 1][0] - BED[i][0])); return BED[BED.length - 1][1]; };
+  const SEA = 142;
+  // A town on the shore, drawn before the water so a flood can cover it.
+  const town = [326, 352].map((hx, i) => {
+    const g = E('g', null, sh);
+    E('rect', { x: -11, y: -17, width: 22, height: 17, fill: i ? '#9bd0f5' : '#ffd24a' }, g);
+    E('path', { d: 'M-14,-17 L0,-30 L14,-17Z', fill: '#e0524f' }, g);
+    E('rect', { x: -3, y: -9, width: 6, height: 9, fill: '#8d6e63' }, g);
+    mv(g, hx, bed(hx) + 1);
+    return { g, x: hx, y: bed(hx) + 1 };
+  });
+  const sand = E('path', { d: polyOf(BED.concat([[384, h], [0, h]])), fill: '#e8cf98' }, sh);
+  E('path', { d: pathOf(BED), fill: 'none', stroke: '#c4a86b', 'stroke-width': 4 }, sh);
+  const water = E('path', { fill: G([[0, '#3db4ff', 0.88], [1, '#0b4fa0', 0.95]]) }, sh);
+  const foam = E('path', { fill: 'none', stroke: '#fff', 'stroke-width': 2.5, 'stroke-linecap': 'round' }, sh);
+  const boat = E('g', null, sh);
+  E('path', { d: 'M-16,0 H16 L11,9 H-11Z', fill: '#e0524f' }, boat);
+  E('path', { d: 'M0,-3 V-24 L14,-6Z', fill: '#fff', stroke: '#c9d0dc', 'stroke-width': 1 }, boat);
+  const rings = new Pool(sh, 3, () => E('circle', { fill: 'none', stroke: '#ffd24a', 'stroke-width': 3 }));
+  const star = E('path', { d: 'M0,-14 L4,-4 L14,0 L4,4 L0,14 L-4,4 L-14,0 L-4,-4Z', fill: '#ffd24a', opacity: 0 }, sh);
+  let wave = null, shk = 0;
+  const N = 64;
+  const surf = (x, T) => {
+    let y = SEA + 2.6 * Math.sin(x * 0.04 + T * 1.6) + 1.8 * Math.sin(x * 0.09 - T * 1.1);
+    if (wave) {
+      const sg = wave.sig, d1 = (x - wave.px) / sg, d2 = (x - wave.px + sg * 1.9) / (sg * 1.1);
+      y -= wave.amp * (Math.exp(-d1 * d1) - 0.3 * Math.exp(-d2 * d2));
+    }
+    return y;
+  };
+  s.update = (dt, ad) => {
+    const T = s.T;
+    shk = Math.max(0, shk - ad * 1.6);
+    mv(sh, Math.sin(T * 55) * 2.5 * shk, Math.cos(T * 47) * 2 * shk);
+    if (wave) {
+      const depth = clamp((bed(wave.px) - SEA) / 150, 0, 1);
+      wave.px += (46 + 70 * depth) * ad;
+      const grow = smooth((wave.px - 130) / 190);
+      wave.amp = (12 + 70 * grow) * (wave.px > 400 ? Math.max(0, 1 - (wave.px - 400) / 130) : 1);
+      wave.sig = lerp(44, 24, grow);
+      if (wave.px > 540) wave = null;
+    }
+    const top = [], bot = [];
+    for (let i = 0; i <= N; i++) {
+      const x = (i / N) * w;
+      const b = bed(x);
+      top.push([x, Math.min(surf(x, T), b)]);
+      bot.push([x, b]);
+    }
+    water.setAttribute('d', polyOf(top.concat(bot.reverse())));
+    foam.setAttribute('d', pathOf(top));
+    const by = surf(130, T);
+    mv(boat, 130, by - 5, Math.atan2(surf(138, T) - surf(122, T), 16) * 57.3, 0.9);
+    for (const t of town) {
+      const depthW = bed(t.x) - surf(t.x, T);
+      const k = clamp((depthW - 5) / 40, 0, 1);
+      mv(t.g, t.x - k * 4, t.y, -k * 16);
+    }
+    rings.step(ad, (p) => {
+      const u = p.age / 1.1;
+      if (u >= 1) return false;
+      A(p.el, { cx: 90, cy: 282, r: f1(6 + u * 60), opacity: (1 - u).toFixed(2) });
+    });
+    star.setAttribute('opacity', Math.max(0, shk - 0.3).toFixed(2));
+    mv(star, 90, 282, T * 120, 0.8 + shk);
+  };
+  s.tap = () => {
+    wave = { px: 90, amp: 12, sig: 44 };
+    shk = 1; s.wake = 14;
+    for (let i = 0; i < 3; i++) rings.spawn((p) => { p.age = -i * 0.25; });
+  };
+  s.update(0, 0);
+});
+
+// ---------------------------------------------------------------- currents
+makeSpot('currents', 808, 1214, 384, 296, [0, 0, 384, 296], '#ff8c42', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#52c9d6'], [0.5, '#1d7fb8'], [1, '#0b2b66']]) }, c);
+  // Sun on the left (warm), ice on the right (cold).
+  E('circle', { cx: 28, cy: 24, r: 20, fill: '#ffd84a' }, c);
+  E('path', { d: 'M330,0 Q350,34 384,30 V0Z', fill: '#eaf6ff' }, c);
+  E('path', { d: `M0,${h} V268 Q100,252 200,270 T${w},262 V${h}Z`, fill: '#d9bf86' }, c);
+  const weeds = [40, 120, 210, 300].map((x) => { const g = E('path', { fill: 'none', stroke: '#3fae6a', 'stroke-width': 4, 'stroke-linecap': 'round' }, c); return { g, x }; });
+  // Loop: east along the surface, down at the cold end, back west deep down.
+  const X0 = 48, X1 = 336, Y0 = 82, Y1 = 214, R = 44;
+  const loopD = `M${X0 + R},${Y0} H${X1 - R} A${R},${R} 0 0 1 ${X1},${Y0 + R} V${Y1 - R} A${R},${R} 0 0 1 ${X1 - R},${Y1} H${X0 + R} A${R},${R} 0 0 1 ${X0},${Y1 - R} V${Y0 + R} A${R},${R} 0 0 1 ${X0 + R},${Y0}Z`;
+  const loop = E('path', { d: loopD, fill: 'none', stroke: G([[0, '#ff8c42'], [1, '#4fc3f7']], { units: 'userSpaceOnUse', y1: Y0, y2: Y1 }), 'stroke-width': 22, opacity: 0.4 }, c);
+  const len = loop.getTotalLength();
+  const NS_ = 240, samp = [];
+  for (let i = 0; i <= NS_; i++) { const p = loop.getPointAtLength((i / NS_) * len); samp.push([p.x, p.y]); }
+  const at = (u) => {
+    u = ((u % 1) + 1) % 1;
+    const f = u * NS_, i = Math.floor(f), t = f - i;
+    const a = samp[i], b = samp[Math.min(NS_, i + 1)];
+    return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), Math.atan2(b[1] - a[1], b[0] - a[0]) * 57.3];
+  };
+  const colOf = (y) => { const k = clamp((y - Y0) / (Y1 - Y0), 0, 1); return `rgb(${Math.round(lerp(255, 120, k))},${Math.round(lerp(150, 215, k))},${Math.round(lerp(70, 255, k))})`; };
+  const arrows = [];
+  for (let i = 0; i < 30; i++) arrows.push(E('path', { d: 'M-6,-5 L6,0 L-6,5 L-2,0Z' }, c));
+  const fish = [0.04, 0.5].map((u) => { const g = E('g', null, c); E('ellipse', { rx: 9, ry: 5, fill: '#ffb84d' }, g); E('path', { d: 'M-8,0 L-15,-5 V5Z', fill: '#ffb84d' }, g); E('circle', { cx: 4, cy: -1, r: 1.3, fill: '#23304a' }, g); return { g, u }; });
+  const ducks = [];
+  const mkDuck = () => {
+    const g = E('g', null, c);
+    E('ellipse', { rx: 14, ry: 9, fill: '#ffd93d', stroke: '#e0a800', 'stroke-width': 1.5 }, g);
+    E('circle', { cx: 9, cy: -10, r: 7, fill: '#ffd93d', stroke: '#e0a800', 'stroke-width': 1.5 }, g);
+    E('path', { d: 'M15,-10 L22,-8 L15,-6Z', fill: '#ff8a3d' }, g);
+    E('circle', { cx: 11, cy: -12, r: 1.4, fill: '#23304a' }, g);
+    E('path', { d: 'M-6,-1 Q-1,-8 5,-1Z', fill: '#f2c200' }, g);
+    return g;
+  };
+  s.update = (dt, ad) => {
+    const T = s.T;
+    arrows.forEach((a, i) => { const p = at(i / arrows.length + T * 0.05); mv(a, p[0], p[1], p[2]); A(a, { fill: colOf(p[1]), stroke: '#fff', 'stroke-width': 1 }); });
+    fish.forEach((f) => { const p = at(f.u + T * 0.03); mv(f.g, p[0], p[1] + 20 * (p[1] < 100 ? 1 : 0.0), Math.abs(p[2]) > 90 ? p[2] + 180 : p[2], 1); });
+    weeds.forEach((k) => { const sw = Math.sin(T * 1.5 + k.x) * 5; A(k.g, { d: `M${k.x},268 q${f1(sw)},-14 0,-26 t0,-24` }); });
+    for (const d of ducks) {
+      d.u += 0.05 * ad;
+      const p = at(d.u);
+      const bob = Math.sin(T * 3 + d.ph) * 2;
+      const flip = Math.cos(p[2] / 57.3) < 0 ? -0.9 : 0.9;
+      d.g.setAttribute('transform', `translate(${f1(p[0])} ${f1(p[1] - 10 + bob)}) scale(${flip} 0.9)`);
+      d.g.setAttribute('opacity', p[1] > Y0 + 30 ? '0.4' : '1');
+    }
+  };
+  s.tap = (x, y) => {
+    // Snap to the nearest point of the loop.
+    let bi = 0, bd = 1e9;
+    for (let i = 0; i < NS_; i++) { const d = (samp[i][0] - x) ** 2 + (samp[i][1] - y) ** 2; if (d < bd) { bd = d; bi = i; } }
+    if (ducks.length >= 5) { const o = ducks.shift(); o.g.remove(); }
+    ducks.push({ g: mkDuck(), u: bi / NS_, ph: rnd(0, TAU) });
+    s.wake = 10;
+  };
+  s.tap(X0 + 100, Y0);
+});
+
+// ------------------------------------------------------------------- river
+makeSpot('river', 8, 1214, 384, 296, [0, 0, 384, 296], '#3ec6e0', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  E('rect', { width: w, height: h, fill: G([[0, '#9bd0f5'], [1, '#e9f6ff']]) }, c);
+  // A basin: mountains all round, a flat plain in the middle.
+  E('path', { d: `M0,150 L40,96 L70,120 L110,70 L150,126 L210,100 L260,132 L320,92 L384,130 V${h} H0Z`, fill: '#a6b4cf' }, c);
+  E('path', { d: 'M110,70 L128,92 L118,90 L110,100 L100,90 L92,92Z', fill: '#fff' }, c);
+  E('path', { d: `M0,170 Q60,150 120,176 Q200,200 280,170 Q340,152 384,168 V${h} H0Z`, fill: '#79c488' }, c);
+  E('path', { d: `M60,250 H384 V${h} H60Z`, fill: '#e3c97c', opacity: 0.0 }, c);
+  const clo = cloud(c, 0, 0, 0.8, '#fff', 0.9);
+  const fields = E('g', null, c);
+  for (const [fx, fy, fc] of [[200, 232, '#e8d27a'], [236, 222, '#b6d96a'], [266, 238, '#e8d27a'], [150, 250, '#b6d96a']]) E('path', { d: `M${fx},${fy} h28 l8,12 h-28Z`, fill: fc, stroke: '#fff', 'stroke-width': 1, opacity: 0.9 }, fields);
+  const lake = E('ellipse', { cx: 318, cy: 270, rx: 64, ry: 20, fill: '#3db4ff', stroke: '#fff', 'stroke-width': 3 }, c);
+  const RD = 'M104,128 C118,160 78,176 112,200 S190,206 214,226 S272,252 300,266';
+  const riv = E('path', { d: RD, fill: 'none', stroke: '#2aa7ff', 'stroke-width': 10, 'stroke-linecap': 'round' }, c);
+  const rlen = riv.getTotalLength();
+  const rflow = E('path', { d: RD, fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '2 11', 'stroke-linecap': 'round', opacity: 0.8 }, c);
+  // A town in the basin.
+  for (const [hx, hy] of [[172, 216], [192, 200], [250, 258]]) {
+    const g = E('g', null, c);
+    E('rect', { x: -8, y: -11, width: 16, height: 11, fill: '#fff3d0' }, g);
+    E('path', { d: 'M-10,-11 L0,-20 L10,-11Z', fill: '#e0524f' }, g);
+    mv(g, hx, hy);
+  }
+  const drops = new Pool(c, 40, () => E('rect', { width: 1.8, height: 9, rx: 0.9, fill: '#3b86d8' }));
+  const splash = new Pool(c, 20, () => E('ellipse', { rx: 4, ry: 1.5, fill: 'none', stroke: '#fff', 'stroke-width': 1.5 }));
+  const boats = new Pool(c, 5, () => { const g = E('g', null); E('path', { d: 'M-8,0 H8 L5,5 H-5Z', fill: '#e0524f' }, g); E('path', { d: 'M0,-1 L0,-12 L8,-2Z', fill: '#fff', stroke: '#c9d0dc', 'stroke-width': 0.8 }, g); return g; });
+  let swell = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    swell = Math.max(0, swell - ad * 0.14);
+    mv(clo, 40 + ((T * 7) % 460) - 40, 34, 0, 0.8);
+    A(riv, { 'stroke-width': f1(9 + swell * 10) });
+    A(rflow, { 'stroke-dashoffset': f1(-T * (22 + swell * 40)), 'stroke-width': f1(3 + swell * 2) });
+    drops.step(ad, (p, d) => {
+      p.y += 260 * d;
+      if (p.y > p.ty) { splash.spawn((q) => { q.x = p.x; q.y = p.ty; }); return false; }
+      A(p.el, { x: f1(p.x), y: f1(p.y) });
+    });
+    splash.step(ad, (p) => {
+      const u = p.age / 0.5;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), rx: f1(3 + u * 9), ry: f1(1 + u * 3), opacity: (1 - u).toFixed(2) });
+    });
+    boats.step(ad, (p, d) => {
+      p.d += (30 + swell * 50) * d;
+      if (p.d >= rlen) return false;
+      const a = riv.getPointAtLength(p.d), b = riv.getPointAtLength(Math.min(rlen, p.d + 3));
+      mv(p.el, a.x, a.y - 4 + Math.sin(p.age * 5) * 1, Math.atan2(b.y - a.y, b.x - a.x) * 57.3 * 0.3);
+    });
+  };
+  s.tap = (x, y) => {
+    swell = Math.min(1.2, swell + 0.6);
+    s.wake = 12;
+    for (let i = 0; i < 18; i++) drops.spawn((p) => { p.x = clamp(x + rnd(-50, 50), 4, w - 4); p.y = -rnd(0, 120); p.ty = clamp(y, 100, 250) + rnd(-10, 40); });
+    boats.spawn((p) => { p.d = 0; });
+  };
+  s.update(0, 0);
+});
+
+// ---------------------------------------------------------------- landslide
+makeSpot('landslide', 408, 1214, 384, 296, [0, 0, 384, 296], '#9c6b3f', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  const sh = E('g', null, c);
+  const sky = E('rect', { width: w, height: h, fill: G([[0, '#8f9db4'], [1, '#d5e4f0']]) }, sh);
+  const P = [[-10, 96], [80, 100], [180, 152], [260, 204], [384, 238]];
+  const slopeY = (x) => { for (let i = 0; i < P.length - 1; i++) if (x <= P[i + 1][0]) return lerp(P[i][1], P[i + 1][1], (x - P[i][0]) / (P[i + 1][0] - P[i][0])); return 238; };
+  const dirAt = (x) => { const m = (slopeY(x + 4) - slopeY(x - 4)) / 8; const l = Math.hypot(1, m); return [1 / l, m / l]; };
+  E('path', { d: polyOf(P.concat([[384, h], [-10, h]])), fill: '#8a8f99' }, sh);
+  const soilTop = P.map((p) => [p[0], p[1]]);
+  const soilBot = P.map((p) => [p[0], p[1] + 40]).reverse();
+  const soil = E('path', { d: polyOf(soilTop.concat(soilBot)), fill: '#b58b57' }, sh);
+  const wet = E('path', { d: polyOf(soilTop.concat(soilBot)), fill: '#4b2f1c', opacity: 0 }, sh);
+  const grass = E('path', { d: pathOf(P), fill: 'none', stroke: '#5fae5f', 'stroke-width': 8, 'stroke-linecap': 'round' }, sh);
+  const cl = cloud(sh, 0, 0, 1.4, '#6e7890');
+  // Trees ride the slope, houses wait at the bottom.
+  const trees = [34, 108, 164, 222].map((tx) => {
+    const g = E('g', null, sh);
+    E('rect', { x: -3, y: -22, width: 6, height: 22, fill: '#6d5144' }, g);
+    E('path', { d: 'M0,-54 l-16,38 h32Z', fill: '#2f8a4f' }, g);
+    E('path', { d: 'M0,-66 l-12,28 h24Z', fill: '#3fa65a' }, g);
+    return { g, x0: tx, x: tx, v: 0, slide: false, fade: 1 };
+  });
+  const houses = E('g', null, sh);
+  for (const hx of [316, 352]) {
+    const g = E('g', null, houses);
+    E('rect', { x: -12, y: -18, width: 24, height: 18, fill: '#ffd24a' }, g);
+    E('path', { d: 'M-15,-18 L0,-31 L15,-18Z', fill: '#e0524f' }, g);
+    E('rect', { x: -3, y: -9, width: 6, height: 9, fill: '#8d6e63' }, g);
+    mv(g, hx, slopeY(hx) + 12);
+  }
+  const mud = E('ellipse', { cx: 330, cy: 262, rx: 60, ry: 12, fill: '#6b4426', opacity: 0 }, sh);
+  const crack = E('path', { d: 'M120,112 l12,10 l-6,10 l14,12 l-6,12', fill: 'none', stroke: '#3a2415', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0 }, sh);
+  const rain = new Pool(sh, 44, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#3b86d8' }));
+  const chunks = new Pool(sh, 40, () => E('rect', { fill: '#7a5230' }));
+  let wetness = 0, phase = 0, pt = 0, mudK = 0, rainT = 0, rainAt = 120;
+  const placeTree = (t) => { mv(t.g, t.x, slopeY(t.x) + 6, t.rot || 0, 1); t.g.setAttribute('opacity', t.fade.toFixed(2)); };
+  trees.forEach(placeTree);
+  s.update = (dt, ad) => {
+    const T = s.T;
+    mv(cl, 60 + ((T * 6) % 460) - 40, 34, 0, 1.4);
+    rainT = Math.max(0, rainT - ad);
+    if (rainT > 0 && ad > 0) { for (let i = 0; i < 2; i++) if (Math.random() < 0.9) rain.spawn((p) => { p.x = clamp(rainAt + rnd(-130, 130), 0, w); p.y = 40; p.v = rnd(220, 280); }); }
+    rain.step(ad, (p, d) => {
+      p.y += p.v * d;
+      if (p.y > slopeY(p.x) + 4) return false;
+      A(p.el, { x: f1(p.x), y: f1(p.y) });
+    });
+    A(wet, { opacity: Math.min(0.75, wetness * 0.75).toFixed(2) });
+    crack.setAttribute('opacity', smooth((wetness - 0.65) / 0.3).toFixed(2));
+    if (phase === 1) {
+      pt += ad;
+      for (const t of trees) {
+        if (!t.slide) continue;
+        t.v += 140 * ad;
+        const dir = dirAt(t.x);
+        t.x += dir[0] * t.v * ad;
+        t.rot = (t.rot || 0) + 40 * ad;
+        if (t.x > 400) { t.fade = 0; }
+        placeTree(t);
+      }
+      mudK = Math.min(1, mudK + ad * 0.4);
+      if (pt > 3.2) { phase = 2; pt = 0; wetness = 0; }
+    } else if (phase === 2) {
+      pt += ad;
+      mudK = Math.max(0, mudK - ad * 0.25);
+      for (const t of trees) { t.x = t.x0; t.rot = 0; t.slide = false; t.v = 0; t.fade = smooth(pt / 1.6); placeTree(t); }
+      if (pt > 1.6) phase = 0;
+    }
+    mud.setAttribute('opacity', (mudK * 0.9).toFixed(2));
+    A(mud, { rx: f1(20 + mudK * 50), ry: f1(4 + mudK * 10) });
+    chunks.step(ad, (p, d) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      p.v += 160 * d;
+      const dir = dirAt(p.x);
+      p.x += dir[0] * p.v * d;
+      if (p.x > 404) return false;
+      const y = slopeY(p.x) + 8 - Math.abs(Math.sin(p.age * 8 + p.ph)) * p.hop;
+      A(p.el, { width: f1(p.r * 2), height: f1(p.r * 1.6), opacity: 1 });
+      mv(p.el, p.x - p.r, y - p.r, p.age * 120);
+    });
+  };
+  s.tap = (x) => {
+    s.wake = 8;
+    if (phase !== 0) return;
+    rainT = 1.8; rainAt = x;
+    wetness += 0.36;
+    if (wetness >= 1) {
+      wetness = 1; phase = 1; pt = 0;
+      trees.forEach((t, i) => { t.slide = true; t.v = rnd(0, 20) + i * 4; });
+      for (let i = 0; i < 38; i++) chunks.spawn((p) => { p.x = rnd(70, 230); p.v = rnd(10, 40); p.r = rnd(4, 9); p.age = -rnd(0.1, 1.1); p.hop = rnd(2, 9); p.ph = rnd(0, TAU); p.el.setAttribute('fill', Math.random() < 0.35 ? '#8a8f99' : '#7a5230'); });
+      s.wake = 8;
+    }
+  };
+});
+
+// ------------------------------------------------------------------ plates
+makeSpot('plates', 8, 1524, 1184, 400, [292, 0, 600, 400], '#ff6a2b', (s) => {
+  const c = s.c, w = s.w, h = s.h;
+  const sh = E('g', null, c);
+  E('rect', { width: w, height: 160, fill: G([[0, '#7cc4f5'], [1, '#e6f5ff']]) }, sh);
+  E('circle', { cx: 1090, cy: 54, r: 26, fill: '#ffe27a' }, sh);
+  // Mantle.
+  E('rect', { y: 150, width: w, height: h - 150, fill: G([[0, '#e8501f'], [1, '#8a1d10']]) }, sh);
+  const conv = [[300, 340, 1], [820, 350, -1]].map((k) => {
+    const p = E('path', { d: `M${k[0] - 110},${k[1]} C${k[0] - 110},${k[1] - 70} ${k[0] + 110},${k[1] - 70} ${k[0] + 110},${k[1]}`, fill: 'none', stroke: '#ffb347', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-dasharray': '4 16', opacity: 0.8 }, sh);
+    return { p, dir: k[2] };
+  });
+  const bub = new Pool(sh, 12, () => E('circle', { r: 5, fill: '#ffd24a' }));
+  // Sea over the oceanic plate at left.
+  const slabPath = 'M-20,222 H540 L900,430';
+  const slab = E('g', null, sh);
+  E('path', { d: slabPath, fill: 'none', stroke: '#2e4a70', 'stroke-width': 60, 'stroke-linejoin': 'round' }, slab);
+  E('path', { d: slabPath, fill: 'none', stroke: '#5f82ae', 'stroke-width': 50, 'stroke-linejoin': 'round' }, slab);
+  const creep = E('path', { d: slabPath, fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '12 22', opacity: 0.6 }, slab);
+  E('rect', { y: 148, width: 546, height: 44, fill: '#2f9ae6', opacity: 0.92 }, sh);
+  E('rect', { y: 148, width: 546, height: 4, fill: '#fff', opacity: 0.7 }, sh);
+  // Continental plate and what stands on it.
+  const land = E('g', null, sh);
+  E('path', { d: polyOf([[540, 196], [592, 152], [w + 20, 152], [w + 20, 262], [760, 262], [644, 246]]), fill: '#9c8466', stroke: '#6b5a42', 'stroke-width': 4 }, land);
+  E('path', { d: polyOf([[592, 152], [w + 20, 152], [w + 20, 164], [610, 164]]), fill: '#5fae5f' }, land);
+  E('path', { d: polyOf([[900, 152], [980, 92], [1060, 152]]), fill: '#8f9bb0' }, land);
+  E('path', { d: polyOf([[980, 92], [996, 108], [986, 106], [980, 114], [972, 106], [964, 108]]), fill: '#fff' }, land);
+  const houses = [660, 760, 840, 1110].map((hx, i) => {
+    const g = E('g', null, land);
+    E('rect', { x: -15, y: -24, width: 30, height: 24, fill: ['#ffd24a', '#9bd0f5', '#f4a3b8', '#ffd24a'][i] }, g);
+    E('path', { d: 'M-19,-24 L0,-40 L19,-24Z', fill: '#e0524f' }, g);
+    E('rect', { x: -4, y: -13, width: 8, height: 13, fill: '#8d6e63' }, g);
+    mv(g, hx, 155);
+    return { g, x: hx };
+  });
+  const tree = (tx) => { const g = E('g', null, land); E('rect', { x: -3, y: -16, width: 6, height: 16, fill: '#6d5144' }, g); E('circle', { cy: -26, r: 14, fill: '#3fa65a' }, g); mv(g, tx, 154); };
+  tree(710); tree(1020); tree(1150);
+  // Plate arrows.
+  const arrow = (x, y, dir, col) => { const g = E('g', null, sh); E('path', { d: 'M-34,-6 H10 V-16 L34,0 L10,16 V6 H-34Z', fill: col, stroke: '#23304a', 'stroke-width': 2.5 }, g); mv(g, x, y, 0, 1); g.setAttribute('data-dir', dir); return g; };
+  const a1 = arrow(260, 222, 1, '#ffe27a');
+  const a2 = arrow(1020, 210, -1, '#ffe27a');
+  a2.setAttribute('transform', 'translate(1020 210) scale(-1 1)');
+  // Seismograph.
+  const sg = E('g', null, c);
+  E('rect', { x: 18, y: 14, width: 220, height: 70, rx: 12, fill: '#fff9ec', stroke: '#23304a', 'stroke-width': 3 }, sg);
+  E('path', { d: 'M28,49 H228', stroke: '#c9d0dc', 'stroke-width': 1.5 }, sg);
+  const trace = E('path', { fill: 'none', stroke: '#e0524f', 'stroke-width': 2.4, 'stroke-linejoin': 'round' }, sg);
+  const tbuf = new Array(50).fill(0);
+  const rings = new Pool(sh, 12, () => E('circle', { fill: 'none', stroke: '#ffe27a', 'stroke-width': 5 }));
+  const star = E('path', { d: 'M0,-22 L6,-7 L22,0 L6,7 L0,22 L-6,7 L-22,0 L-6,-7Z', fill: '#fff3a8', stroke: '#ff9a2b', 'stroke-width': 3, opacity: 0 }, sh);
+  let q = 0, ex = 0, ey = 0, acc = 0, slip = 0;
+  s.update = (dt, ad) => {
+    const T = s.T;
+    q = Math.max(0, q - ad * 0.45);
+    slip = Math.max(0, slip - ad * 1.4);
+    mv(sh, Math.sin(T * 61) * 5 * q * q, Math.cos(T * 53) * 3.5 * q * q);
+    A(creep, { 'stroke-dashoffset': f1(-T * 7) });
+    conv.forEach((k) => A(k.p, { 'stroke-dashoffset': f1(-T * 16 * k.dir) }));
+    // Slabs lurch toward each other, then relax.
+    mv(slab, slip * 7, 0);
+    mv(a1, 260 + Math.sin(T * 1.2) * 6, 222, 0, 1);
+    a2.setAttribute('transform', `translate(${f1(1020 - Math.sin(T * 1.2) * 3)} 210) scale(-0.8 0.8)`);
+    houses.forEach((hh, i) => mv(hh.g, hh.x + Math.sin(T * 38 + i) * 3 * q, 155, Math.sin(T * 29 + i * 2) * 5 * q));
+    if (ad > 0 && Math.random() < ad * 1.5) bub.spawn((p) => { p.x = rnd(40, 1100); p.y = rnd(300, 390); });
+    bub.step(ad, (p, d) => {
+      p.y -= 14 * d;
+      if (p.age > 3 || p.y < 270) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(2 + Math.sin(p.age * 3) * 1.5), opacity: Math.min(0.9, (3 - p.age)).toFixed(2) });
+    });
+    rings.step(ad, (p) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      const u = p.age / 1.6;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(ex), cy: f1(ey), r: f1(10 + u * 300), 'stroke-width': f1(7 * (1 - u) + 1), opacity: (1 - u).toFixed(2) });
+    });
+    mv(star, ex, ey, T * 90, 0.5 + q * 0.8);
+    star.setAttribute('opacity', Math.max(0, q * 1.4 - 0.2).toFixed(2));
+    acc += ad;
+    if (acc > 0.05) {
+      acc = 0;
+      tbuf.shift();
+      tbuf.push((Math.random() * 2 - 1) * (2 + q * 24) + Math.sin(T * 40) * q * 10);
+      trace.setAttribute('d', pathOf(tbuf.map((v, i) => [28 + i * 4, 49 + clamp(v, -20, 20)])));
+    }
+  };
+  s.tap = (x, y) => {
+    ex = clamp(x, 40, w - 40); ey = clamp(y, 200, h - 30);
+    q = 1; slip = 1; s.wake = 6;
+    for (let i = 0; i < 3; i++) rings.spawn((p) => { p.age = -i * 0.3; });
+  };
+  s.update(0, 0);
+});
+
+// --------------------------------------------------------- camera and input
+const labelsEl = document.getElementById('labels');
+const sheet = document.getElementById('sheet');
+const introEl = document.getElementById('intro');
+const cam = { cx: 600, cy: 966, s: 0.3 };
+let tw = null;
+let current = null;
+let W = 0, H = 0;
+
+spots.forEach((sp) => {
+  const l = document.createElement('div');
+  l.className = 'label';
+  labelsEl.appendChild(l);
+  sp.label = l;
+});
+
+function frameFor(box, avail, pad) {
+  const sc = Math.min(avail.w / box[2], avail.h / box[3]) * pad;
+  return {
+    s: sc,
+    cx: box[0] + box[2] / 2 - (avail.x + avail.w / 2 - W / 2) / sc,
+    cy: box[1] + box[3] / 2 - (avail.y + avail.h / 2 - H / 2) / sc,
+  };
+}
+
+function availRect(zoomed) {
+  const top = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sa-top')) || 0);
+  const topPad = top + 62;
+  if (!zoomed) return { x: 0, y: topPad, w: W, h: Math.max(100, H - topPad - 52) };
+  if (W > H) return { x: 0, y: topPad - 10, w: Math.max(100, W - sheet.offsetWidth), h: H - topPad };
+  return { x: 0, y: topPad, w: W, h: Math.max(100, H - sheet.offsetHeight - topPad - 4) };
+}
+
+function target() {
+  return current ? frameFor(current.zoom, availRect(true), 0.94) : frameFor([0, 0, WORLD.w, WORLD.h], availRect(false), 1);
+}
+
+function applyCam() {
+  const vw = W / cam.s, vh = H / cam.s;
+  svg.setAttribute('viewBox', `${f1(cam.cx - vw / 2)} ${f1(cam.cy - vh / 2)} ${f1(vw)} ${f1(vh)}`);
+  for (const sp of spots) {
+    const sx = (sp.x + sp.w / 2 - cam.cx) * cam.s + W / 2;
+    const sy = (sp.y + 8 - cam.cy) * cam.s + H / 2;
+    sp.label.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translateX(-50%)`;
+    sp.label.style.maxWidth = Math.max(60, sp.w * cam.s - 8) + 'px';
+  }
+}
+
+function flyTo(dur) {
+  const t = target();
+  if (dur <= 0) { Object.assign(cam, t); tw = null; applyCam(); return; }
+  tw = { from: { ...cam }, to: t, t: 0, dur };
+}
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  flyTo(0);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+function setText() {
+  const u = UI[lang];
+  document.documentElement.lang = lang;
+  document.title = u.title;
+  document.getElementById('intro-text').textContent = u.intro;
+  document.getElementById('b-map-t').textContent = u.map;
+  document.getElementById('b-prev').setAttribute('aria-label', u.prev);
+  document.getElementById('b-next').setAttribute('aria-label', u.next);
+  for (const sp of spots) sp.label.textContent = TXT[sp.id][lang][0];
+  document.querySelectorAll('#langs button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
+  if (current) fillSheet();
+}
+
+function fillSheet() {
+  const t = TXT[current.id][lang];
+  document.getElementById('s-title').textContent = t[0];
+  document.getElementById('s-body').textContent = t[1];
+  document.getElementById('s-hint').textContent = t[2];
+  sheet.style.setProperty('--accent', current.accent);
+}
+
+function openSpot(sp) {
+  current = sp;
+  sp.wake = Math.max(sp.wake, 2);
+  fillSheet();
+  sheet.classList.add('open');
+  labelsEl.classList.add('hide');
+  introEl.classList.add('hide');
+  flyTo(0.8);
+  try { history.replaceState(null, '', '#' + sp.id); } catch (e) {}
+}
+
+function closeSpot() {
+  if (!current) return;
+  current = null;
+  sheet.classList.remove('open');
+  labelsEl.classList.remove('hide');
+  introEl.classList.remove('hide');
+  flyTo(0.8);
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+}
+
+function step(dir) {
+  if (!current) return;
+  const i = (spots.indexOf(current) + dir + spots.length) % spots.length;
+  openSpot(spots[i]);
+}
+
+document.getElementById('b-map').addEventListener('click', closeSpot);
+document.getElementById('b-prev').addEventListener('click', () => step(-1));
+document.getElementById('b-next').addEventListener('click', () => step(1));
+document.getElementById('langs').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  lang = b.dataset.lang;
+  try { localStorage.setItem('earth-lang', lang); } catch (err) {}
+  setText();
+  if (current) flyTo(0);
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSpot();
+  else if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+});
+
+svg.addEventListener('pointerdown', (e) => {
+  const vw = W / cam.s, vh = H / cam.s;
+  const wx = cam.cx - vw / 2 + (e.clientX / W) * vw;
+  const wy = cam.cy - vh / 2 + (e.clientY / H) * vh;
+  const hit = spots.find((sp) => wx >= sp.x && wx <= sp.x + sp.w && wy >= sp.y && wy <= sp.y + sp.h);
+  if (!hit) return;
+  if (!current) openSpot(hit);
+  else if (hit === current && !tw) hit.tap(wx - hit.x, wy - hit.y);
+});
+
+// --------------------------------------------------------------- main loop
+let last = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, last ? (ts - last) / 1000 : 0.016);
+  last = ts;
+  if (document.hidden) return;
+  if (tw) {
+    tw.t += dt;
+    const u = ease(Math.min(1, tw.t / tw.dur));
+    cam.s = tw.from.s * Math.pow(tw.to.s / tw.from.s, u);
+    cam.cx = lerp(tw.from.cx, tw.to.cx, u);
+    cam.cy = lerp(tw.from.cy, tw.to.cy, u);
+    if (tw.t >= tw.dur) tw = null;
+    applyCam();
+  }
+  // Tiles off-screen aren't worth animating. While zoomed, the neighbours
+  // stay paused; the one you're looking at is the only one that moves.
+  const vw = W / cam.s, vh = H / cam.s;
+  const vx = cam.cx - vw / 2, vy = cam.cy - vh / 2;
+  for (const sp of spots) {
+    if (current && sp !== current && !tw) continue;
+    if (sp.x > vx + vw || sp.x + sp.w < vx || sp.y > vy + vh || sp.y + sp.h < vy) continue;
+    const ad = !REDUCED || sp.wake > 0 ? dt : 0;
+    sp.wake = Math.max(0, sp.wake - dt);
+    sp.T += ad;
+    if (ad > 0) sp.update(dt, ad);
+  }
+}
+
+// Let each tile settle for a few seconds before the player sees it, so the
+// smoke, rain and drifting things are already in progress. Under reduced
+// motion this is also what the still picture is made of.
+for (const sp of spots) { for (let i = 0; i < 60; i++) { sp.T += 0.05; sp.update(0.05, 0.05); } }
+
+resize();
+setText();
+applyCam();
+const startId = (location.hash || '').slice(1);
+const startSpot = spots.find((sp) => sp.id === startId);
+if (startSpot) { openSpot(startSpot); flyTo(0); }
+requestAnimationFrame(loop);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reg.update();
+    });
+  });
+}
+})();
+</script>
+</body>
+</html>
