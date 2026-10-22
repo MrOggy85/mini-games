@@ -41,6 +41,20 @@ in increasing order of how much they'd protect the next one:
   than reimplementing it, so CI and the device can't disagree. Copy this pattern
   for the next game with authored levels.
 
+## Living Earth stories
+
+`games/earth` is an SVG page, not three.js. Each tile teaches through a short story
+rather than a paragraph: every step says what is about to happen (or asks the child to
+guess), lets them act — a tap on the picture or a choice in the sheet — narrates while
+the picture plays, then explains what happened. A choice's explanation is keyed by the
+outcome so it can say "this happened, not that", and the other choices are offered as
+"Try". Hazards end with a "what would you do?" step whose choices are stamped ✓/✗.
+
+Logic and text are split: a tile's `s.steps` (in its `makeSpot` builder) must line up
+one-to-one with `TXT[id][lang].s`, and every `pick` key, `need` tap-count and returned
+outcome key needs matching text in all three languages. Nothing checks this at boot, so
+check it when adding a step.
+
 ## Target Devices
 
 Games are designed for **iPad and iPhone**. All UI must be touch-friendly with appropriately sized tap targets.

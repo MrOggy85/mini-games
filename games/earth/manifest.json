@@ -1,7 +1,7 @@
 {
   "name": "Living Earth",
   "short_name": "Living Earth",
-  "description": "Tap the poster-style map of the Earth to zoom in on volcanoes, tsunamis, typhoons and more",
+  "description": "Find out why it rains, why volcanoes erupt and how to stay safe in a storm or an earthquake: tap, guess and watch it happen",
   "start_url": "/games/earth/",
   "display": "standalone",
   "background_color": "#0b1030",
