@@ -47,7 +47,7 @@ html, body {
 .top {
   position: fixed;
   top: calc(var(--sa-top) + 10px);
-  z-index: 3;
+  z-index: 5;
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -120,6 +120,7 @@ html, body {
 #intro b { color: #ffd24a; margin-right: 8px; }
 #intro.hide { opacity: 0; }
 
+
 #sheet {
   position: fixed;
   z-index: 4;
@@ -128,17 +129,20 @@ html, body {
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   touch-action: pan-y;
   transition: transform 0.45s cubic-bezier(.2, .8, .2, 1);
   border-top: 6px solid var(--accent, #ffd24a);
 }
-/* Portrait: a sheet from the bottom. Landscape: a column on the right. */
+/* Portrait: a sheet from the bottom. Landscape: a column on the right. The
+   min-height keeps the sheet from changing size on every story phase, which
+   would otherwise reframe the camera each time. */
 @media (orientation: portrait) {
   #sheet {
     left: 0; right: 0; bottom: 0;
-    max-height: 46vh;
+    min-height: 30vh;
+    max-height: 56vh;
     padding: 14px calc(var(--sa-right) + 18px) calc(var(--sa-bottom) + 12px) calc(var(--sa-left) + 18px);
     border-radius: 22px 22px 0 0;
     transform: translateY(110%);
@@ -147,7 +151,7 @@ html, body {
 @media (orientation: landscape) {
   #sheet {
     top: 0; right: 0; bottom: 0;
-    width: min(360px, 40vw);
+    width: min(390px, 42vw);
     padding: calc(var(--sa-top) + 64px) calc(var(--sa-right) + 18px) calc(var(--sa-bottom) + 14px) 18px;
     border-top: 0;
     border-left: 6px solid var(--accent, #ffd24a);
@@ -156,23 +160,79 @@ html, body {
   }
 }
 #sheet.open { transform: none; }
-#s-title { font-size: 22px; line-height: 1.2; }
-#s-body { font-size: 15px; line-height: 1.55; }
-#s-hint {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.4;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: #ffe9a8;
+/* Japanese for kids is written with spaces between phrases: break there. */
+:lang(ja) #sheet { word-break: keep-all; overflow-wrap: anywhere; }
+#s-head { display: flex; align-items: center; gap: 12px; }
+#s-emoji { font-size: 38px; line-height: 1; }
+#s-name { font-size: 13px; font-weight: 800; color: #5b6785; }
+#s-title { font-size: 21px; line-height: 1.2; }
+#s-dots { display: flex; gap: 6px; }
+#s-dots i { width: 24px; height: 7px; border-radius: 4px; background: #dde3ef; }
+#s-dots i.done { background: #23304a; }
+#s-dots i.on { background: var(--accent, #ffd24a); box-shadow: inset 0 0 0 1.5px #23304a; }
+
+/* The story card: what is about to happen, what is happening, what happened. */
+#s-card {
+  border-radius: 18px;
+  padding: 10px 14px 12px;
+  border: 2px solid #d9ccff;
+  background: #f4efff;
 }
-#s-hint::before { content: '👆 '; }
+#s-card[data-ph="now"] { background: #fff2dc; border-color: #ffd79a; }
+#s-card[data-ph="done"] { background: #e7f7ec; border-color: #b4e5c4; }
+#s-card[data-ph="free"] { background: #ffeef5; border-color: #ffc4dc; }
+#s-phase { font-size: 13px; font-weight: 800; margin-bottom: 4px; color: #4b3a99; }
+#s-card[data-ph="now"] #s-phase { color: #8a4a00; }
+#s-card[data-ph="done"] #s-phase { color: #17663a; }
+#s-card[data-ph="free"] #s-phase { color: #9c1f55; }
+#s-say { font-size: 16px; line-height: 1.5; }
+
+#s-do { display: flex; flex-wrap: wrap; gap: 8px; }
+#s-do .hint {
+  flex: 1 1 100%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #ffe9a8;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  animation: bob 1.4s ease-in-out infinite;
+}
+#s-do .wait { flex: 1 1 100%; text-align: center; font-size: 28px; font-weight: 900; line-height: 1; color: #d97a00; }
+#s-do .wait span { animation: blink 1s infinite; }
+#s-do .wait span:nth-child(2) { animation-delay: 0.2s; }
+#s-do .wait span:nth-child(3) { animation-delay: 0.4s; }
+#s-do button {
+  flex: 1 1 130px;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 3px solid #23304a;
+  border-radius: 18px;
+  background: #fff;
+  color: #23304a;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+#s-do button.alt { border-color: #b9c3d9; background: #eef2f9; font-size: 15px; }
+#s-do button.go { background: #23304a; color: #fff; }
+#s-do button:active { transform: scale(0.97); }
+.nudge { animation: nudge 0.45s; }
+@keyframes bob { 50% { transform: scale(1.03); } }
+@keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+@keyframes nudge { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) {
+  #s-do .hint, #s-do .wait span, .nudge { animation: none; }
+  #sheet, #labels, #intro { transition: none; }
+}
+
 .nav { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
 .nav button {
   flex: 1;
-  min-height: 48px;
+  min-height: 44px;
   border: 0;
-  border-radius: 24px;
+  border-radius: 22px;
   background: #e4ebf7;
   color: #23304a;
   font: inherit;
@@ -180,7 +240,7 @@ html, body {
   font-weight: 700;
   cursor: pointer;
 }
-.nav button#b-map { background: #23304a; color: #fff; flex: 1.4; }
+.nav button#b-map { background: #5b6785; color: #fff; flex: 1.4; }
 .nav button:active { filter: brightness(0.9); }
 </style>
 </head>
@@ -195,9 +255,16 @@ html, body {
 </div>
 <div id="intro"><b>🌏</b><span id="intro-text"></span></div>
 <div id="sheet" role="dialog" aria-live="polite">
-  <h2 id="s-title"></h2>
-  <p id="s-body"></p>
-  <p id="s-hint"></p>
+  <div id="s-head">
+    <span id="s-emoji" aria-hidden="true"></span>
+    <div><div id="s-name"></div><h2 id="s-title"></h2></div>
+  </div>
+  <div id="s-dots" aria-hidden="true"></div>
+  <div id="s-card" data-ph="ask">
+    <div id="s-phase"></div>
+    <p id="s-say"></p>
+  </div>
+  <div id="s-do"></div>
   <div class="nav">
     <button type="button" id="b-prev" aria-label="Previous">&lsaquo;</button>
     <button type="button" id="b-map">&larr; <span id="b-map-t"></span></button>
@@ -212,9 +279,17 @@ html, body {
 // ---------------------------------------------------------------------------
 // Living Earth. One tall cross-section of the planet, from space down to the
 // plates under our feet, drawn as a single SVG "world". Each phenomenon is a
-// tile on that map. Tapping a tile moves the camera (the SVG viewBox) in on it,
-// opens a caption and lets you poke it: the volcano erupts, the tornado follows
-// your finger. Everything is drawn here; there are no image assets.
+// tile on that map. Tapping a tile moves the camera (the SVG viewBox) in on it
+// and opens its story.
+//
+// A story is a few steps, and each step runs the same three beats so the
+// child is shown rather than told: it says what is about to happen (or asks
+// them to guess), lets them do it — a tap on the picture or a choice in the
+// sheet — narrates what is happening while the picture plays, then explains
+// what happened and why. A choice's explanation is keyed by what they chose,
+// so it can say "this happened, and not that", and offers the other choice
+// to try. Hazards end with a "what would you do?" step about staying safe.
+// After the last step the tile is free to play with.
 //
 // Each tile is authored in its own local coordinates (0,0 = its top-left) and
 // owns an update(dt, ad) that animates it. `ad` is the "alive" time step: it is
@@ -225,89 +300,430 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ------------------------------------------------------------- translations
 const UI = {
-  en: { title: 'Living Earth', intro: 'Tap a spot to zoom in', map: 'Map', prev: 'Previous', next: 'Next' },
-  ja: { title: 'いきている ちきゅう', intro: 'きになる ところを タップ！', map: 'ちず', prev: 'まえ', next: 'つぎ' },
-  sv: { title: 'Levande jord', intro: 'Tryck på en plats för att zooma in', map: 'Karta', prev: 'Föregående', next: 'Nästa' },
+  en: {
+    title: 'Living Earth', intro: 'Tap a picture to find out why!', map: 'Map', prev: 'Previous', next: 'Next',
+    ph: { ask: '🤔 What will happen?', now: '👀 Look!', done: '💡 What happened?', free: '🎉 You found out!' },
+    go: 'Next ➜', finish: 'Done 🎉', again: '🔁 Again', try: 'Try', restart: '↺ Start over', freeDone: 'Now play as much as you like.', boom: 'BOOM!',
+  },
+  ja: {
+    title: 'いきている ちきゅう', intro: 'しりたい えを タップ！', map: 'ちず', prev: 'まえ', next: 'つぎ',
+    ph: { ask: '🤔 どうなる かな？', now: '👀 みて！', done: '💡 なにが おきた？', free: '🎉 わかったね！' },
+    go: 'つぎ ➜', finish: 'おしまい 🎉', again: '🔁 もういちど', try: 'ためす', restart: '↺ さいしょから', freeDone: 'あとは じゆうに あそんでね。', boom: 'ゴロゴロ！',
+  },
+  sv: {
+    title: 'Levande jord', intro: 'Tryck på en bild och ta reda på varför!', map: 'Karta', prev: 'Föregående', next: 'Nästa',
+    ph: { ask: '🤔 Vad tror du händer?', now: '👀 Titta!', done: '💡 Vad hände?', free: '🎉 Nu vet du!' },
+    go: 'Nästa ➜', finish: 'Klar 🎉', again: '🔁 Igen', try: 'Testa', restart: '↺ Börja om', freeDone: 'Nu kan du leka fritt.', boom: 'PANG!',
+  },
 };
 
+// Story text, one entry per tile. `s` lines up with that tile's `steps`:
+//   ask   what is about to happen, or a question to guess at
+//   do    what to tap, for a step acted on the picture
+//   more  progress line for a step that needs several taps ({n} = taps left)
+//   pick  the choice labels, for a step acted on with a choice; the first
+//         token (the emoji) is also what a safety step pins on the picture
+//   now   what is happening while the picture plays
+//   done  what happened and why
+// `now` and `done` are either a string or keyed by the outcome.
 const TXT = {
   aurora: {
-    en: ['Aurora', 'Tiny particles blown out by the Sun crash into the air high above the poles. The air glows green, pink and purple like giant curtains.', 'Tap to send a burst of sun particles!'],
-    ja: ['オーロラ', 'たいように ふきとばされた ちいさな つぶが、きょくの うえの たかい そらで くうきに ぶつかると、カーテンのように ひかります。', 'タップして たいようの つぶを とばそう！'],
-    sv: ['Norrsken', 'Små partiklar från solen kolliderar med luften högt över polerna. Då börjar luften lysa i grönt, rosa och lila som stora gardiner.', 'Tryck för att skicka iväg solpartiklar!'],
+    e: '🌌',
+    en: {
+      name: 'Aurora', q: 'Why does the sky glow?', free: 'Tap to send more sun bits!',
+      s: [
+        { ask: 'The Sun is always blowing out tiny bits, too small to see. What happens when they reach the Earth?', do: 'Tap to send sun bits!', now: 'Whoosh! The bits fly to Earth. Earth is a giant magnet, and it pulls them toward the North and South Poles…', done: 'The bits crashed into the air high above the pole, and the air lit up! That glow is the aurora.' },
+        { ask: 'Sometimes the Sun sends just a puff, sometimes a big storm. Which makes a brighter aurora?', pick: { small: '🌤️ A small puff', big: '🌞 A big sun storm' }, now: 'Here they come…', done: { small: 'Just a soft glow. A small puff means only a few bits hit the air.', big: 'WOW! A sun storm sends so many bits that the whole sky dances. Then people far from the poles can see it too!' } },
+        { ask: 'The aurora has different colours, because each gas in the air glows its own colour. Which gas shall we light up?', pick: { green: '💚 Oxygen', pink: '💜 Nitrogen' }, now: 'Zap! The bits hit the gas…', done: { green: 'Oxygen glows green — the most common aurora colour.', pink: 'Nitrogen glows pink and purple, often along the bottom edge of the curtains.' } },
+      ],
+    },
+    ja: {
+      name: 'オーロラ', q: 'どうして そらが ひかるの？', free: 'タップして もっと つぶを とばそう！',
+      s: [
+        { ask: 'たいようは いつも、めに みえない ちいさな つぶを ふきだして いるよ。ちきゅうに とどくと どうなる かな？', do: 'タップして たいようの つぶを とばそう！', now: 'ビューン！ ちきゅうは おおきな じしゃく。つぶは きたと みなみの はし（きょく）に ひっぱられて…', done: 'つぶが きょくの たかい そらで くうきに ぶつかって、くうきが ひかった！ これが オーロラ だよ。' },
+        { ask: 'たいようは つぶを ちょっとだけ だす ときと、たくさん だす「たいようの あらし」の ときが あるよ。どっちが あかるい かな？', pick: { small: '🌤️ ちょっとだけ', big: '🌞 たいようの あらし' }, now: 'きたよ…', done: { small: 'ぼんやり ひかった だけ。つぶが すこし だと、すこし しか ひからないよ。', big: 'すごい！ つぶが たくさん きて、そら いっぱいに おどってる！ きょくから とおい まちでも みえる ことが あるよ。' } },
+        { ask: 'くうきの なかの ガスは、それぞれ ちがう いろに ひかるよ。どれを ひからせる？', pick: { green: '💚 さんそ', pink: '💜 ちっそ' }, now: 'ビリッ！ つぶが ガスに あたって…', done: { green: 'さんそは みどりに ひかるよ。いちばん よく みる オーロラの いろ だね。', pink: 'ちっそは ピンクや むらさきに ひかるよ。カーテンの したの ふちに よく みえるんだ。' } },
+      ],
+    },
+    sv: {
+      name: 'Norrsken', q: 'Varför lyser himlen?', free: 'Tryck för att skicka fler solpartiklar!',
+      s: [
+        { ask: 'Solen blåser hela tiden ut pyttesmå partiklar, för små för att se. Vad händer när de når jorden?', do: 'Tryck för att skicka solpartiklar!', now: 'Svisch! Partiklarna flyger mot jorden. Jorden är en jättemagnet som drar dem mot nordpolen och sydpolen…', done: 'Partiklarna krockade med luften högt över polen, och luften började lysa! Det skenet är norrsken.' },
+        { ask: 'Ibland skickar solen bara en liten pust, ibland en stor solstorm. Vilken ger starkast norrsken?', pick: { small: '🌤️ En liten pust', big: '🌞 En stor solstorm' }, now: 'Här kommer de…', done: { small: 'Bara ett svagt sken. En liten pust betyder att bara några få partiklar träffar luften.', big: 'WOW! En solstorm skickar så många partiklar att hela himlen dansar. Då kan man se norrsken ända ner i södra Sverige!' } },
+        { ask: 'Norrskenet har olika färger, för varje gas i luften lyser i sin egen färg. Vilken gas ska vi tända?', pick: { green: '💚 Syre', pink: '💜 Kväve' }, now: 'Zapp! Partiklarna träffar gasen…', done: { green: 'Syre lyser grönt — den vanligaste norrskensfärgen.', pink: 'Kväve lyser rosa och lila, ofta längst ner i kanten av ridåerna.' } },
+      ],
+    },
   },
   satellite: {
-    en: ['Satellites', 'Satellites circle the Earth far above the sky. They take pictures of clouds and typhoons, and they help your phone and car know where you are.', 'Tap to make the satellite take a picture and send it down!'],
-    ja: ['じんこうえいせい', 'じんこうえいせいは、そらの ずっと うえを ちきゅうの まわりを まわっています。くもや たいふうの しゃしんを とったり、いまの ばしょを おしえたり します。', 'タップして しゃしんを とって おくろう！'],
-    sv: ['Satelliter', 'Satelliter cirklar runt jorden långt ovanför himlen. De fotograferar moln och stormar, och de hjälper mobilen och bilen att veta var du är.', 'Tryck så tar satelliten en bild och skickar ner den!'],
+    e: '🛰️',
+    en: {
+      name: 'Satellites', q: "Why doesn't a satellite fall down?", free: 'Tap to take another picture!',
+      s: [
+        { ask: 'A satellite is falling all the time! But it is also flying sideways. What happens if it flies too slowly?', pick: { slow: '🐢 Slowly', fast: '🚀 Super fast' }, now: { slow: 'It is going too slowly…', fast: 'Zoom!' }, done: { slow: 'Too slow, so it fell down and burned up in the air like a shooting star! A satellite has to be fast.', fast: 'So fast that it keeps falling around the Earth and never hits it! That is called an orbit. It goes all the way around in about 90 minutes.' } },
+        { ask: 'Satellites take pictures of clouds and storms. How does the picture get down to us?', do: 'Tap to take a picture!', now: 'Click! The picture is sent as invisible radio waves…', done: "The dish on the ground caught the picture! Weather forecasters use these to see storms coming, and the map on a phone uses satellites too." },
+      ],
+    },
+    ja: {
+      name: 'じんこうえいせい', q: 'どうして えいせいは おちて こないの？', free: 'タップして もう 1まい とろう！',
+      s: [
+        { ask: 'じつは えいせいは ずっと おちつづけて いるんだ！ でも よこにも とんで いる。ゆっくり だったら どうなる？', pick: { slow: '🐢 ゆっくり', fast: '🚀 ものすごく はやく' }, now: { slow: 'おそすぎる…', fast: 'ビューン！' }, done: { slow: 'おそすぎて おちて しまい、くうきで もえて ながれぼし みたいに なった！ えいせいは はやく ないと だめ なんだ。', fast: 'はやすぎて、おちても おちても ちきゅうの まわりを まわりつづける！ これを「きどう」と いうよ。1しゅう やく 90ぷん。' } },
+        { ask: 'えいせいは くもや たいふうの しゃしんを とるよ。しゃしんは どうやって とどく かな？', do: 'タップして しゃしんを とろう！', now: 'パシャ！ しゃしんは めに みえない でんぱに なって…', done: 'じめんの アンテナが しゃしんを うけとった！ てんきよほうの ひとは これで あらしが くるのを しるよ。スマホの ちずも えいせいを つかって いるんだ。' },
+      ],
+    },
+    sv: {
+      name: 'Satelliter', q: 'Varför ramlar inte satelliten ner?', free: 'Tryck för att ta en bild till!',
+      s: [
+        { ask: 'En satellit faller faktiskt hela tiden! Men den flyger också åt sidan. Vad händer om den flyger för långsamt?', pick: { slow: '🐢 Långsamt', fast: '🚀 Jättefort' }, now: { slow: 'Den åker för långsamt…', fast: 'Wroom!' }, done: { slow: 'För långsamt, så den föll ner och brann upp i luften som ett stjärnfall! En satellit måste åka fort.', fast: 'Så fort att den faller runt jorden utan att någonsin träffa den! Det kallas en omloppsbana. Ett varv runt jorden tar ungefär 90 minuter.' } },
+        { ask: 'Satelliter fotograferar moln och stormar. Hur kommer bilden ner till oss?', do: 'Tryck för att ta en bild!', now: 'Klick! Bilden skickas som osynliga radiovågor…', done: 'Parabolen på marken fångade bilden! Meteorologer ser stormar komma på sådana bilder, och kartan i mobilen använder också satelliter.' },
+      ],
+    },
   },
   wind: {
-    en: ['Wind & clouds', 'Sunshine warms the ground and the warm air rises. Cooler air rushes in to take its place. That moving air is the wind, and it pushes the clouds along.', 'Tap to blow a big gust of wind!'],
-    ja: ['かぜと くも', 'たいように あたためられた くうきは うえに のぼり、そこへ つめたい くうきが ながれこみます。この くうきの うごきが かぜで、くもも はこびます。', 'タップして つよい かぜを ふかせよう！'],
-    sv: ['Vind & moln', 'Solen värmer marken och den varma luften stiger. Kallare luft rusar in i stället. Den rörliga luften är vinden, och den blåser molnen framför sig.', 'Tryck för att blåsa upp en stor vindpust!'],
+    e: '🌬️',
+    en: {
+      name: 'Wind & clouds', q: 'Where does wind come from?', free: 'Tap to blow a gust!',
+      s: [
+        { ask: 'The Sun warms the ground, and the ground warms the air. What does warm air do?', do: 'Tap the Sun!', now: 'Look at the red arrows: the warm air floats up, like a hot-air balloon…', done: 'Cool air (the blue arrows) slid in to fill the space. Air moving from place to place — that is wind!' },
+        { ask: 'What happens if the Sun is weak — or really strong?', pick: { weak: '🌥️ Weak Sun', strong: '☀️ Strong Sun' }, now: 'Watch the wind turbine…', done: { weak: 'Only a gentle breeze. A little warming makes a little wind.', strong: 'A big gust! More warm air rising means more cool air rushing in. The turbine spins fast and makes electricity.' } },
+      ],
+    },
+    ja: {
+      name: 'かぜと くも', q: 'かぜは どこから くるの？', free: 'タップして かぜを ふかせよう！',
+      s: [
+        { ask: 'たいようが じめんを あたためて、じめんが くうきを あたためるよ。あたたかい くうきは どうなる？', do: 'たいようを タップ！', now: 'あかい やじるしを みて。あたたかい くうきは ねつききゅう みたいに うえに のぼって…', done: 'あいた ところに つめたい くうき（あおい やじるし）が ながれこんだ。くうきが うごく こと、それが かぜ だよ！' },
+        { ask: 'たいようが よわいと？ とても つよいと？', pick: { weak: '🌥️ よわい たいよう', strong: '☀️ つよい たいよう' }, now: 'ふうしゃを みてね…', done: { weak: 'そよかぜ だけ。すこし あたたまると、すこしの かぜに なるよ。', strong: 'つよい かぜ！ たくさんの くうきが のぼると、たくさんの くうきが ながれこむ。ふうしゃが はやく まわって でんきを つくるよ。' } },
+      ],
+    },
+    sv: {
+      name: 'Vind & moln', q: 'Var kommer vinden ifrån?', free: 'Tryck för att blåsa upp en vindpust!',
+      s: [
+        { ask: 'Solen värmer marken, och marken värmer luften. Vad gör varm luft?', do: 'Tryck på solen!', now: 'Titta på de röda pilarna: den varma luften stiger, som en luftballong…', done: 'Kall luft (de blå pilarna) rusade in och fyllde platsen. Luft som flyttar sig — det är vind!' },
+        { ask: 'Vad händer om solen är svag — eller jättestark?', pick: { weak: '🌥️ Svag sol', strong: '☀️ Stark sol' }, now: 'Titta på vindkraftverket…', done: { weak: 'Bara en lätt bris. Lite uppvärmning ger lite vind.', strong: 'En stor vindpust! Mer varm luft som stiger betyder mer kall luft som rusar in. Vindkraftverket snurrar fort och gör el.' } },
+      ],
+    },
   },
   lightning: {
-    en: ['Lightning', 'Inside a storm cloud, bits of ice bump together. The top gets a + charge and the bottom a − charge. When it gets too strong, electricity zaps down as lightning!', 'Tap anywhere to make lightning strike!'],
-    ja: ['かみなり', 'かみなりぐもの なかでは こおりの つぶが ぶつかりあい、うえに プラス、したに マイナスの でんきが たまります。たまりすぎると ビリビリッと おちて かみなりに なります。', 'タップした ところに かみなりを おとそう！'],
-    sv: ['Blixt', 'Inne i ett åskmoln knuffas iskristaller mot varandra. Toppen blir + och botten blir −. När det blir för starkt hoppar elektriciteten ner som en blixt!', 'Tryck var som helst så slår blixten ner!'],
+    e: '⚡',
+    en: {
+      name: 'Lightning', q: 'Why does lightning strike — and where?', free: 'Tap anywhere to make lightning strike!',
+      s: [
+        { ask: 'Inside a storm cloud, bits of ice bump and rub together — like rubbing a balloon on your hair.', do: 'Tap the cloud to shake the ice!', more: 'Bump! The charges are sorting themselves out. Tap {n} more!', now: 'Red + charges go to the top, blue − charges to the bottom. The ground below fills up with + too…', done: 'The cloud is full of electric charge! The − and the + really want to meet. Get ready…' },
+        { ask: 'Lightning is a giant spark between the cloud and the ground. Where will it hit? Tap your guess!', do: 'Tap the tree, the house or the field.', now: 'FLASH! …now listen…', done: { rod: 'You got it! Lightning takes the shortest way down, so it hits the tallest, pointiest thing: the metal rod on the house. The BOOM is thunder — air heated by the lightning bursting outward.', tree: 'Close! It hit the metal rod, not the tree, because the rod is taller and pointier. Lightning takes the shortest way down. The BOOM is thunder.', field: 'Not the field! It hit the metal rod, the tallest, pointiest thing around. Flat ground is the last place lightning picks. The BOOM is thunder.' } },
+        { ask: 'The rod on the roof is a lightning rod. What happens if we take it away?', pick: { rod: '🛡️ Keep the rod', norod: '❌ Take it away' }, now: 'Here comes the lightning…', done: { rod: 'The rod caught the lightning, and the wire led it safely into the ground. The house is fine!', norod: 'Without the rod, the tree was the tallest thing, so it got hit and caught fire! That is why tall buildings have lightning rods.' } },
+        { ask: 'A storm is coming and you are outside! Where do you go?', pick: { tree: '🌳 Under the tree', field: '🏞️ Stay in the field', house: '🏠 Into the house' }, now: 'Here comes the lightning…', done: { tree: 'Danger! Lightning loves tall trees, and it can jump from the tree to you. Never hide under a tree in a storm.', field: 'Danger! In an open field YOU are the tallest thing. Get inside a house or a car instead.', house: 'Safe! Inside a house or a car is the best place. If you can hear thunder, lightning is close enough to hit — go inside.' } },
+      ],
+    },
+    ja: {
+      name: 'かみなり', q: 'かみなりは どうして、どこに おちるの？', free: 'どこでも タップして かみなりを おとそう！',
+      s: [
+        { ask: 'かみなりぐもの なかでは、こおりの つぶが ぶつかって こすれあって いるよ。ふうせんを かみの けで こする みたいに。', do: 'くもを タップして こおりを ゆらそう！', more: 'ゴツン！ でんきが わかれて きたよ。あと {n}かい タップ！', now: 'あかい ＋は うえへ、あおい －は したへ。じめんにも ＋が あつまって…', done: 'くもが でんきで いっぱいに なった！ －と ＋は くっつきたくて しかたない。そろそろ…' },
+        { ask: 'かみなりは くもと じめんの あいだの おおきな でんきの ひばな。どこに おちる かな？ よそうして タップ！', do: 'き・いえ・のはら の どれかを タップ。', now: 'ピカッ！ …みみを すまして…', done: { rod: 'せいかい！ かみなりは いちばん ちかい みちを とおるから、いちばん たかくて とがった もの、いえの うえの きんぞくの ぼうに おちるんだ。ゴロゴロは、かみなりで あつく なった くうきが はじける おと だよ。', tree: 'おしい！ きより たかくて とがった きんぞくの ぼうに おちたよ。かみなりは いちばん ちかい みちを とおるんだ。ゴロゴロは かみなりの おと。', field: 'のはらじゃ なかったね！ まわりで いちばん たかくて とがった きんぞくの ぼうに おちたよ。たいらな じめんは いちばん おちにくいんだ。ゴロゴロは かみなりの おと。' } },
+        { ask: 'やねの ぼうは「ひらいしん」。とって しまったら どうなる？', pick: { rod: '🛡️ ひらいしんを のこす', norod: '❌ とって しまう' }, now: 'かみなりが くるよ…', done: { rod: 'ひらいしんが かみなりを うけとめて、せんを つたって あんぜんに じめんへ にがした。いえは だいじょうぶ！', norod: 'ひらいしんが ないと、いちばん たかいのは き。きに おちて もえて しまった！ だから たかい たてものには ひらいしんが あるんだ。' } },
+        { ask: 'かみなりが くる！ きみは そとに いるよ。どこへ いく？', pick: { tree: '🌳 きの した', field: '🏞️ のはらに いる', house: '🏠 いえの なか' }, now: 'かみなりが くるよ…', done: { tree: 'あぶない！ かみなりは たかい きに おちやすくて、きから きみに とびうつる ことも あるよ。きの したに かくれちゃ だめ。', field: 'あぶない！ ひろい のはらでは きみが いちばん たかい もの。いえや くるまの なかに はいろう。', house: 'あんぜん！ いえや くるまの なかが いちばん。ゴロゴロが きこえたら、かみなりは ちかいよ。すぐ なかに はいろう。' } },
+      ],
+    },
+    sv: {
+      name: 'Blixt', q: 'Varför slår blixten ner — och var?', free: 'Tryck var som helst så slår blixten ner!',
+      s: [
+        { ask: 'Inne i ett åskmoln krockar och gnids iskorn mot varandra — som när du gnider en ballong mot håret.', do: 'Tryck på molnet för att skaka isen!', more: 'Duns! Laddningarna sorterar sig. Tryck {n} gånger till!', now: 'Röda + åker till toppen, blå − till botten. Marken under fylls också med + …', done: 'Molnet är fullt av elektrisk laddning! − och + vill jättegärna mötas. Gör dig redo…' },
+        { ask: 'En blixt är en jättegnista mellan molnet och marken. Var slår den ner? Tryck där du gissar!', do: 'Tryck på trädet, huset eller ängen.', now: 'BLIXT! …lyssna nu…', done: { rod: 'Rätt! Blixten tar kortaste vägen ner, så den slår ner i det högsta och spetsigaste: metallstaven på huset. Mullret är åskan — luft som blixten hettat upp och som smäller.', tree: 'Nära! Den slog ner i metallstaven, inte i trädet, för staven är högre och spetsigare. Blixten tar kortaste vägen ner. Mullret är åskan.', field: 'Inte ängen! Den slog ner i metallstaven, det högsta och spetsigaste här. Platt mark är blixtens sista val. Mullret är åskan.' } },
+        { ask: 'Staven på taket är en åskledare. Vad händer om vi tar bort den?', pick: { rod: '🛡️ Behåll åskledaren', norod: '❌ Ta bort den' }, now: 'Här kommer blixten…', done: { rod: 'Åskledaren fångade blixten och tråden ledde den säkert ner i marken. Huset klarade sig!', norod: 'Utan åskledaren var trädet högst, så blixten slog ner i det och det började brinna! Därför har höga hus åskledare.' } },
+        { ask: 'Ett åskväder kommer och du är ute! Vart går du?', pick: { tree: '🌳 Under trädet', field: '🏞️ Stannar på ängen', house: '🏠 In i huset' }, now: 'Här kommer blixten…', done: { tree: 'Farligt! Blixten gillar höga träd, och den kan hoppa från trädet till dig. Göm dig aldrig under ett träd när det åskar.', field: 'Farligt! På en öppen äng är DU det högsta. Gå in i ett hus eller en bil i stället.', house: 'Säkert! Inne i ett hus eller en bil är bäst. Hör du åskan är blixten nära nog att slå ner — gå in.' } },
+      ],
+    },
   },
   rainbow: {
-    en: ['Rainbow', 'When sunlight shines through raindrops, the light bends and splits into seven colours. You see a rainbow when the Sun is behind you and the rain is in front.', 'Tap to hide the Sun behind the cloud. Tap again to bring it back!'],
-    ja: ['にじ', 'たいようの ひかりが あめつぶを とおると、ひかりが まがって 7つの いろに わかれます。うしろに たいよう、まえに あめが あるとき、にじが みえます。', 'タップして たいようを くもに かくそう。もういちどで でてくるよ！'],
-    sv: ['Regnbåge', 'När solljus lyser genom regndroppar bryts ljuset och delas upp i sju färger. Du ser en regnbåge när solen är bakom dig och regnet framför dig.', 'Tryck för att gömma solen bakom molnet. Tryck igen så kommer den tillbaka!'],
+    e: '🌈',
+    en: {
+      name: 'Rainbow', q: 'Where do rainbows come from?', free: 'Tap to hide or show the Sun!',
+      s: [
+        { ask: "A rainbow needs two things. Let's find out which! What shall we take away?", pick: { nosun: '☁️ Hide the Sun', norain: '🌂 Stop the rain', both: '☀️🌧️ Keep both' }, now: 'Look at the sky…', done: { nosun: 'No Sun, no rainbow! A rainbow is made of sunlight.', norain: 'No rain, no rainbow! The light needs raindrops to shine through.', both: 'There it is! Sunshine + raindrops = rainbow. Try taking one away!' } },
+        { ask: 'Sunlight looks white, but seven colours are hiding inside it. How do they come out?', do: 'Tap a raindrop to look inside!', now: 'The white light goes into the drop and bends…', done: 'Each colour bends a tiny bit differently, so they spread apart: red, orange, yellow, green, blue, indigo, violet. Try it: stand with the Sun behind you and spray water from a hose!' },
+      ],
+    },
+    ja: {
+      name: 'にじ', q: 'にじは どうして できるの？', free: 'タップして たいようを かくしたり だしたり しよう！',
+      s: [
+        { ask: 'にじには 2つの ものが ひつよう。どれか けして みよう。どれを けす？', pick: { nosun: '☁️ たいようを かくす', norain: '🌂 あめを やめる', both: '☀️🌧️ どっちも のこす' }, now: 'そらを みてね…', done: { nosun: 'たいようが ないと にじは でない！ にじは たいようの ひかりで できて いるんだ。', norain: 'あめが ないと にじは でない！ ひかりが とおる あめつぶが いるんだ。', both: 'でた！ たいよう ＋ あめつぶ ＝ にじ。どっちか けして みてね！' } },
+        { ask: 'たいようの ひかりは しろく みえるけど、なかに 7つの いろが かくれて いるよ。どうやって でて くるの？', do: 'あめつぶを タップして なかを みよう！', now: 'しろい ひかりが あめつぶに はいって まがって…', done: 'いろごとに まがりかたが すこし ずつ ちがうから、ばらばらに わかれるんだ。あか・だいだい・きいろ・みどり・あお・あい・むらさき。たいようを せなかに して ホースで みずを まくと、にじが つくれるよ！' },
+      ],
+    },
+    sv: {
+      name: 'Regnbåge', q: 'Var kommer regnbågen ifrån?', free: 'Tryck för att gömma eller visa solen!',
+      s: [
+        { ask: 'En regnbåge behöver två saker. Vi tar reda på vilka! Vad ska vi ta bort?', pick: { nosun: '☁️ Göm solen', norain: '🌂 Stoppa regnet', both: '☀️🌧️ Behåll båda' }, now: 'Titta på himlen…', done: { nosun: 'Ingen sol, ingen regnbåge! Regnbågen är gjord av solljus.', norain: 'Inget regn, ingen regnbåge! Ljuset behöver regndroppar att lysa igenom.', both: 'Där är den! Solsken + regndroppar = regnbåge. Testa att ta bort en av dem!' } },
+        { ask: 'Solljus ser vitt ut, men sju färger gömmer sig i det. Hur kommer de fram?', do: 'Tryck på en regndroppe och titta in i den!', now: 'Det vita ljuset går in i droppen och böjs…', done: 'Varje färg böjs lite olika mycket, så de sprids isär: rött, orange, gult, grönt, blått, indigo, violett. Testa själv: ställ dig med solen i ryggen och spruta vatten med en slang!' },
+      ],
+    },
   },
   precip: {
-    en: ['Rain, snow & hail', 'Warm, wet air rises and cools into a cloud. High up it is freezing, so tiny ice grains grow. If they melt on the way down it rains. If it is cold it snows. If the wind tosses them up and down they grow into hail.', 'Tap to switch between rain, snow and hail!'],
-    ja: ['あめ・ゆき・ひょう', 'あたたかく しめった くうきが のぼって ひえると くもに なります。うえは とても つめたいので、こおりの つぶが そだちます。とけると あめ、さむいと ゆき、うえしたに ふきあげられて おおきくなると ひょうに なります。', 'タップして あめ・ゆき・ひょうを きりかえよう！'],
-    sv: ['Regn, snö & hagel', 'Varm fuktig luft stiger och kyls ner till ett moln. Högt upp är det iskallt och små iskorn växer. Smälter de på vägen ner blir det regn, är det kallt blir det snö, och kastar vinden dem upp och ner växer de till hagel.', 'Tryck för att växla mellan regn, snö och hagel!'],
+    e: '🌧️',
+    en: {
+      name: 'Rain, snow & hail', q: 'Why does it rain — or snow?', free: 'Tap to switch between rain, snow and hail!',
+      s: [
+        { ask: 'The Sun warms the ground and the water in it. Where does the water go?', do: 'Tap the Sun!', now: "The water turns into invisible vapour and floats up. High in the sky it's cold, so the vapour turns into tiny droplets…", done: "Billions of tiny droplets together — that's a cloud! They are so small that they float." },
+        { ask: 'Inside the cloud the droplets bump into each other and join up. What happens when they get too heavy?', do: 'Tap the cloud to make them bump!', now: 'Bump, join, grow…', done: 'They got too heavy to float, so they fell. Rain is cloud water coming back down!' },
+        { ask: 'High up it is below 0 °C, so the drops start as snowflakes. Will it rain or snow down here? You decide how warm it is near the ground!', pick: { warm: '☀️ Warm: +8 °C', cold: '❄️ Cold: −5 °C' }, now: 'Watch the line marked 0 °C…', done: { warm: 'Rain! The snowflakes fell into warm air below the 0 °C line and melted. If it were cold all the way down, they would stay snow — try it!', cold: 'Snow! It was freezing all the way to the ground, so the snowflakes never melted. If it were warmer near the ground, they would melt into rain.' } },
+        { ask: 'In a big summer storm, strong wind blows UP inside the cloud. What will it do to the ice?', do: 'Tap the cloud to blow it up!', now: 'Up and down, up and down… every trip adds a new layer of ice, like an onion…', done: "The ice balls got so heavy that the wind couldn't hold them up, and they fell as hail! That is why hail comes from tall storm clouds, even in summer." },
+      ],
+    },
+    ja: {
+      name: 'あめ・ゆき・ひょう', q: 'どうして あめや ゆきが ふるの？', free: 'タップして あめ・ゆき・ひょうを きりかえよう！',
+      s: [
+        { ask: 'たいようが じめんや みずを あたためるよ。みずは どこへ いく かな？', do: 'たいようを タップ！', now: 'みずは めに みえない すいじょうきに なって のぼって いく。そらの うえは さむいから、ちいさな みずの つぶに なって…', done: 'ちいさな つぶが たくさん あつまると、くもに なるよ！ とても ちいさいから うかんで いられるんだ。' },
+        { ask: 'くもの なかで つぶどうしが ぶつかって くっつくよ。おもく なりすぎると どうなる？', do: 'くもを タップして ぶつけよう！', now: 'ぶつかって、くっついて、おおきく なって…', done: 'おもく なって うかんで いられず、おちて きた。あめは くもの みずが かえって きた もの なんだ！' },
+        { ask: 'そらの たかい ところは 0どより さむいから、はじめは ゆきの つぶ。ここでは あめ？ ゆき？ じめんの ちかくの あたたかさを きめてね！', pick: { warm: '☀️ あたたかい：8ど', cold: '❄️ さむい：マイナス5ど' }, now: '「0°C」の せんを みてね…', done: { warm: 'あめ！ ゆきが 0どの せんより したの あたたかい くうきで とけたんだ。じめんまで ずっと さむかったら、ゆきの まま だよ。ためして みて！', cold: 'ゆき！ じめんまで ずっと さむかったから、ゆきは とけなかった。じめんの ちかくが あたたかかったら、とけて あめに なるよ。' } },
+        { ask: 'なつの おおきな かみなりぐもの なかでは、つよい かぜが したから うえに ふくよ。こおりは どうなる？', do: 'くもを タップして かぜを ふかせよう！', now: 'のぼって おりて、のぼって おりて… そのたびに こおりが たまねぎ みたいに かさなって…', done: 'こおりの たまが おもく なりすぎて、ひょうに なって おちて きた！ だから ひょうは なつでも おおきな かみなりぐもから ふるんだ。' },
+      ],
+    },
+    sv: {
+      name: 'Regn, snö & hagel', q: 'Varför regnar det — eller snöar?', free: 'Tryck för att växla mellan regn, snö och hagel!',
+      s: [
+        { ask: 'Solen värmer marken och vattnet i den. Vart tar vattnet vägen?', do: 'Tryck på solen!', now: 'Vattnet blir osynlig vattenånga och stiger. Högt uppe är det kallt, så ångan blir till pyttesmå droppar…', done: 'Miljarder pyttesmå droppar tillsammans — det är ett moln! De är så små att de svävar.' },
+        { ask: 'Inne i molnet krockar dropparna och slår sig ihop. Vad händer när de blir för tunga?', do: 'Tryck på molnet så de krockar!', now: 'Krock, ihop, större…', done: 'De blev för tunga för att sväva, så de föll. Regn är molnvatten som kommer tillbaka ner!' },
+        { ask: 'Högt uppe är det under 0 °C, så dropparna börjar som snöflingor. Blir det regn eller snö här nere? Du bestämmer hur varmt det är nära marken!', pick: { warm: '☀️ Varmt: +8 °C', cold: '❄️ Kallt: −5 °C' }, now: 'Titta på linjen där det står 0 °C…', done: { warm: 'Regn! Snöflingorna föll ner i varm luft under 0 °C-linjen och smälte. Om det var kallt hela vägen ner skulle de förbli snö — testa!', cold: 'Snö! Det var minusgrader hela vägen ner till marken, så snöflingorna smälte aldrig. Om det var varmare nära marken skulle de smälta till regn.' } },
+        { ask: 'I ett stort sommaråskväder blåser stark vind UPPÅT inne i molnet. Vad gör det med isen?', do: 'Tryck på molnet för att blåsa uppåt!', now: 'Upp och ner, upp och ner… varje tur lägger på ett nytt lager is, som en lök…', done: 'Iskulorna blev så tunga att vinden inte orkade hålla dem, och de föll som hagel! Därför kommer hagel från höga åskmoln, även på sommaren.' },
+      ],
+    },
   },
   tornado: {
-    en: ['Tornado', 'A tornado is a spinning column of air that reaches from a storm cloud down to the ground. It is narrow, but its winds can lift roofs and throw things around.', 'Tap to steer the tornado to where you tap!'],
-    ja: ['たつまき', 'たつまきは、かみなりぐもから じめんまで とどく、ぐるぐる まわる くうきの はしらです。はばは せまいけれど、ものすごい かぜで やねを とばすことも あります。', 'タップした ほうへ たつまきを うごかそう！'],
-    sv: ['Tornado', 'En tornado är en snurrande luftpelare från ett åskmoln ner till marken. Den är smal, men vindarna kan lyfta tak och slunga iväg saker.', 'Tryck för att styra tornadon dit du trycker!'],
+    e: '🌪️',
+    en: {
+      name: 'Tornado', q: 'What makes a tornado?', free: 'Tap to steer the tornado!',
+      s: [
+        { ask: 'Warm, wet air near the ground, cold air up high. What happens when the warm air shoots up?', do: 'Tap to let the warm air rise!', now: 'The rising air starts to spin — like water spinning down a drain…', done: 'The spinning air stretched all the way down to the ground. That is a tornado!' },
+        { ask: 'A tornado is narrow but very strong. Where will it go?', do: 'Tap to steer it!', now: 'There it goes…', done: { house: 'The roof is shaking! Tornado winds can lift roofs and throw cars. But a house a little way off is fine — tornadoes are narrow.', field: 'It spins across the field, picking up dust. Tornadoes are narrow, so the houses nearby are fine.' } },
+        { ask: 'Tornado warning! The siren is ringing. Where is the safest place?', pick: { window: '🪟 At the window', basement: '🚪 Basement or an inside room', car: '🚗 In the car' }, now: 'The tornado passes…', done: { window: 'Not safe! The wind can break the glass. Stay away from windows.', basement: 'Safe! Go down low, to a basement or a small room in the middle of the house, and cover your head.', car: 'Not safe! A tornado can even lift a car. Get into a strong building instead.' } },
+      ],
+    },
+    ja: {
+      name: 'たつまき', q: 'たつまきは どうして できるの？', free: 'タップして たつまきを うごかそう！',
+      s: [
+        { ask: 'じめんの ちかくには あたたかく しめった くうき、うえには つめたい くうき。あたたかい くうきが いきおいよく のぼると？', do: 'タップして あたたかい くうきを のぼらせよう！', now: 'のぼる くうきが ぐるぐる まわりはじめた。おふろの せんを ぬいた ときの うず みたいに…', done: 'まわる くうきが じめんまで のびた。これが たつまき だよ！' },
+        { ask: 'たつまきは ほそいけど とても つよいよ。どこへ いく かな？', do: 'タップして うごかそう！', now: 'すすんで いくよ…', done: { house: 'やねが ゆれてる！ たつまきの かぜは やねや くるまも とばすよ。でも すこし はなれた いえは へいき。たつまきは ほそい からね。', field: 'のはらで すなを まきあげながら すすんで いく。たつまきは ほそいから、ちかくの いえは だいじょうぶ。' } },
+        { ask: 'たつまき けいほう！ サイレンが なってる。いちばん あんぜんな ばしょは？', pick: { window: '🪟 まどの そば', basement: '🚪 ちかや まんなかの へや', car: '🚗 くるまの なか' }, now: 'たつまきが とおるよ…', done: { window: 'あぶない！ かぜで ガラスが われるよ。まどから はなれよう。', basement: 'あんぜん！ ちかや、いえの まんなかの ちいさな へやに はいって、あたまを まもろう。', car: 'あぶない！ たつまきは くるまも もちあげるよ。じょうぶな たてものに はいろう。' } },
+      ],
+    },
+    sv: {
+      name: 'Tornado', q: 'Hur blir en tornado till?', free: 'Tryck för att styra tornadon!',
+      s: [
+        { ask: 'Varm, fuktig luft vid marken och kall luft högt upp. Vad händer när den varma luften skjuter uppåt?', do: 'Tryck för att låta den varma luften stiga!', now: 'Luften som stiger börjar snurra — som vattnet i badkaret när proppen dras ur…', done: 'Den snurrande luften sträckte sig ända ner till marken. Det är en tornado!' },
+        { ask: 'En tornado är smal men jättestark. Vart ska den?', do: 'Tryck för att styra den!', now: 'Där drar den iväg…', done: { house: 'Taket skakar! Tornadovindar kan lyfta tak och slunga bilar. Men ett hus en bit bort klarar sig — tornados är smala.', field: 'Den snurrar över ängen och virvlar upp damm. Tornados är smala, så husen intill klarar sig.' } },
+        { ask: 'Tornadovarning! Sirenen tjuter. Var är det säkrast?', pick: { window: '🪟 Vid fönstret', basement: '🚪 Källaren eller ett inre rum', car: '🚗 I bilen' }, now: 'Tornadon drar förbi…', done: { window: 'Inte säkert! Vinden kan krossa glaset. Håll dig borta från fönster.', basement: 'Säkert! Gå längst ner, till källaren eller ett litet rum mitt i huset, och skydda huvudet.', car: 'Inte säkert! En tornado kan till och med lyfta en bil. Gå in i en stadig byggnad i stället.' } },
+      ],
+    },
   },
   typhoon: {
-    en: ['Typhoon', 'A typhoon is a giant swirl of clouds that grows over warm sea water. Seen from space it has a calm eye in the middle, surrounded by heavy rain and strong wind.', 'Tap to steer the typhoon and make it stronger!'],
-    ja: ['たいふう', 'たいふうは、あたたかい うみの うえで そだつ おおきな くもの うずまきです。うちゅうから みると まんなかに しずかな「め」があり、まわりは つよい あめと かぜです。', 'タップして たいふうを うごかして、つよくしよう！'],
-    sv: ['Tyfon', 'En tyfon är en jättelik molnvirvel som växer över varmt havsvatten. Från rymden syns ett lugnt öga i mitten, omgivet av kraftigt regn och stark vind.', 'Tryck för att styra tyfonen och göra den starkare!'],
+    e: '🌀',
+    en: {
+      name: 'Typhoon', q: 'How does a typhoon grow?', free: 'Tap to steer the typhoon!',
+      s: [
+        { ask: 'Typhoons get their power from warm sea water. Where shall we send this one?', pick: { warm: '🌡️ Warm sea', cold: '🧊 Cold sea' }, now: 'Watch how big it gets…', done: { warm: 'It grew bigger and stronger! Warm water rises as vapour and feeds the storm, like food.', cold: 'It got weaker! Cold water gives it no food. That is why typhoons fade over cold sea or land.' } },
+        { ask: 'Look at the middle. All around it the wind is roaring. What is it like right in the middle?', do: 'Tap the eye!', now: 'Peek inside…', done: 'Calm! The middle is called the eye. The wind spins so fast around it that a quiet hole is left in the middle — you can even see blue sky.' },
+        { ask: 'A typhoon is coming to your town. What do you do?', pick: { beach: '🏖️ Go and watch the waves', inside: '🏠 Stay inside and get ready' }, now: 'The storm arrives…', done: { beach: 'Danger! Huge waves and flying things. Stay away from the sea and rivers.', inside: 'Safe! Stay inside, away from windows, with water, food and a flashlight ready, and listen to the news.' } },
+      ],
+    },
+    ja: {
+      name: 'たいふう', q: 'たいふうは どうやって おおきく なるの？', free: 'タップして たいふうを うごかそう！',
+      s: [
+        { ask: 'たいふうの パワーの もとは、あたたかい うみの みず。どこへ いかせる？', pick: { warm: '🌡️ あたたかい うみ', cold: '🧊 つめたい うみ' }, now: 'おおきさを みてね…', done: { warm: 'おおきく つよく なった！ あたたかい みずが すいじょうきに なって、たいふうの ごはんに なるんだ。', cold: 'よわく なった！ つめたい みずでは ごはんが ない。だから たいふうは つめたい うみや りくの うえで よわく なるんだ。' } },
+        { ask: 'まんなかを みて。まわりは ゴーゴー かぜが ふいてる。まんなかは どうなって いる かな？', do: '「め」を タップ！', now: 'のぞいて みよう…', done: 'しずか！ まんなかを「たいふうの め」と いうよ。かぜが まわりを すごい はやさで まわるから、まんなかに しずかな あなが できるんだ。あおぞらが みえる ことも あるよ。' },
+        { ask: 'たいふうが きみの まちに くる！ どうする？', pick: { beach: '🏖️ なみを みに いく', inside: '🏠 いえで じゅんび する' }, now: 'たいふうが きたよ…', done: { beach: 'あぶない！ おおきな なみや とんで くる ものが あるよ。うみや かわには ちかづかないで。', inside: 'あんぜん！ まどから はなれて いえに いよう。みず・たべもの・かいちゅうでんとうを よういして、ニュースを きこう。' } },
+      ],
+    },
+    sv: {
+      name: 'Tyfon', q: 'Hur växer en tyfon?', free: 'Tryck för att styra tyfonen!',
+      s: [
+        { ask: 'Tyfoner får sin kraft från varmt havsvatten. Vart ska vi skicka den här?', pick: { warm: '🌡️ Varmt hav', cold: '🧊 Kallt hav' }, now: 'Titta hur stor den blir…', done: { warm: 'Den blev större och starkare! Varmt vatten stiger som ånga och blir mat åt stormen.', cold: 'Den blev svagare! Kallt vatten ger ingen mat. Därför tynar tyfoner bort över kallt hav eller land.' } },
+        { ask: 'Titta på mitten. Runt omkring vrålar vinden. Hur är det mitt i?', do: 'Tryck på ögat!', now: 'Kika in…', done: 'Lugnt! Mitten kallas ögat. Vinden snurrar så fort runt det att ett tyst hål blir kvar i mitten — man kan till och med se blå himmel.' },
+        { ask: 'En tyfon är på väg mot din stad. Vad gör du?', pick: { beach: '🏖️ Går och tittar på vågorna', inside: '🏠 Stannar inne och förbereder' }, now: 'Stormen kommer…', done: { beach: 'Farligt! Jättevågor och saker som flyger. Håll dig borta från havet och floder.', inside: 'Säkert! Stanna inne, borta från fönstren, med vatten, mat och ficklampa redo, och lyssna på nyheterna.' } },
+      ],
+    },
   },
   volcano: {
-    en: ['Volcano', 'Deep underground, rock melts into a hot liquid called magma. When the pressure builds up, it pushes up through the volcano and bursts out as lava, ash and smoke.', 'Tap the volcano to make it erupt!'],
-    ja: ['かざん', 'ちかの ふかい ところで、いわが とけて マグマに なります。マグマが おしあげられると、かざんから ようがんや はいや けむりが ふきだします。', 'かざんを タップして ふんかさせよう！'],
-    sv: ['Vulkan', 'Djupt under jorden smälter berget till en het vätska som kallas magma. När trycket blir stort trycks magman upp genom vulkanen och sprutar ut som lava, aska och rök.', 'Tryck på vulkanen så får den utbrott!'],
+    e: '🌋',
+    en: {
+      name: 'Volcano', q: 'Why does a volcano erupt?', free: 'Tap the volcano to make it erupt!',
+      s: [
+        { ask: 'Deep down it is so hot that rock melts into magma. Magma is full of gas bubbles, like a bottle of fizzy drink.', do: 'Tap the magma to heat it up!', more: 'The pressure is rising! Tap {n} more…', now: 'Too much pressure — the magma is pushing up the pipe…', done: "BOOM! The pressure got too big and the magma burst out. Once it's outside, magma is called lava." },
+        { ask: 'Some magma is runny like honey, some is thick like toothpaste. What happens with each?', pick: { runny: '🍯 Runny', thick: '🪥 Thick' }, now: 'Here it comes…', done: { runny: 'The gas escaped easily, so the lava flowed out gently in glowing rivers — like the volcanoes in Hawaii.', thick: 'The thick magma trapped the gas until it exploded, blasting ash and rocks high into the sky!' } },
+        { ask: 'The volcano is rumbling! Scientists say it may erupt soon. What do you do?', pick: { look: '👀 Go closer to watch', leave: '🚗 Leave the area' }, now: 'The volcano erupts…', done: { look: 'Danger! Hot rocks and ash fly a long way. Never go close to an erupting volcano.', leave: 'Safe! Scientists watch volcanoes for small quakes and swelling, so people can leave in time. Wear a mask when ash falls.' } },
+      ],
+    },
+    ja: {
+      name: 'かざん', q: 'かざんは どうして ふんか するの？', free: 'かざんを タップして ふんか させよう！',
+      s: [
+        { ask: 'ちかの ふかい ところは とても あつくて、いわが とけて マグマに なるよ。マグマには ガスの あわが いっぱい。たんさんの ペットボトル みたいに。', do: 'マグマを タップして あたためよう！', more: 'おす ちからが つよく なって きた！ あと {n}かい…', now: 'もう がまん できない！ マグマが あなを のぼって…', done: 'ドカーン！ おす ちからが つよく なりすぎて、マグマが ふきだした。そとに でた マグマを「ようがん」と いうよ。' },
+        { ask: 'マグマには はちみつ みたいに さらさらの ものと、はみがきこ みたいに ねばねばの ものが あるよ。どう ちがう かな？', pick: { runny: '🍯 さらさら', thick: '🪥 ねばねば' }, now: 'でて くるよ…', done: { runny: 'ガスが かんたんに ぬけるから、ようがんが ひかる かわの ように しずかに ながれた。ハワイの かざんが こう だよ。', thick: 'ねばねばの マグマが ガスを とじこめて、ばくはつ！ はいや いしが そら たかく とんだ！' } },
+        { ask: 'かざんが ゴロゴロ いってる！ もうすぐ ふんか するかも しれないと かがくしゃが いってるよ。どうする？', pick: { look: '👀 ちかくで みる', leave: '🚗 はなれる' }, now: 'ふんか した…', done: { look: 'あぶない！ あつい いしや はいは とおくまで とぶよ。ふんか して いる かざんに ちかづいちゃ だめ。', leave: 'あんぜん！ かがくしゃは ちいさな じしんや やまの ふくらみを みはって いるから、はやめに にげられるんだ。はいが ふったら マスクを しよう。' } },
+      ],
+    },
+    sv: {
+      name: 'Vulkan', q: 'Varför får en vulkan utbrott?', free: 'Tryck på vulkanen så får den utbrott!',
+      s: [
+        { ask: 'Djupt nere är det så varmt att berget smälter till magma. Magman är full av gasbubblor, som en läskflaska.', do: 'Tryck på magman för att värma den!', more: 'Trycket ökar! Tryck {n} gånger till…', now: 'För högt tryck — magman trycks uppför röret…', done: 'PANG! Trycket blev för stort och magman sprutade ut. När magman kommit ut kallas den lava.' },
+        { ask: 'En del magma är lättflytande som honung, en del är seg som tandkräm. Vad händer med dem?', pick: { runny: '🍯 Lättflytande', thick: '🪥 Seg' }, now: 'Här kommer den…', done: { runny: 'Gasen slapp ut lätt, så lavan rann ut lugnt i glödande floder — som vulkanerna på Hawaii.', thick: 'Den sega magman höll kvar gasen tills den exploderade och sköt ut aska och stenar högt upp i himlen!' } },
+        { ask: 'Vulkanen mullrar! Forskarna säger att den kanske får utbrott snart. Vad gör du?', pick: { look: '👀 Går närmare och tittar', leave: '🚗 Åker därifrån' }, now: 'Vulkanen får utbrott…', done: { look: 'Farligt! Heta stenar och aska flyger långt. Gå aldrig nära en vulkan som har utbrott.', leave: 'Säkert! Forskare håller koll på små skalv och om berget sväller, så att folk hinner åka i tid. Ha munskydd när askan faller.' } },
+      ],
+    },
   },
   avalanche: {
-    en: ['Avalanche', 'On a steep snowy mountain, a slab of snow can break loose and slide down fast, like a white river. It can bury trees and roads in seconds.', 'Tap the slope to start an avalanche!'],
-    ja: ['なだれ', 'ゆきの つもった きゅうな やまで、ゆきの かたまりが くずれて、しろい かわのように いっきに すべりおちるのが なだれです。', 'ゆきの しゃめんを タップして なだれを おこそう！'],
-    sv: ['Lavin', 'På ett brant snöberg kan en snöplatta lossna och rasa nedför som en vit flod. Den kan begrava träd och vägar på några sekunder.', 'Tryck på sluttningen så startar en lavin!'],
+    e: '🏔️',
+    en: {
+      name: 'Avalanche', q: 'Why does snow slide down a mountain?', free: 'Tap the slope to start an avalanche!',
+      s: [
+        { ask: 'It is snowing a lot on the mountain. New snow lands on top of old snow. Is that a problem?', do: 'Tap the sky to make it snow!', now: 'The new snow piles up in a heavy layer…', done: 'The new layer is heavy, and it does not stick well to the old snow underneath (the dashed line). It is ready to slide.' },
+        { ask: 'Something small can start it: a skier, a loud sound, or the warm Sun. What happens?', do: 'Tap the slope!', now: 'Crack! A whole slab breaks loose…', done: 'An avalanche! The snow slides faster than a car and picks up more snow as it goes. Forests and fences on the mountain help stop it.' },
+        { ask: 'You are skiing. There is fresh snow on a steep slope. What do you do?', pick: { steep: '⛷️ Ski the steep fresh snow', trail: '🚩 Stay on the marked trail' }, now: "Let's see…", done: { steep: 'Danger! Steep fresh snow is where avalanches start, and skiers can set them off.', trail: 'Safe! Marked trails are checked for avalanches. Experts even set off small avalanches on purpose to keep you safe.' } },
+      ],
+    },
+    ja: {
+      name: 'なだれ', q: 'どうして ゆきが すべりおちるの？', free: 'しゃめんを タップして なだれを おこそう！',
+      s: [
+        { ask: 'やまに ゆきが たくさん ふって いるよ。あたらしい ゆきが ふるい ゆきの うえに つもると？', do: 'そらを タップして ゆきを ふらせよう！', now: 'あたらしい ゆきが おもく つもって いく…', done: 'あたらしい ゆきは おもくて、したの ふるい ゆき（てんせん）と うまく くっつかない。すべりそう…' },
+        { ask: 'ちょっと した ことで はじまるよ。スキーヤー、おおきな おと、あたたかい たいよう。どうなる？', do: 'しゃめんを タップ！', now: 'ピシッ！ ゆきの いたが まるごと はがれて…', done: 'なだれ！ ゆきは くるまより はやく すべって、どんどん ゆきを まきこむよ。やまの もりや さくが なだれを とめて くれるんだ。' },
+        { ask: 'きみは スキーを してる。きゅうな しゃめんに ふかふかの あたらしい ゆき。どうする？', pick: { steep: '⛷️ きゅうな しゃめんを すべる', trail: '🚩 きまった コースを すべる' }, now: 'どうなる かな…', done: { steep: 'あぶない！ きゅうな しゃめんの あたらしい ゆきは、なだれが おきやすい ところ。スキーヤーが おこして しまう ことも あるよ。', trail: 'あんぜん！ コースは なだれを しらべて あるよ。わざと ちいさな なだれを おこして、あんぜんに して いる ことも あるんだ。' } },
+      ],
+    },
+    sv: {
+      name: 'Lavin', q: 'Varför rasar snön nerför berget?', free: 'Tryck på sluttningen så startar en lavin!',
+      s: [
+        { ask: 'Det snöar mycket på berget. Ny snö hamnar ovanpå gammal snö. Är det ett problem?', do: 'Tryck på himlen så snöar det!', now: 'Den nya snön lägger sig i ett tungt lager…', done: 'Det nya lagret är tungt och fastnar dåligt i den gamla snön under (den streckade linjen). Det är redo att glida.' },
+        { ask: 'Något litet kan sätta igång det: en skidåkare, ett högt ljud eller varm sol. Vad händer?', do: 'Tryck på sluttningen!', now: 'Krack! En hel snöplatta lossnar…', done: 'En lavin! Snön rasar fortare än en bil och tar med sig mer snö på vägen. Skog och staket på berget hjälper till att stoppa den.' },
+        { ask: 'Du åker skidor. Det ligger nysnö i en brant backe. Vad gör du?', pick: { steep: '⛷️ Åker i den branta nysnön', trail: '🚩 Stannar i den märkta pisten' }, now: 'Vi får se…', done: { steep: 'Farligt! Brant nysnö är där laviner startar, och skidåkare kan sätta igång dem.', trail: 'Säkert! Märkta pister kontrolleras för laviner. Experter sätter till och med igång små laviner med flit för att hålla dig säker.' } },
+      ],
+    },
   },
   tsunami: {
-    en: ['Tsunami', 'An earthquake under the sea shoves the water, and a very long wave races across the ocean. Near the coast the sea gets shallow, so the wave grows tall and floods the land.', 'Tap to shake the sea floor and send a tsunami!'],
-    ja: ['つなみ', 'うみの そこで じしんが おきると、みずが おされて、とても ながい なみが ひろがります。かいがんに ちかづくと うみが あさく なって、なみが たかく なり、りくに おしよせます。', 'タップして うみの そこを ゆらし、つなみを おこそう！'],
-    sv: ['Tsunami', 'En jordbävning under havet knuffar vattnet, och en mycket lång våg rusar över havet. Nära kusten blir havet grunt, så vågen växer sig hög och översvämmar land.', 'Tryck för att skaka havsbotten och skicka en tsunami!'],
+    e: '🌊',
+    en: {
+      name: 'Tsunami', q: 'What makes a tsunami?', free: 'Tap to send a tsunami!',
+      s: [
+        { ask: "Under the sea, the Earth's plates can suddenly jump. What will happen to the water above?", do: 'Tap to shake the sea floor!', now: 'The sea floor pushed all the water up! Out at sea the wave is low — the boat hardly notices…', done: 'Near the shore the sea gets shallow. The wave slowed down, piled up tall and flooded the town.' },
+        { ask: 'You are at the beach and the ground shakes hard. What do you do?', pick: { look: '👀 Go and look at the sea', high: '⛰️ Run up the hill' }, now: 'Look — the sea is pulling back…', done: { look: 'Danger! When the sea pulls back, the big wave is on its way. Never go to look.', high: "Safe! After a big quake by the sea, run to high ground right away — don't wait to see the wave. Stay there until the grown-ups say it's over." } },
+        { ask: 'How can a town protect itself?', pick: { wall: '🧱 Build a sea wall', none: '🏘️ Do nothing' }, now: 'Here comes the wave…', done: { wall: 'The wall stopped the wave and the town stayed dry! Japan also has warning sirens, escape towers and practice drills.', none: 'The town was flooded. Sea walls, warning sirens and practising where to run all help keep people safe.' } },
+      ],
+    },
+    ja: {
+      name: 'つなみ', q: 'つなみは どうして おきるの？', free: 'タップして つなみを おこそう！',
+      s: [
+        { ask: 'うみの そこで、ちきゅうの プレートが とつぜん はねあがる ことが あるよ。うえの みずは どうなる？', do: 'タップして うみの そこを ゆらそう！', now: 'うみの そこが みずを ぜんぶ おしあげた！ おきでは なみは ひくくて、ふねは きが つかない くらい…', done: 'きしに ちかづくと うみが あさく なる。なみは ゆっくりに なって たかく もりあがり、まちを のみこんだ。' },
+        { ask: 'きみは うみべに いる。じめんが つよく ゆれた！ どうする？', pick: { look: '👀 うみを みに いく', high: '⛰️ おかの うえへ にげる' }, now: 'みて、うみが ひいて いく…', done: { look: 'あぶない！ うみが ひくのは、おおきな なみが くる しるし。みに いっちゃ だめ。', high: 'あんぜん！ うみの ちかくで おおきな じしんが あったら、すぐに たかい ところへ にげよう。なみを まって いちゃ だめ。おとなが「もう だいじょうぶ」と いうまで そこに いよう。' } },
+        { ask: 'まちは どうやって じぶんを まもれる かな？', pick: { wall: '🧱 ぼうはていを つくる', none: '🏘️ なにも しない' }, now: 'なみが くるよ…', done: { wall: 'ぼうはていが なみを とめて、まちは ぶじ！ にほんには サイレンや ひなんタワー、ひなん くんれんも あるよ。', none: 'まちが みずびたしに なった。ぼうはてい、サイレン、にげる ばしょの れんしゅうが みんなを まもるよ。' } },
+      ],
+    },
+    sv: {
+      name: 'Tsunami', q: 'Hur blir en tsunami till?', free: 'Tryck för att skicka en tsunami!',
+      s: [
+        { ask: 'Under havet kan jordens plattor plötsligt hoppa till. Vad händer med vattnet ovanför?', do: 'Tryck för att skaka havsbotten!', now: 'Havsbotten knuffade upp allt vatten! Ute till havs är vågen låg — båten märker knappt något…', done: 'Nära stranden blir havet grunt. Vågen saktade in, tornade upp sig hög och översvämmade staden.' },
+        { ask: 'Du är på stranden och marken skakar kraftigt. Vad gör du?', pick: { look: '👀 Går och tittar på havet', high: '⛰️ Springer upp på kullen' }, now: 'Titta — havet drar sig tillbaka…', done: { look: 'Farligt! När havet drar sig tillbaka är den stora vågen på väg. Gå aldrig och titta.', high: 'Säkert! Efter ett stort skalv vid havet: spring upp på hög mark direkt — vänta inte på vågen. Stanna där tills de vuxna säger att det är över.' } },
+        { ask: 'Hur kan en stad skydda sig?', pick: { wall: '🧱 Bygg en havsmur', none: '🏘️ Gör ingenting' }, now: 'Här kommer vågen…', done: { wall: 'Muren stoppade vågen och staden förblev torr! Japan har också varningssirener, evakueringstorn och övningar.', none: 'Staden översvämmades. Havsmurar, varningssirener och att öva på vart man ska springa hjälper till att skydda människor.' } },
+      ],
+    },
   },
   currents: {
-    en: ['Ocean currents', 'The sea never sits still. Warm water flows along the surface, then cools, sinks and flows back deep down. This giant loop carries heat around the whole world.', 'Tap to drop a rubber duck and watch it ride the current!'],
-    ja: ['かいりゅう', 'うみの みずは ずっと うごいています。あたたかい みずは ひょうめんを ながれ、ひえて しずむと、ふかい ところを もどります。この おおきな ながれが、ねつを せかいじゅうに はこびます。', 'タップして ゴムの あひるを ながそう！'],
-    sv: ['Havsströmmar', 'Havet står aldrig stilla. Varmt vatten strömmar vid ytan, kyls ner, sjunker och rinner tillbaka djupt nere. Den här jätteslingan flyttar värme runt hela jorden.', 'Tryck för att släppa en badanka och se den följa strömmen!'],
+    e: '🐠',
+    en: {
+      name: 'Ocean currents', q: 'Does the sea move?', free: 'Tap to drop another duck!',
+      s: [
+        { ask: "Let's drop a rubber duck in the sea. Will it stay where it is?", do: 'Tap the water!', now: 'Off it goes…', done: 'The duck rides the current! Warm water flows along the top. Warm water like this is why Sweden and Norway are warmer than other places so far north.' },
+        { ask: 'Over by the ice, the water gets very cold and salty. What does cold water do?', pick: { float: '⬆️ It floats up', sink: '⬇️ It sinks down' }, now: 'Look at the cold side…', done: { float: 'Not quite! Cold, salty water is heavy, so it sinks and flows back along the deep sea floor.', sink: 'Yes! Cold, salty water is heavy, so it sinks and flows back along the deep sea floor. Later it warms up and rises again — a giant loop around the world.' } },
+      ],
+    },
+    ja: {
+      name: 'かいりゅう', q: 'うみの みずは うごいて いるの？', free: 'タップして もう 1わ おとそう！',
+      s: [
+        { ask: 'ゴムの あひるを うみに おとして みよう。そこに じっと して いる かな？', do: 'みずを タップ！', now: 'ながれて いくよ…', done: 'あひるが ながれに のった！ あたたかい みずは うみの うえの ほうを ながれるよ。この あたたかい ながれの おかげで、スウェーデンや ノルウェーは きたの わりに あたたかいんだ。' },
+        { ask: 'こおりの ほうでは、みずが とても つめたく しょっぱく なるよ。つめたい みずは どうする？', pick: { float: '⬆️ うく', sink: '⬇️ しずむ' }, now: 'つめたい ほうを みてね…', done: { float: 'ちょっと ちがう！ つめたくて しょっぱい みずは おもいから、しずんで うみの そこを もどって いくよ。', sink: 'せいかい！ つめたくて しょっぱい みずは おもいから、しずんで うみの そこを もどって いく。そして また あたたまって のぼる。せかいを まわる おおきな わっか なんだ。' } },
+      ],
+    },
+    sv: {
+      name: 'Havsströmmar', q: 'Rör sig havet?', free: 'Tryck för att släppa en anka till!',
+      s: [
+        { ask: 'Vi släpper en badanka i havet. Ligger den kvar där den är?', do: 'Tryck på vattnet!', now: 'Iväg den åker…', done: 'Ankan åker med strömmen! Varmt vatten strömmar fram längs ytan. Tack vare varmt vatten som det här är Sverige och Norge varmare än andra platser lika långt norrut.' },
+        { ask: 'Borta vid isen blir vattnet jättekallt och salt. Vad gör kallt vatten?', pick: { float: '⬆️ Det flyter upp', sink: '⬇️ Det sjunker' }, now: 'Titta på den kalla sidan…', done: { float: 'Inte riktigt! Kallt, salt vatten är tungt, så det sjunker och rinner tillbaka längs den djupa havsbotten.', sink: 'Ja! Kallt, salt vatten är tungt, så det sjunker och rinner tillbaka längs den djupa havsbotten. Sen värms det och stiger igen — en jätteslinga runt jorden.' } },
+      ],
+    },
   },
   river: {
-    en: ['River & basin', 'Rain and melting snow run down the mountains and gather into streams, then a river. The river winds across a wide flat basin and carries the water to a lake or the sea.', 'Tap to make it rain and float a paper boat!'],
-    ja: ['かわと ぼんち', 'あめや とけた ゆきが やまを ながれおりて ちいさな ながれに なり、かわに なります。かわは ひろい ぼんちを うねうね とおって、みずうみや うみに ながれます。', 'タップして あめを ふらせ、かみの ふねを ながそう！'],
-    sv: ['Flod & dalgång', 'Regn och smältande snö rinner nedför bergen och samlas till bäckar och sedan en flod. Floden slingrar sig över en bred slätt och för vattnet till en sjö eller havet.', 'Tryck så regnar det och en pappersbåt flyter iväg!'],
+    e: '🏞️',
+    en: {
+      name: 'River & basin', q: 'Where does a river go?', free: 'Tap to make it rain!',
+      s: [
+        { ask: 'Rain falls on the mountains. Where will the water go?', do: 'Tap the mountains to make it rain!', now: 'The water runs downhill…', done: 'Water always flows downhill. Little streams join into a river, and the river carries the water to the lake.' },
+        { ask: 'What happens if it rains a little — or a lot?', pick: { little: '🌦️ A little rain', lot: '⛈️ Lots of rain' }, now: 'Watch the river…', done: { little: 'The river got a bit fuller, but it stayed inside its banks.', lot: 'The river got too full and flooded the fields and the town! During a flood, stay far away from rivers.' } },
+        { ask: 'How can we keep the town dry?', pick: { levee: '🧱 Build river walls', none: '🏘️ Do nothing' }, now: 'Lots of rain again…', done: { levee: 'The walls — called levees — kept the water in the river. The town stayed dry!', none: 'Flooded again. Levees, dams and ponds that catch the extra water help protect towns.' } },
+      ],
+    },
+    ja: {
+      name: 'かわと ぼんち', q: 'かわの みずは どこへ いくの？', free: 'タップして あめを ふらせよう！',
+      s: [
+        { ask: 'やまに あめが ふるよ。みずは どこへ いく かな？', do: 'やまを タップして あめを ふらせよう！', now: 'みずが さかを くだって いく…', done: 'みずは いつも ひくい ほうへ ながれるよ。ちいさな ながれが あつまって かわに なり、みずうみへ はこぶんだ。' },
+        { ask: 'あめが すこし だったら？ たくさん だったら？', pick: { little: '🌦️ すこしの あめ', lot: '⛈️ たくさんの あめ' }, now: 'かわを みてね…', done: { little: 'かわは すこし ふえたけど、ちゃんと かわの なかに おさまったよ。', lot: 'かわが いっぱいに なって、はたけや まちに あふれた！ こうずいの ときは、かわに ちかづかないでね。' } },
+        { ask: 'まちを みずから まもるには どうする？', pick: { levee: '🧱 ていぼうを つくる', none: '🏘️ なにも しない' }, now: 'また たくさんの あめ…', done: { levee: 'ていぼうが みずを かわの なかに とどめて、まちは ぶじ！', none: 'また あふれちゃった。ていぼうや ダム、よぶんな みずを ためる いけが まちを まもるよ。' } },
+      ],
+    },
+    sv: {
+      name: 'Flod & dalgång', q: 'Vart tar flodens vatten vägen?', free: 'Tryck så regnar det!',
+      s: [
+        { ask: 'Regnet faller på bergen. Vart tar vattnet vägen?', do: 'Tryck på bergen så regnar det!', now: 'Vattnet rinner nedför…', done: 'Vatten rinner alltid nedåt. Små bäckar går ihop till en flod, och floden för vattnet till sjön.' },
+        { ask: 'Vad händer om det regnar lite — eller jättemycket?', pick: { little: '🌦️ Lite regn', lot: '⛈️ Massor av regn' }, now: 'Titta på floden…', done: { little: 'Floden blev lite fullare, men den höll sig inom sina stränder.', lot: 'Floden blev för full och svämmade över åkrarna och staden! Vid översvämning: håll dig långt borta från floder.' } },
+        { ask: 'Hur kan vi hålla staden torr?', pick: { levee: '🧱 Bygg flodvallar', none: '🏘️ Gör ingenting' }, now: 'Massor av regn igen…', done: { levee: 'Vallarna höll kvar vattnet i floden. Staden förblev torr!', none: 'Översvämning igen. Vallar, fördämningar och dammar som samlar upp extra vatten skyddar städer.' } },
+      ],
+    },
   },
   landslide: {
-    en: ['Landslide', 'After lots of rain, the soil on a hillside gets soaked and heavy and loses its grip. Then mud, rocks and trees can slide down all at once.', 'Tap to make rain until the hill slips!'],
-    ja: ['がけくずれ', 'たくさん あめが ふると、さかの つちが みずを すって おもく なり、ささえる ちからが よわく なります。すると どろや いしや きが いっぺんに すべりおちます。', 'タップして あめを ふらせ、さかが くずれるまで やってみよう！'],
-    sv: ['Jordskred', 'Efter mycket regn blir jorden i en sluttning blöt och tung och tappar greppet. Då kan lera, stenar och träd glida nedför på en gång.', 'Tryck för att få det att regna tills sluttningen rasar!'],
+    e: '⛰️',
+    en: {
+      name: 'Landslide', q: 'Why does a hill slide?', free: 'Tap to make it rain!',
+      s: [
+        { ask: 'This hill has no trees. What happens to the soil when it rains a lot?', do: 'Tap to make it rain!', more: 'The soil drinks up the water and gets heavy. Tap {n} more!', now: 'The soil is soaked and slippery…', done: "The wet soil got too heavy to hold on, and the hill slid down! That's a landslide." },
+        { ask: 'How can we help the hill hold on?', pick: { plant: '🌳 Plant trees', none: '🏜️ Leave it bare' }, now: 'Lots of rain…', done: { plant: 'The tree roots held on to the soil like fingers, and the hill stayed put! If you see cracks or hear rumbling after heavy rain, move away from the slope.', none: 'It slid again! Tree roots, walls and drains for the water help keep hills in place.' } },
+      ],
+    },
+    ja: {
+      name: 'がけくずれ', q: 'どうして さかが くずれるの？', free: 'タップして あめを ふらせよう！',
+      s: [
+        { ask: 'この さかには きが ない。あめが たくさん ふると、つちは どうなる？', do: 'タップして あめを ふらせよう！', more: 'つちが みずを すって おもく なって きた。あと {n}かい！', now: 'つちが びしょびしょで すべりやすい…', done: 'ぬれた つちが おもく なりすぎて ささえきれず、さかが くずれた！ これが がけくずれ だよ。' },
+        { ask: 'さかが くずれない ように するには？', pick: { plant: '🌳 きを うえる', none: '🏜️ その まま' }, now: 'たくさんの あめ…', done: { plant: 'きの ねっこが ゆびの ように つちを つかんで、さかは くずれなかった！ おおあめの あとに ひびや ゴーという おとに きづいたら、さかから はなれよう。', none: 'また くずれた！ きの ねっこ、かべ、みずを ながす みぞが さかを まもるよ。' } },
+      ],
+    },
+    sv: {
+      name: 'Jordskred', q: 'Varför rasar en backe?', free: 'Tryck så regnar det!',
+      s: [
+        { ask: 'Den här backen har inga träd. Vad händer med jorden när det regnar mycket?', do: 'Tryck så regnar det!', more: 'Jorden suger upp vattnet och blir tung. Tryck {n} gånger till!', now: 'Jorden är genomblöt och hal…', done: 'Den blöta jorden blev för tung för att hålla sig kvar, och backen rasade! Det är ett jordskred.' },
+        { ask: 'Hur kan vi hjälpa backen att hålla sig kvar?', pick: { plant: '🌳 Plantera träd', none: '🏜️ Låt den vara kal' }, now: 'Massor av regn…', done: { plant: 'Trädens rötter höll fast jorden som fingrar, och backen låg kvar! Ser du sprickor eller hör muller efter kraftigt regn — gå bort från sluttningen.', none: 'Den rasade igen! Trädrötter, murar och diken för vattnet hjälper backar att ligga kvar.' } },
+      ],
+    },
   },
   plates: {
-    en: ['Plates & earthquakes', 'The ground is made of huge slabs of rock called plates that creep a few centimetres a year. When one plate dives under another, it sticks, then suddenly slips, and the ground shakes. That is an earthquake.', 'Tap inside the Earth to make an earthquake!'],
-    ja: ['プレートと じしん', 'じめんは、1ねんに すうセンチだけ うごく おおきな いわの プレートで できています。プレートが ほかの プレートの したに もぐりこむとき ひっかかって、とつぜん ずれると じめんが ゆれます。これが じしんです。', 'ちきゅうの なかを タップして じしんを おこそう！'],
-    sv: ['Plattor & jordbävningar', 'Marken består av enorma bergsplattor som kryper några centimeter om året. När en platta dyker under en annan fastnar den, men glider plötsligt loss och marken skakar. Det är en jordbävning.', 'Tryck inne i jorden för att skapa en jordbävning!'],
+    e: '🌍',
+    en: {
+      name: 'Plates & earthquakes', q: 'Why does the ground shake?', free: 'Tap inside the Earth to make an earthquake!',
+      s: [
+        { ask: 'The ground is made of giant puzzle pieces called plates. They move as slowly as your fingernails grow. Here, one plate is pushing under another…', do: 'Tap to push the plates!', more: 'Stuck! The rock is bending like a ruler. Tap {n} more…', now: 'SNAP!', done: 'The stuck rock slipped all at once and the ground shook. That is an earthquake!' },
+        { ask: 'Which houses shake the most?', do: 'Tap inside the Earth to make a quake!', now: 'The shaking spreads out in rings…', done: 'Like ripples in a pond, the shaking is strongest close to the quake and gets weaker further away.' },
+        { ask: 'You are indoors and the ground starts shaking! What do you do?', pick: { run: '🏃 Run outside', window: '🪟 Go to the window', table: '🛡️ Get under the table' }, now: 'Shake, shake, shake…', done: { run: 'Not safe! Things fall down while you run. Stay where you are until the shaking stops.', window: 'Not safe! The glass can break. Stay away from windows.', table: 'Safe! Drop, cover and hold on: get under a strong table, cover your head and hold on until it stops.' } },
+      ],
+    },
+    ja: {
+      name: 'プレートと じしん', q: 'どうして じめんが ゆれるの？', free: 'ちきゅうの なかを タップして じしんを おこそう！',
+      s: [
+        { ask: 'じめんは「プレート」という おおきな パズルの ピースで できて いるよ。つめが のびる くらい ゆっくり うごくんだ。ここでは プレートが べつの プレートの したに もぐって いる…', do: 'タップして プレートを おそう！', more: 'ひっかかった！ いわが じょうぎ みたいに まがって いる。あと {n}かい…', now: 'バチン！', done: 'ひっかかって いた いわが いっきに ずれて、じめんが ゆれた。これが じしん だよ！' },
+        { ask: 'どの いえが いちばん ゆれる かな？', do: 'ちきゅうの なかを タップして じしんを おこそう！', now: 'ゆれが わに なって ひろがって いく…', done: 'いけの なみもん みたいに、ゆれは じしんの ちかくで いちばん つよくて、とおく なると よわく なるよ。' },
+        { ask: 'いえの なかに いたら、じめんが ゆれはじめた！ どうする？', pick: { run: '🏃 そとへ はしる', window: '🪟 まどへ いく', table: '🛡️ つくえの したへ' }, now: 'グラグラ グラグラ…', done: { run: 'あぶない！ はしって いる あいだに ものが おちて くるよ。ゆれが とまるまで その ばで みを まもろう。', window: 'あぶない！ ガラスが われるよ。まどから はなれよう。', table: 'あんぜん！ じょうぶな つくえの したに もぐって、あたまを まもって、あしを しっかり にぎろう。ゆれが とまるまで まってね。' } },
+      ],
+    },
+    sv: {
+      name: 'Plattor & jordbävningar', q: 'Varför skakar marken?', free: 'Tryck inne i jorden för att skapa en jordbävning!',
+      s: [
+        { ask: 'Marken består av jättelika pusselbitar som kallas plattor. De rör sig lika långsamt som dina naglar växer. Här trycks en platta in under en annan…', do: 'Tryck för att knuffa plattorna!', more: 'Fast! Berget böjs som en linjal. Tryck {n} gånger till…', now: 'KNÄCK!', done: 'Berget som satt fast släppte på en gång och marken skakade. Det är en jordbävning!' },
+        { ask: 'Vilka hus skakar mest?', do: 'Tryck inne i jorden för att göra ett skalv!', now: 'Skakningarna sprids i ringar…', done: 'Som ringar på vattnet är skakningen starkast nära skalvet och svagare längre bort.' },
+        { ask: 'Du är inomhus och marken börjar skaka! Vad gör du?', pick: { run: '🏃 Springer ut', window: '🪟 Går till fönstret', table: '🛡️ Kryper under bordet' }, now: 'Skak, skak, skak…', done: { run: 'Inte säkert! Saker ramlar ner medan du springer. Stanna där du är tills skakningen slutar.', window: 'Inte säkert! Glaset kan gå sönder. Håll dig borta från fönster.', table: 'Säkert! Ner, skydda, håll fast: kryp under ett stadigt bord, skydda huvudet och håll i dig tills det slutar.' } },
+      ],
+    },
   },
 };
-
 let lang = 'en';
 try {
   const saved = localStorage.getItem('earth-lang');
@@ -437,6 +853,7 @@ function makeSpot(id, x, y, w, h, zoom, accent, build) {
   E('rect', { width: w, height: h, rx: 24 }, cp);
   s.c = E('g', { 'clip-path': `url(#clip-${id})` }, s.g);
   build(s);
+  mkCard(s);
   E('rect', { width: w, height: h, rx: 24, fill: 'none', stroke: '#fff', 'stroke-opacity': 0.8, 'stroke-width': 3 }, s.g);
   spots.push(s);
   return s;
@@ -448,6 +865,70 @@ function makeSpot(id, x, y, w, h, zoom, accent, build) {
   const grad = G([[0, '#050a26'], [0.12, '#1a2a6b'], [0.16, '#5aa9e8'], [0.45, '#bfe6ff'], [0.78, '#cfe9d6'], [0.79, '#6b4630'], [1, '#2a1410']], { units: 'userSpaceOnUse', y1: 0, y2: WORLD.h });
   E('rect', { x: -4000, y: -4000, width: WORLD.w + 8000, height: WORLD.h + 8000, fill: grad }, g);
 })();
+
+// A little person to put in the picture, ~40 units tall with feet at 0,0.
+function kid(parent) {
+  const g = E('g', null, parent);
+  E('path', { d: 'M-3,-10 L-4,0 M3,-10 L4,0', stroke: '#23304a', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+  E('path', { d: 'M-5,-22 L-10,-13 M5,-22 L10,-13', stroke: '#ffd3a8', 'stroke-width': 2.6, 'stroke-linecap': 'round' }, g);
+  E('path', { d: 'M-6,-10 L-5,-24 Q0,-27 5,-24 L6,-10Z', fill: '#ff7a59' }, g);
+  E('circle', { cy: -31, r: 6.5, fill: '#ffd3a8' }, g);
+  E('path', { d: 'M-6.8,-32 Q-6,-39.5 0,-39 Q6,-39.5 6.8,-32 Q3,-35 -6.8,-32Z', fill: '#5a3a28' }, g);
+  return g;
+}
+
+// An overshooting 0→1 pop for things that appear.
+const pop = (k) => (k >= 1 ? 1 : 1 - Math.pow(1 - k, 3) + Math.sin(k * Math.PI) * 0.25);
+
+// Every tile gets a card for safety steps: it pins the child's choice on the
+// picture as soon as they make it, then stamps it ✓ or ✗ when the outcome is
+// explained.
+function mkCard(s) {
+  const g = E('g', null, s.c);
+  E('rect', { x: -56, y: -48, width: 112, height: 96, rx: 22, fill: '#fff9ec', stroke: '#23304a', 'stroke-width': 3.5 }, g);
+  const em = E('text', { y: 18, 'text-anchor': 'middle', 'font-size': 48 }, g);
+  const bd = E('g', null, g);
+  const bc = E('circle', { r: 20, stroke: '#fff', 'stroke-width': 3.5 }, bd);
+  const bp = E('path', { fill: 'none', stroke: '#fff', 'stroke-width': 5.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, bd);
+  g.style.display = 'none';
+  let t = -1, bt = -1, x = 0, y = 0;
+  s.card = {
+    show(ch, at) {
+      em.textContent = ch;
+      x = at[0]; y = at[1]; t = 0; bt = -1;
+      bd.style.display = 'none';
+      g.style.display = '';
+      mv(g, x, y, 0, 0);
+    },
+    verdict(ok) {
+      if (t < 0) return;
+      A(bc, { fill: ok ? '#1e9a52' : '#e0413a' });
+      A(bp, { d: ok ? 'M-9,0 L-3,7 L10,-7' : 'M-7,-7 L7,7 M7,-7 L-7,7' });
+      bt = 0;
+      bd.style.display = '';
+      mv(bd, 44, -38, 0, 0);
+    },
+    hide() { g.style.display = 'none'; t = -1; },
+    step(dt) {
+      if (t < 0) return;
+      t += dt;
+      mv(g, x, y, 0, pop(Math.min(1, t / 0.4)));
+      if (bt >= 0) { bt += dt; mv(bd, 44, -38, 0, pop(Math.min(1, bt / 0.35))); }
+    },
+  };
+}
+
+// Delayed actions inside a story step ("walk to the tree, then strike").
+// They count real time, and are cancelled when the step is restarted.
+const timers = [];
+function after(sp, t, fn) { timers.push({ sp, t, fn }); }
+function cancelTimers(sp) { for (let i = timers.length - 1; i >= 0; i--) if (timers[i].sp === sp) timers.splice(i, 1); }
+
+// Each tile's `steps` line up with its TXT `s`. A step has either `pick` (the
+// choice keys) or is acted on by tapping the picture, possibly `need` times.
+// act(k, x, y, n) runs the picture and may return an outcome key; enter()
+// resets the scene so a step can be retried; `safe` marks the choices a
+// safety step stamps ✓; `wait` is how long the "what is happening" beat lasts.
 
 // ---------------------------------------------------------------- aurora
 makeSpot('aurora', 8, 8, 584, 244, [0, 0, 584, 244], '#5dffa0', (s) => {
@@ -462,25 +943,29 @@ makeSpot('aurora', 8, 8, 584, 244, [0, 0, 584, 244], '#5dffa0', (s) => {
   const baseY = earthArc(c, w, h);
   const cols = [['#5dffa0', 150, 460], ['#4de0ff', 190, 420], ['#ff7de0', 230, 390]];
   const cur = cols.map((k) => E('path', { fill: G([[0, k[0], 0.95], [1, k[0], 0]], { y1: 1, y2: 0 }) }, c));
-  const sol = new Pool(c, 26, () => E('circle', { r: 3.2, fill: '#ffe27a' }));
-  let boost = 0;
+  const sol = new Pool(c, 48, () => E('circle', { r: 3.2, fill: '#ffe27a' }));
+  let boost = 0, hl = -1, hlT = 0;
   s.update = (dt, ad) => {
     const T = s.T;
     boost = Math.max(0, boost - ad * 0.3);
+    hlT = Math.max(0, hlT - ad);
+    const hk = smooth(hlT / 1.2);
     twinkle(st, T);
     rays.setAttribute('transform', `rotate(${f1(T * 12)})`);
     cur.forEach((p, i) => {
+      const on = hl === i ? hk : 0, off = hl >= 0 && hl !== i ? hk : 0;
       const N = 22, x0 = cols[i][1], x1 = cols[i][2];
       const top = [], base = [];
       for (let j = 0; j <= N; j++) {
         const x = lerp(x0, x1, j / N);
         const b = baseY(x) + 6;
-        const hgt = (46 + 34 * Math.sin(j * 0.55 + T * 1.1 + i * 2) + 14 * Math.sin(j * 1.3 - T * 1.7)) * (0.85 + boost * 0.55);
+        const hgt = (46 + 34 * Math.sin(j * 0.55 + T * 1.1 + i * 2) + 14 * Math.sin(j * 1.3 - T * 1.7)) * (0.85 + boost * 0.55) * (1 + on * 0.4);
         top.push([x, b - hgt]);
         base.push([x, b]);
       }
       p.setAttribute('d', polyOf(top.concat(base.reverse())));
-      p.setAttribute('opacity', (i === 2 ? 0.25 + boost * 0.7 : 0.55 + boost * 0.4).toFixed(2));
+      const op = i === 2 ? 0.25 + boost * 0.7 : 0.55 + boost * 0.4;
+      p.setAttribute('opacity', clamp(op * (1 - off * 0.85) + on * 0.6, 0, 1).toFixed(2));
     });
     sol.step(ad, (p) => {
       if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
@@ -489,18 +974,23 @@ makeSpot('aurora', 8, 8, 584, 244, [0, 0, 584, 244], '#5dffa0', (s) => {
       A(p.el, { cx: f1(lerp(p.x0, p.tx, u)), cy: f1(lerp(p.y0, p.ty, u) - Math.sin(u * Math.PI) * 38), opacity: 1 });
     });
   };
-  s.tap = () => {
-    boost = Math.max(boost, 0.5);
-    s.wake = 6;
-    for (let i = 0; i < 16; i++) {
+  const burst = (n, big) => {
+    boost = Math.max(boost, big ? 0.6 : 0.15);
+    for (let i = 0; i < n; i++) {
       sol.spawn((p) => {
-        p.age = -rnd(0, 0.6);
+        p.age = -rnd(0, big ? 1 : 0.6);
         p.life = rnd(0.9, 1.4);
         p.x0 = 56 + rnd(-8, 8); p.y0 = 54 + rnd(-8, 8);
         p.tx = rnd(160, 470); p.ty = baseY(p.tx) - rnd(0, 36);
       });
     }
   };
+  s.tap = () => { burst(16); s.wake = 6; };
+  s.steps = [
+    { act: () => burst(16), wait: 2.6 },
+    { pick: ['small', 'big'], enter: () => { boost = 0; }, act: (k) => burst(k === 'big' ? 44 : 4, k === 'big'), wait: 2.8 },
+    { pick: ['green', 'pink'], act: (k) => { hl = k === 'green' ? 0 : 2; hlT = 7; burst(14); }, wait: 2.2 },
+  ];
 });
 
 // ------------------------------------------------------------- satellite
@@ -522,6 +1012,9 @@ makeSpot('satellite', 608, 8, 584, 244, [0, 0, 584, 244], '#7dffb0', (s) => {
   const cone = E('polygon', { fill: G([[0, '#ffe27a', 0.85], [1, '#ffe27a', 0.1]]) }, c);
   const link = E('line', { stroke: '#7dffb0', 'stroke-width': 2.5, 'stroke-dasharray': '7 7' }, c);
   const rings = new Pool(c, 9, () => E('circle', { fill: 'none', stroke: '#7dffb0', 'stroke-width': 2 }));
+  const trail = new Pool(c, 16, () => E('circle', { r: 3, fill: '#7dffb0' }));
+  // Re-entry glow, behind the satellite.
+  const burn = E('circle', { r: 14, fill: RG([[0, '#fff3a8'], [0.5, '#ff9a3d', 0.85], [1, '#ff5a1f', 0]]), opacity: 0 }, c);
   // The satellite itself.
   const sat = E('g', null, c);
   for (const sx of [-1, 1]) {
@@ -531,19 +1024,47 @@ makeSpot('satellite', 608, 8, 584, 244, [0, 0, 584, 244], '#7dffb0', (s) => {
   E('rect', { x: -10, y: -9, width: 20, height: 18, rx: 3, fill: '#f2c14e', stroke: '#b98a1d', 'stroke-width': 1.5 }, sat);
   E('circle', { cx: 0, cy: 0, r: 4.5, fill: '#23304a' }, sat);
   const flash = E('circle', { r: 16, fill: '#fff', opacity: 0 }, sat);
-  let ping = 0, sx = 0, sy = 0, vis = 1;
+  // `orb` is the orbit phase; only 0..1 of each lap is above the horizon.
+  let ping = 0, sx = 0, sy = 0, srot = 0, orb = 0.35, spd = 1, fast = 0, fallT = -1, fx0 = 0, fy0 = 0, fr0 = 0;
+  const place = (ph) => {
+    const a = Math.PI * (0.93 - 0.86 * ph);
+    sx = OX + RX * Math.cos(a); sy = OY - RY * Math.sin(a);
+    srot = Math.atan2(RY * Math.cos(a), RX * Math.sin(a)) * 180 / Math.PI;
+  };
+  const phase = () => ((orb % 1) + 1) % 1;
+  const showUp = () => { const ph = phase(); if (ph < 0.15 || ph > 0.75) orb = Math.floor(orb) + 0.3; };
   s.update = (dt, ad) => {
     const T = s.T;
     twinkle(st, T);
-    const ph = (T * 0.045) % 1;
-    const a = Math.PI * (0.93 - 0.86 * ph);
-    sx = OX + RX * Math.cos(a); sy = OY - RY * Math.sin(a);
-    vis = Math.min(1, ph / 0.06, (1 - ph) / 0.06);
-    sat.setAttribute('opacity', vis.toFixed(2));
-    mv(sat, sx, sy, Math.atan2(RY * Math.cos(a), RX * Math.sin(a)) * 180 / Math.PI, 0.9);
+    fast = Math.max(0, fast - ad);
+    spd = lerp(spd, fast > 0 ? 4 : 1, 1 - Math.exp(-ad * 3));
+    if (fallT >= 0) {
+      // Too slow to keep missing the Earth: it drops, glows, and is gone.
+      fallT += ad;
+      const u = Math.min(1, fallT / 2.4);
+      const ex = clamp(fx0 + 110 * u, 20, w - 20);
+      sx = ex; sy = lerp(fy0, baseY(ex) + 2, u * u);
+      mv(sat, sx, sy, fr0 + u * 160, 0.9 * (1 - 0.6 * u));
+      sat.setAttribute('opacity', u < 1 ? 1 : 0);
+      burn.setAttribute('opacity', (smooth((u - 0.2) / 0.3) * (u < 1 ? 1 : Math.max(0, 1 - (fallT - 2.4) * 2))).toFixed(2));
+      mv(burn, sx, sy, 0, 1 + u * 1.4);
+      if (fallT > 3.6) { fallT = -1; orb = Math.floor(orb) + 1.02; burn.setAttribute('opacity', 0); }
+    } else {
+      orb += ad * 0.045 * spd;
+      const ph = phase();
+      place(ph);
+      sat.setAttribute('opacity', Math.min(1, ph / 0.06, (1 - ph) / 0.06).toFixed(2));
+      mv(sat, sx, sy, srot, 0.9);
+    }
+    if (fast > 0 && ad > 0 && Math.random() < ad * 30) trail.spawn((p) => { p.x = sx; p.y = sy; });
+    trail.step(ad, (p) => {
+      const u = p.age / 0.6;
+      if (u >= 1) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(0.5 + 3 * (1 - u)), opacity: (0.8 * (1 - u)).toFixed(2) });
+    });
     ping = Math.max(0, ping - ad * 0.55);
     flash.setAttribute('opacity', (Math.max(0, ping - 0.8) * 3).toFixed(2));
-    const on = ping > 0;
+    const on = ping > 0 && fallT < 0;
     cone.style.display = link.style.display = on ? '' : 'none';
     if (on) {
       const ey = Math.min(h + 4, baseY(clamp(sx, 66, 518)));
@@ -560,12 +1081,24 @@ makeSpot('satellite', 608, 8, 584, 244, [0, 0, 584, 244], '#7dffb0', (s) => {
     });
   };
   s.tap = () => {
-    const ph = (s.T * 0.045) % 1;
-    if (ph < 0.12 || ph > 0.88) s.T = 0.35 / 0.045;
+    if (fallT >= 0) return;
+    showUp();
     ping = 1;
     s.wake = 6;
     for (let i = 0; i < 3; i++) rings.spawn((p) => { p.age = -i * 0.25; });
   };
+  s.steps = [
+    {
+      pick: ['slow', 'fast'],
+      enter: () => { fallT = -1; fast = 0; burn.setAttribute('opacity', 0); },
+      act: (k) => {
+        showUp();
+        if (k === 'slow') { place(phase()); fx0 = sx; fy0 = sy; fr0 = srot; fallT = 0; } else fast = 3.5;
+      },
+      wait: 3.2,
+    },
+    { enter: () => { fallT = -1; }, act: () => s.tap(), wait: 2.4 },
+  ];
 });
 
 // ------------------------------------------------------------------ wind
@@ -589,16 +1122,26 @@ makeSpot('wind', 8, 268, 384, 296, [0, 0, 384, 296], '#8fd0ff', (s) => {
   const rotor = E('g', null, c);
   for (let i = 0; i < 3; i++) E('path', { d: 'M0,0 L-5,-8 L0,-58 L5,-8Z', fill: '#fff', stroke: '#c9d0dc', 'stroke-width': 1, transform: `rotate(${i * 120})` }, rotor);
   E('circle', { r: 6, fill: '#e0524f' }, rotor);
-  const sock = E('g', null, c);
   mv(rotor, 300, 150);
   // Gust streaks.
   const streaks = new Pool(c, 9, () => E('path', { d: 'M0,0 H44 q12,0 12,-9 q0,-8 -9,-5', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0.9 }));
-  let gust = 0, ang = 0, sway = 0;
+  // Warm air rising off the ground (red), cool air sliding in under it (blue).
+  const warmP = new Pool(c, 16, () => E('path', { d: 'M0,-9 L7,0 H2.5 V9 H-2.5 V0 H-7Z', fill: '#ff6a3d', stroke: '#fff', 'stroke-width': 1.2 }));
+  const coolP = new Pool(c, 12, () => E('path', { d: 'M-16,0 H12 M5,-6 L12,0 L5,6', fill: 'none', stroke: '#1f6fd0', 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+  let gust = 0, ang = 0, sway = 0, heatT = 0, heatK = 0;
   const spawnStreak = (x) => streaks.spawn((p) => { p.x = x === undefined ? rnd(-60, w) : x; p.y = rnd(30, 200); p.v = rnd(70, 110); });
   for (let i = 0; i < 6; i++) spawnStreak();
+  const heat = (k) => {
+    heatK = k; heatT = 3.5;
+    gust = Math.max(gust, k * 0.9);
+    for (let i = 0; i < Math.round(4 + k * 9); i++) warmP.spawn((p) => { p.x = rnd(110, 270); p.y = rnd(205, 235); p.age = -rnd(0, 1.2); p.v = rnd(40, 60); });
+    for (let i = 0; i < Math.round(2 + k * 7); i++) coolP.spawn((p) => { p.x = -20; p.y = rnd(222, 258); p.age = -rnd(0.5, 2); p.v = rnd(70, 100) * (0.6 + k); });
+  };
   s.update = (dt, ad) => {
     gust = Math.max(0, gust - ad * 0.3);
+    heatT = Math.max(0, heatT - ad);
     const gs = 1 + gust * 3.5;
+    sunG.setAttribute('transform', `translate(330 46) scale(${(1 + heatK * 0.3 * smooth(heatT)).toFixed(3)}) translate(-330 -46)`);
     clouds.forEach((k) => {
       k.x += k.sp * gs * ad;
       if (k.x > w + 70) k.x = -70;
@@ -618,11 +1161,29 @@ makeSpot('wind', 8, 268, 384, 296, [0, 0, 384, 296], '#8fd0ff', (s) => {
       p.el.setAttribute('opacity', (0.25 + Math.min(1, 0.5 + gust)).toFixed(2));
     });
     if (ad > 0 && Math.random() < ad * (0.8 + gust * 8)) spawnStreak(-60);
+    warmP.step(ad, (p, d) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      p.y -= p.v * d;
+      if (p.y < 70) return false;
+      mv(p.el, p.x + Math.sin(p.age * 3) * 4, p.y);
+      p.el.setAttribute('opacity', Math.min(1, (p.y - 70) / 40).toFixed(2));
+    });
+    coolP.step(ad, (p, d) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
+      p.x += p.v * d;
+      if (p.x > w + 20) return false;
+      mv(p.el, p.x, p.y);
+      p.el.setAttribute('opacity', 1);
+    });
   };
   s.tap = () => {
     gust = 1; s.wake = 6;
     for (let i = 0; i < 4; i++) spawnStreak(rnd(-100, 0));
   };
+  s.steps = [
+    { act: () => heat(0.7), wait: 3 },
+    { pick: ['weak', 'strong'], act: (k) => heat(k === 'strong' ? 1.2 : 0.2), wait: 3 },
+  ];
 });
 
 // -------------------------------------------------------------- lightning
@@ -637,18 +1198,46 @@ makeSpot('lightning', 408, 268, 384, 296, [0, 0, 384, 296], '#ffe45c', (s) => {
   const glow = E('ellipse', { cx: 192, cy: 80, rx: 130, ry: 38, fill: '#fff6b0', opacity: 0 }, shake);
   E('rect', { y: 252, width: w, height: 60, fill: '#2f6b46' }, shake);
   E('rect', { y: 252, width: w, height: 8, fill: '#3d8559' }, shake);
-  // Tree and rod.
+  // Tree, which can catch fire.
   E('rect', { x: 86, y: 214, width: 8, height: 40, fill: '#6d5144' }, shake);
   E('circle', { cx: 90, cy: 200, r: 24, fill: '#2f8a4f' }, shake);
-  E('path', { d: 'M296,254 L300,160 L304,254 M297,230 H303 M298,200 H302', stroke: '#c9d0dc', 'stroke-width': 3, fill: 'none' }, shake);
-  E('circle', { cx: 300, cy: 158, r: 4, fill: '#ffd24a' }, shake);
-  // Charges: + clings to the top of the cloud, − to the bottom.
+  const flames = E('g', null, shake);
+  const fl = [[-12, 0.8], [0, 1.15], [12, 0.85]].map((k) => {
+    const g = E('g', null, flames);
+    E('path', { d: 'M0,0 C-9,-6 -7,-17 0,-28 C7,-17 9,-6 0,0Z', fill: '#ff7a2b' }, g);
+    E('path', { d: 'M0,0 C-5,-4 -4,-10 0,-16 C4,-10 5,-4 0,0Z', fill: '#ffd24a' }, g);
+    return { g, x: 90 + k[0], s: k[1], ph: rnd(0, TAU) };
+  });
+  // House with a lightning rod, and a wire that leads the strike to ground.
+  E('rect', { x: 272, y: 212, width: 56, height: 42, fill: '#f4d9a0' }, shake);
+  E('path', { d: 'M264,214 L300,184 L336,214Z', fill: '#d9604f' }, shake);
+  E('rect', { x: 282, y: 222, width: 18, height: 15, fill: '#ffe9a0', stroke: '#8d6e63', 'stroke-width': 2 }, shake);
+  E('rect', { x: 306, y: 230, width: 12, height: 24, fill: '#8d6e63' }, shake);
+  const face = E('g', null, shake);
+  E('circle', { cx: 291, cy: 232, r: 4.5, fill: '#ffd3a8' }, face);
+  E('path', { d: 'M286.4,230.5 Q291,224 295.6,230.5Z', fill: '#5a3a28' }, face);
+  const rod = E('g', null, shake);
+  E('path', { d: 'M318,199 V150', stroke: '#c9d0dc', 'stroke-width': 3 }, rod);
+  E('path', { d: 'M318,199 L333,212 V254', stroke: '#8a96ad', 'stroke-width': 2, fill: 'none' }, rod);
+  E('circle', { cx: 318, cy: 148, r: 4, fill: '#ffd24a' }, rod);
+  const juice = E('path', { d: 'M318,150 V199 L333,212 V254', fill: 'none', stroke: '#ffe45c', 'stroke-width': 4, 'stroke-dasharray': '6 10', 'stroke-linecap': 'round', opacity: 0 }, rod);
+  // Charges. Mixed up in the middle of the cloud until the ice is shaken;
+  // then + rises to the top and − sinks to the bottom.
   const ch = [];
-  for (let i = 0; i < 8; i++) {
-    const plus = i < 4;
+  for (let i = 0; i < 16; i++) {
+    const plus = i < 8, j = i % 8;
     const e = E('path', { d: plus ? 'M-5,0 H5 M0,-5 V5' : 'M-5,0 H5', stroke: plus ? '#ff9a9a' : '#9ac8ff', 'stroke-width': 2.5, 'stroke-linecap': 'round', fill: 'none' }, shake);
-    ch.push({ e, x: 110 + (i % 4) * 50 + rnd(-8, 8), y: plus ? 34 + rnd(0, 10) : 100 + rnd(0, 6), ph: rnd(0, TAU) });
+    ch.push({ e, x: 100 + j * 27 + rnd(-6, 6), y: plus ? 30 + rnd(0, 12) : 98 + rnd(0, 8), mx: rnd(130, 260), my: rnd(55, 85), ph: rnd(0, TAU) });
   }
+  const gp = [];
+  for (let i = 0; i < 6; i++) gp.push(E('path', { d: `M${120 + i * 30 - 4},268 h8 M${120 + i * 30},264 v8`, stroke: '#ff9a9a', 'stroke-width': 2.5, 'stroke-linecap': 'round', opacity: 0 }, shake));
+  const kidG = kid(shake);
+  kidG.style.display = 'none';
+  const ring = E('circle', { r: 24, fill: 'none', stroke: '#ff3b3b', 'stroke-width': 4, opacity: 0 }, shake);
+  const guess = E('g', null, shake);
+  E('circle', { r: 13, fill: '#ffd24a', stroke: '#23304a', 'stroke-width': 2.5 }, guess);
+  E('text', { y: 6.5, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 900, fill: '#23304a', 'font-family': 'sans-serif' }, guess).textContent = '?';
+  guess.style.display = 'none';
   const bolts = new Pool(shake, 3, () => {
     const g = E('g', null);
     E('path', { fill: 'none', stroke: '#fff3a0', 'stroke-width': 12, 'stroke-linejoin': 'round', opacity: 0.35 }, g);
@@ -659,22 +1248,62 @@ makeSpot('lightning', 408, 268, 384, 296, [0, 0, 384, 296], '#ffe45c', (s) => {
   const sparks = new Pool(shake, 24, () => E('circle', { r: 2.4, fill: '#ffe45c' }));
   const rings = new Pool(shake, 3, () => E('ellipse', { fill: 'none', stroke: '#fff', 'stroke-width': 2.5 }));
   const flashR = E('rect', { width: w, height: h, fill: '#fff', opacity: 0 }, c);
-  let flash = 0, sh = 0;
+  // Thunder arrives after the flash: light is faster than sound.
+  const boom = E('text', { 'text-anchor': 'middle', 'font-size': 34, 'font-weight': 900, fill: '#fff', stroke: '#23304a', 'stroke-width': 3, 'paint-order': 'stroke', 'font-family': 'sans-serif', opacity: 0 }, c);
+  let flash = 0, sh = 0, charge = 1, jig = 0, rodOn = true, wireT = 0, fire = 0;
+  let kidOn = false, kidX = 190, kidTX = 190, danger = 0, boomT = 0, boomOn = false;
   const jag = (x0, y0, x1, y1, n, amp) => {
     const p = [[x0, y0]];
     for (let i = 1; i < n; i++) { const t = i / n; p.push([lerp(x0, x1, t) + rnd(-amp, amp), lerp(y0, y1, t) + rnd(-5, 5)]); }
     p.push([x1, y1]);
     return p;
   };
+  const strike = (tx, ty) => {
+    const path = jag(tx + rnd(-24, 24), 96, tx, ty, 9, 22);
+    const mid = path[4];
+    const br1 = jag(mid[0], mid[1], mid[0] + rnd(-70, 70), mid[1] + rnd(40, 90), 4, 12);
+    const d = pathOf(path) + pathOf(br1);
+    bolts.spawn((p) => { for (const e of p.el.children) e.setAttribute('d', d); });
+    flash = 1; sh = 1;
+    rings.spawn((p) => { p.x = tx; });
+    for (let i = 0; i < 12; i++) sparks.spawn((p) => { p.x = tx; p.y = ty; p.vx = rnd(-120, 120); p.vy = rnd(-220, -60); });
+    boom.textContent = UI[lang].boom;
+    boomT = -0.5; boomOn = true;
+  };
+  const hitRod = () => { strike(318, 146); wireT = 1.6; };
+  const hitTree = (burn) => { strike(90, 178); if (burn) fire = 1.4; };
+  const inside = () => kidOn && kidTX === 300 && Math.abs(kidX - 300) < 1;
   s.update = (dt, ad) => {
     const T = s.T;
     flash = Math.max(0, flash - ad * 4);
     sh = Math.max(0, sh - ad * 3);
+    jig = Math.max(0, jig - ad * 1.5);
+    wireT = Math.max(0, wireT - ad);
+    fire = Math.max(0, fire - ad * 0.12);
+    danger = Math.max(0, danger - ad * 0.22);
     flashR.setAttribute('opacity', (flash * 0.7).toFixed(2));
-    const lit = flash > 0 ? flash : Math.max(0, Math.sin(T * 1.3) * Math.sin(T * 7.1) - 0.78) * 1.4;
+    const lit = flash > 0 ? flash : Math.max(0, Math.sin(T * 1.3) * Math.sin(T * 7.1) - 0.78) * 1.4 * charge;
     glow.setAttribute('opacity', Math.min(0.8, lit).toFixed(2));
     mv(shake, rnd(-1, 1) * sh * 7, rnd(-1, 1) * sh * 4);
-    for (const k of ch) mv(k.e, k.x + Math.sin(T * 1.6 + k.ph) * 6, k.y + Math.cos(T * 2 + k.ph) * 3);
+    const sep = smooth((charge - 0.15) / 0.8);
+    for (const k of ch) {
+      const amp = 6 + jig * 16;
+      mv(k.e, lerp(k.mx, k.x, sep) + Math.sin(T * (1.6 + jig * 9) + k.ph) * amp, lerp(k.my, k.y, sep) + Math.cos(T * (2 + jig * 8) + k.ph) * amp * 0.5);
+    }
+    const gk = smooth((charge - 0.75) / 0.2).toFixed(2);
+    for (const e of gp) e.setAttribute('opacity', gk);
+    rod.style.display = rodOn ? '' : 'none';
+    A(juice, { opacity: Math.min(1, wireT * 2).toFixed(2), 'stroke-dashoffset': f1(-T * 80) });
+    flames.style.display = fire > 0 ? '' : 'none';
+    if (fire > 0) for (const f of fl) mv(f.g, f.x, 188, Math.sin(T * 9 + f.ph) * 6, f.s * Math.min(1, fire) * (0.85 + 0.15 * Math.sin(T * 13 + f.ph)));
+    if (kidOn) {
+      kidX += clamp(kidTX - kidX, -90 * ad, 90 * ad);
+      const walking = Math.abs(kidTX - kidX) > 0.5;
+      mv(kidG, kidX, 254, walking ? Math.sin(T * 14) * 5 : 0, 0.9);
+    }
+    kidG.style.display = kidOn && !inside() ? '' : 'none';
+    face.style.display = inside() ? '' : 'none';
+    A(ring, { cx: f1(kidX), cy: 230, r: f1(24 + Math.sin(T * 9) * 3), opacity: (Math.min(1, danger * 3) * (0.6 + 0.4 * Math.sin(T * 10))).toFixed(2) });
     bolts.step(ad, (p) => {
       const a = p.age;
       if (a > 0.55) return false;
@@ -691,20 +1320,51 @@ makeSpot('lightning', 408, 268, 384, 296, [0, 0, 384, 296], '#ffe45c', (s) => {
       if (u >= 1) return false;
       A(p.el, { cx: f1(p.x), cy: 254, rx: f1(8 + u * 90), ry: f1(3 + u * 12), opacity: (1 - u).toFixed(2) });
     });
+    if (boomOn) {
+      boomT += ad;
+      const u = boomT / 1.2;
+      if (u >= 1) { boomOn = false; boom.setAttribute('opacity', 0); }
+      else if (u >= 0) {
+        mv(boom, 192 + rnd(-2, 2) * (1 - u), 168 + rnd(-2, 2) * (1 - u), 0, 0.5 + pop(Math.min(1, u * 4)) * 0.6);
+        boom.setAttribute('opacity', (1 - smooth((u - 0.6) / 0.4)).toFixed(2));
+      }
+    }
   };
   s.tap = (x) => {
     s.wake = 3;
     let tx = clamp(x, 24, w - 24), ty = 254;
-    if (Math.abs(tx - 90) < 36) { tx = 90; ty = 178; } else if (Math.abs(tx - 300) < 36) { tx = 300; ty = 156; }
-    const path = jag(tx + rnd(-24, 24), 96, tx, ty, 9, 22);
-    const mid = path[4];
-    const br1 = jag(mid[0], mid[1], mid[0] + rnd(-70, 70), mid[1] + rnd(40, 90), 4, 12);
-    const d = pathOf(path) + pathOf(br1).replace('M', 'M');
-    bolts.spawn((p) => { for (const e of p.el.children) e.setAttribute('d', d); });
-    flash = 1; sh = 1;
-    rings.spawn((p) => { p.x = tx; });
-    for (let i = 0; i < 12; i++) sparks.spawn((p) => { p.x = tx; p.y = ty; p.vx = rnd(-120, 120); p.vy = rnd(-220, -60); });
+    if (Math.abs(tx - 90) < 36) { tx = 90; ty = 178; } else if (rodOn && Math.abs(tx - 304) < 40) { hitRod(); return; }
+    strike(tx, ty);
   };
+  const calm = () => { kidOn = false; danger = 0; fire = 0; rodOn = true; guess.style.display = 'none'; };
+  s.steps = [
+    { need: 3, enter: () => { calm(); charge = 0.12; }, act: (k, x, y, n) => { charge = Math.min(1, 0.12 + n * 0.3); jig = 1; sh = 0.3; }, wait: 2.4 },
+    {
+      enter: () => { calm(); charge = 1; },
+      act: (k, x, y) => {
+        mv(guess, clamp(x, 16, w - 16), clamp(y, 120, 272));
+        guess.style.display = '';
+        after(s, 0.8, hitRod);
+        return Math.abs(x - 90) < 45 ? 'tree' : x > 255 ? 'rod' : 'field';
+      },
+      wait: 2.8,
+    },
+    { pick: ['rod', 'norod'], enter: () => { calm(); charge = 1; }, act: (k) => { rodOn = k === 'rod'; after(s, 0.7, () => (rodOn ? hitRod() : hitTree(true))); }, wait: 2.8 },
+    {
+      pick: ['tree', 'field', 'house'], safe: ['house'], cardAt: [64, 56],
+      enter: () => { calm(); charge = 1; kidOn = true; kidX = kidTX = 190; },
+      act: (k) => {
+        kidTX = k === 'tree' ? 112 : k === 'house' ? 300 : 190;
+        after(s, 1.5, () => {
+          if (k === 'house') hitRod();
+          else if (k === 'tree') { hitTree(false); danger = 1; }
+          else { strike(kidX + 22, 254); danger = 1; }
+        });
+      },
+      wait: 3.2,
+    },
+  ];
+  s.free = calm;
 });
 
 // ---------------------------------------------------------------- rainbow
@@ -712,14 +1372,14 @@ makeSpot('rainbow', 808, 268, 384, 296, [0, 0, 384, 296], '#ff7de0', (s) => {
   const c = s.c, w = s.w, h = s.h;
   E('rect', { width: w, height: h, fill: G([[0, '#8fcdf5'], [1, '#e9f6ff']]) }, c);
   const cxr = 210, cyr = 258;
-  const arcs = ['#ff4d4d', '#ff9a3d', '#ffe14d', '#5bd66f', '#3ec6e0', '#4a7ff0', '#9a5cf0'].map((col, i) => {
-    const r = 170 - i * 11;
-    return E('path', { d: `M${cxr - r},${cyr} A${r},${r} 0 0 1 ${cxr + r},${cyr}`, fill: 'none', stroke: col, 'stroke-width': 11 }, c);
-  });
+  const SPECTRUM = ['#ff4d4d', '#ff9a3d', '#ffe14d', '#5bd66f', '#3ec6e0', '#4a7ff0', '#9a5cf0'];
   const rg = E('g', null, c);
-  for (const k of arcs) rg.appendChild(k);
+  SPECTRUM.forEach((col, i) => {
+    const r = 170 - i * 11;
+    E('path', { d: `M${cxr - r},${cyr} A${r},${r} 0 0 1 ${cxr + r},${cyr}`, fill: 'none', stroke: col, 'stroke-width': 11 }, rg);
+  });
   // Rain cloud right, drops below it.
-  cloud(c, 300, 56, 1.5, '#8b96ae');
+  const rcl = cloud(c, 300, 56, 1.5, '#8b96ae');
   const rain = new Pool(c, 40, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#4a8fdb' }));
   E('path', { d: `M0,${h} V240 Q120,215 230,245 T${w},232 V${h}Z`, fill: '#7ccf8a' }, c);
   E('path', { d: `M0,${h} V268 Q140,246 250,270 T${w},262 V${h}Z`, fill: '#5fba74' }, c);
@@ -732,15 +1392,34 @@ makeSpot('rainbow', 808, 268, 384, 296, [0, 0, 384, 296], '#ff7de0', (s) => {
   mv(sun, 52, 150);
   const cover = cloud(c, 0, 0, 1.7, '#a9b3c8');
   const sparkle = new Pool(c, 16, () => E('path', { d: 'M0,-6 L1.6,-1.6 L6,0 L1.6,1.6 L0,6 L-1.6,1.6 L-6,0 L-1.6,-1.6Z', fill: '#fff' }));
-  let sunny = 1, sv = 1, cv = 0;
+  // A magnified raindrop: white light goes in, bends, bounces off the back
+  // and comes out split into its colours.
+  const LX = 296, LY = 150;
+  const lens = E('g', null, c);
+  E('circle', { cx: LX, cy: LY, r: 66, fill: '#f2f9ff', stroke: '#23304a', 'stroke-width': 3.5 }, lens);
+  E('circle', { cx: LX, cy: LY, r: 40, fill: '#9fd2ff', stroke: '#4a8fdb', 'stroke-width': 2.5 }, lens);
+  E('ellipse', { cx: LX - 14, cy: LY - 18, rx: 9, ry: 5, fill: '#fff', opacity: 0.85, transform: `rotate(-30 ${LX - 14} ${LY - 18})` }, lens);
+  const beam = E('path', { d: `M${LX - 64},${LY - 22} L${LX - 38},${LY - 14} L${LX + 34},${LY + 14} L${LX - 6},${LY + 40}`, fill: 'none', stroke: '#fff', 'stroke-width': 5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, lens);
+  const beamEdge = E('path', { d: beam.getAttribute('d'), fill: 'none', stroke: '#c9a227', 'stroke-width': 1.5, 'stroke-linejoin': 'round', opacity: 0.6 }, lens);
+  const blen = 30 + 78 + 50;
+  A(beam, { 'stroke-dasharray': blen, 'stroke-dashoffset': blen });
+  A(beamEdge, { 'stroke-dasharray': blen, 'stroke-dashoffset': blen });
+  const out = SPECTRUM.map((col, i) => {
+    const a = (112 + i * 4.5) * Math.PI / 180;
+    return E('line', { x1: LX - 6, y1: LY + 40, x2: f1(LX - 6 + Math.cos(a) * 24), y2: f1(LY + 40 + Math.sin(a) * 24), stroke: col, 'stroke-width': 3.5, 'stroke-linecap': 'round', opacity: 0 }, lens);
+  });
+  lens.style.display = 'none';
+  let sunny = 1, raining = 1, sv = 1, rv = 1, cv = 0, dropT = -1;
   s.update = (dt, ad) => {
     const T = s.T;
     sv = lerp(sv, sunny, 1 - Math.exp(-ad * 3));
     cv = lerp(cv, 1 - sunny, 1 - Math.exp(-ad * 3));
+    rv = lerp(rv, raining, 1 - Math.exp(-ad * 2));
     rays.setAttribute('transform', `rotate(${f1(T * 10)})`);
     mv(cover, lerp(-110, 52, cv), 150, 0, 1.7);
-    rg.setAttribute('opacity', Math.max(0, sv * (0.88 + 0.1 * Math.sin(T * 1.5)) - 0.04).toFixed(2));
-    if (ad > 0 && Math.random() < ad * 30) rain.spawn((p) => { p.x = rnd(235, 370); p.y = 70; p.v = rnd(150, 200); });
+    rcl.setAttribute('opacity', (0.35 + 0.65 * rv).toFixed(2));
+    rg.setAttribute('opacity', Math.max(0, sv * rv * (0.88 + 0.1 * Math.sin(T * 1.5)) - 0.04).toFixed(2));
+    if (raining && ad > 0 && Math.random() < ad * 30) rain.spawn((p) => { p.x = rnd(235, 370); p.y = 70; p.v = rnd(150, 200); });
     rain.step(ad, (p, d) => {
       p.y += p.v * d;
       if (p.y > 235) return false;
@@ -754,17 +1433,42 @@ makeSpot('rainbow', 808, 268, 384, 296, [0, 0, 384, 296], '#ff7de0', (s) => {
       const k = Math.sin(p.age * Math.PI);
       mv(p.el, p.x, p.y, p.age * 90, k * p.sc);
     });
+    if (dropT >= 0) {
+      dropT += ad;
+      lens.style.display = '';
+      lens.setAttribute('opacity', Math.min(1, dropT * 4, (9 - dropT) / 0.5).toFixed(2));
+      const bo = f1(blen * (1 - smooth(dropT / 1.1)));
+      A(beam, { 'stroke-dashoffset': bo });
+      A(beamEdge, { 'stroke-dashoffset': bo });
+      out.forEach((l, i) => {
+        const k = smooth((dropT - 1.1 - i * 0.08) / 0.4);
+        const a = (112 + i * 4.5) * Math.PI / 180, r = 24 * k;
+        A(l, { x2: f1(LX - 6 + Math.cos(a) * r), y2: f1(LY + 40 + Math.sin(a) * r), opacity: k.toFixed(2) });
+      });
+      if (dropT > 9) { dropT = -1; lens.style.display = 'none'; }
+    }
+  };
+  const shine = () => {
+    for (let i = 0; i < 14; i++) sparkle.spawn((p) => {
+      const a = rnd(Math.PI, TAU), r = 100 + rnd(-6, 6);
+      p.x = cxr + Math.cos(a) * r * 1.2; p.y = cyr + Math.sin(a) * r * 0.9 + 30; p.sc = rnd(0.7, 1.4); p.age = -rnd(0, 0.4);
+    });
   };
   s.tap = () => {
     sunny = sunny > 0.5 ? 0 : 1;
     s.wake = 5;
-    if (sunny) {
-      for (let i = 0; i < 14; i++) sparkle.spawn((p) => {
-        const a = rnd(Math.PI, TAU), r = 100 + rnd(-6, 6);
-        p.x = cxr + Math.cos(a) * r * 1.2; p.y = cyr + Math.sin(a) * r * 0.9 + 30; p.sc = rnd(0.7, 1.4); p.age = -rnd(0, 0.4);
-      });
-    }
+    if (sunny) shine();
   };
+  s.steps = [
+    {
+      pick: ['nosun', 'norain', 'both'],
+      enter: () => { sunny = 1; raining = 1; dropT = -1; lens.style.display = 'none'; },
+      act: (k) => { sunny = k === 'nosun' ? 0 : 1; raining = k === 'norain' ? 0 : 1; if (k === 'both') shine(); },
+      wait: 2.4,
+    },
+    { enter: () => { sunny = 1; raining = 1; }, act: () => { sunny = 1; raining = 1; dropT = 0; }, wait: 2.2 },
+  ];
+  s.free = () => { sunny = 1; raining = 1; };
   for (let i = 0; i < 20; i++) rain.spawn((p) => { p.x = rnd(235, 370); p.y = rnd(70, 230); p.v = rnd(150, 200); });
 });
 
@@ -772,14 +1476,14 @@ makeSpot('rainbow', 808, 268, 384, 296, [0, 0, 384, 296], '#ff7de0', (s) => {
 makeSpot('precip', 8, 578, 384, 296, [0, 0, 384, 296], '#4a8fdb', (s) => {
   const c = s.c, w = s.w, h = s.h;
   E('rect', { width: w, height: h, fill: G([[0, '#6fb4ec'], [1, '#d6ecfb']]) }, c);
-  // Freezing level.
-  E('line', { x1: 0, y1: 96, x2: w, y2: 96, stroke: '#fff', 'stroke-width': 1.5, 'stroke-dasharray': '3 6', opacity: 0.8 }, c);
-  const t0 = E('g', null, c);
-  E('rect', { x: 6, y: 78, width: 36, height: 16, rx: 8, fill: '#23304a', opacity: 0.8 }, t0);
-  E('path', { d: 'M13,86 h5 M15.5,83.5 v5', stroke: '#fff', 'stroke-width': 0 }, t0);
-  const tt = E('text', { x: 24, y: 90, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: '#bfe6ff', 'font-family': 'sans-serif' }, t0);
-  tt.textContent = '0°C';
-  // Cumulonimbus: tall, flat anvil on top, dark base.
+  // The freezing level. Above it snowflakes stay frozen, below it they melt;
+  // on a cold day it sits under the ground and they never do.
+  const fl = E('g', null, c);
+  E('line', { x1: 0, y1: 0, x2: w, y2: 0, stroke: '#fff', 'stroke-width': 2, 'stroke-dasharray': '4 6' }, fl);
+  E('rect', { x: w - 46, y: -9, width: 40, height: 18, rx: 9, fill: '#23304a', opacity: 0.85 }, fl);
+  E('text', { x: w - 26, y: 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: '#bfe6ff', 'font-family': 'sans-serif' }, fl).textContent = '0°C';
+  // Cumulonimbus: tall, flat anvil on top, dark base. It grows from vapour.
+  const CX = 215, CY = 98;
   const cb = E('g', null, c);
   cloud(cb, 150, 112, 1.3, '#cfd6e4');
   cloud(cb, 230, 96, 1.7, '#e4e9f3');
@@ -787,23 +1491,26 @@ makeSpot('precip', 8, 578, 384, 296, [0, 0, 384, 296], '#4a8fdb', (s) => {
   cloud(cb, 200, 54, 1.9, '#f4f7fc');
   cloud(cb, 250, 42, 1.2, '#fff');
   E('rect', { x: 110, y: 128, width: 210, height: 14, rx: 7, fill: '#8e97ae' }, cb);
+  // Updraft arrows inside the cloud, for hail.
+  const upd = E('g', null, c);
+  for (const ux of [190, 240]) E('path', { d: `M${ux},128 V68 M${ux - 9},78 L${ux},66 L${ux + 9},78`, fill: 'none', stroke: '#ff7a45', 'stroke-width': 4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, upd);
   const ground = E('rect', { y: 246, width: w, height: 60, fill: '#6fcf7a' }, c);
   const gTop = E('rect', { y: 246, width: w, height: 8, fill: '#8fe09a' }, c);
-  // Sun heating the ground at left, warm air rising into the cloud.
-  E('circle', { cx: 36, cy: 214, r: 18, fill: '#ffd84a' }, c);
-  const up = new Pool(c, 10, () => E('circle', { r: 3.2, fill: '#fff', stroke: '#6fb4ec', 'stroke-width': 1 }));
-  // Precipitation.
-  let mode = 0; // 0 rain, 1 snow, 2 hail
-  const fall = new Pool(c, 70, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#4a8fdb' }));
-  const styleP = (p) => {
-    const e = p.el;
-    if (mode === 0) A(e, { rx: 0.9, width: 1.8, height: 10, fill: '#4a8fdb', stroke: 'none' });
-    else if (mode === 1) A(e, { rx: 2.6, width: 5.2, height: 5.2, fill: '#fff', stroke: '#9fc7ee', 'stroke-width': 0.8 });
-    else A(e, { rx: 3.6, width: 7.2, height: 7.2, fill: '#eaf4ff', stroke: '#7e94b0', 'stroke-width': 1 });
-    p.m = mode;
-  };
-  const emit = (y) => fall.spawn((p) => { styleP(p); p.x = rnd(130, 310); p.y = y === undefined ? 142 : y; p.v = mode === 0 ? rnd(190, 240) : mode === 1 ? rnd(35, 55) : rnd(240, 300); p.ph = rnd(0, TAU); p.b = 0; });
-  // Mode icons along the bottom-left.
+  // Sun heating the ground at left, warm vapour rising into the cloud.
+  const sun = E('g', null, c);
+  const srays = E('g', null, sun);
+  for (let i = 0; i < 8; i++) E('rect', { x: -2, y: -29, width: 4, height: 9, rx: 2, fill: '#ffd84a', transform: `rotate(${i * 45})` }, srays);
+  E('circle', { r: 18, fill: '#ffd84a' }, sun);
+  mv(sun, 36, 214);
+  const up = new Pool(c, 22, () => E('circle', { r: 3.2, fill: '#fff', stroke: '#6fb4ec', 'stroke-width': 1 }));
+  const merge = new Pool(c, 20, () => E('circle', { r: 2.2, fill: '#2f7fd0' }));
+  const fall = new Pool(c, 80, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#4a8fdb' }));
+  const pel = new Pool(c, 10, () => E('circle', { fill: '#eaf4ff', stroke: '#7e94b0', 'stroke-width': 1.2 }));
+  const thermo = E('g', null, c);
+  E('rect', { x: -26, y: -12, width: 52, height: 24, rx: 12, fill: '#fff', stroke: '#23304a', 'stroke-width': 2 }, thermo);
+  const thT = E('text', { y: 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800, fill: '#23304a', 'font-family': 'sans-serif' }, thermo);
+  mv(thermo, w - 40, 274);
+  // Free-play mode icons along the bottom-left.
   const icons = E('g', null, c);
   const iconEls = [0, 1, 2].map((i) => {
     const g = E('g', null, icons);
@@ -811,41 +1518,122 @@ makeSpot('precip', 8, 578, 384, 296, [0, 0, 384, 296], '#4a8fdb', (s) => {
     if (i === 0) E('path', { d: 'M-5,-4 L-8,5 M0,-6 L-3,7 M5,-4 L2,5', stroke: '#4a8fdb', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
     else if (i === 1) E('path', { d: 'M0,-9 V9 M-8,-4.5 L8,4.5 M-8,4.5 L8,-4.5', stroke: '#6fa6d8', 'stroke-width': 2.2, 'stroke-linecap': 'round' }, g);
     else { E('circle', { cx: -3, cy: -2, r: 4.5, fill: '#dce9f7', stroke: '#7e94b0', 'stroke-width': 1.5 }, g); E('circle', { cx: 4, cy: 4, r: 4, fill: '#dce9f7', stroke: '#7e94b0', 'stroke-width': 1.5 }, g); }
-    mv(g, 28 + i * 40, 276 - 2);
     return g;
   });
-  let snow = 0;
+  let mode = 0, cloudK = 1, cloudTo = 1, falling = true, meltY = 195, meltTo = 195, snow = 0;
+  let evap = 0, hailT = 0, hailOn = false, temp = '', iconsOn = false;
+  const styleP = (p, ice) => {
+    if (ice) A(p.el, { rx: 2.6, width: 5.2, height: 5.2, fill: '#fff', stroke: '#9fc7ee', 'stroke-width': 0.8 });
+    else A(p.el, { rx: 0.9, width: 1.8, height: 10, fill: '#4a8fdb', stroke: 'none' });
+    p.ice = ice;
+    p.v = ice ? rnd(35, 55) : rnd(190, 240);
+  };
+  const base = () => CY + 44 * cloudK;
+  const emit = (y) => fall.spawn((p) => {
+    p.x = CX + rnd(-85, 95) * cloudK;
+    p.y = y === undefined ? base() : y;
+    styleP(p, p.y < meltY);
+    p.ph = rnd(0, TAU);
+  });
+  // Hail: ice grains ride a loop up through the cloud, gaining a layer each
+  // lap, until they are too heavy and drop.
+  const hailBatch = () => {
+    for (let i = 0; i < 4; i++) pel.spawn((p) => { p.a = rnd(0, TAU); p.loop = rnd(2.2, 3); p.st = 0; p.vy = 0; p.b = 0; p.x = CX; p.y = CY; p.ox = rnd(-30, 30); });
+  };
   s.update = (dt, ad) => {
-    snow = lerp(snow, mode === 1 ? 1 : 0, 1 - Math.exp(-ad * 3));
+    cloudK = lerp(cloudK, cloudTo, 1 - Math.exp(-ad * 0.9));
+    meltY = lerp(meltY, meltTo, 1 - Math.exp(-ad * 1.8));
+    evap = Math.max(0, evap - ad);
+    hailT = Math.max(0, hailT - ad);
+    snow = lerp(snow, meltTo > 246 ? 1 : 0, 1 - Math.exp(-ad * 1.5));
+    cb.setAttribute('transform', `translate(${CX} ${CY}) scale(${cloudK.toFixed(3)}) translate(${-CX} ${-CY})`);
+    cb.setAttribute('opacity', (0.55 + 0.45 * cloudK).toFixed(2));
+    mv(fl, 0, meltY);
+    fl.style.display = meltY < 244 ? '' : 'none';
+    srays.setAttribute('transform', `rotate(${f1(s.T * 20)}) scale(${(1 + 0.35 * smooth(evap)).toFixed(3)})`);
     const gc = [lerp(0x6f, 0xf4, snow), lerp(0xcf, 0xf8, snow), lerp(0x7a, 0xff, snow)].map(Math.round);
     ground.setAttribute('fill', `rgb(${gc})`);
     gTop.setAttribute('fill', `rgb(${gc.map((v) => Math.min(255, v + 20))})`);
-    iconEls.forEach((g, i) => mv(g, 28 + i * 40, 276 - 2 - (i === mode ? 5 : 0), 0, i === mode ? 1.15 : 0.9));
-    // Rising warm vapour.
-    if (ad > 0 && Math.random() < ad * 3) up.spawn((p) => { p.x = rnd(26, 86); p.y = 232; p.ph = rnd(0, TAU); });
+    thermo.style.display = temp ? '' : 'none';
+    thT.textContent = temp;
+    icons.style.display = iconsOn ? '' : 'none';
+    iconEls.forEach((g, i) => mv(g, 28 + i * 40, 272 - (i === mode ? 5 : 0), 0, i === mode ? 1.15 : 0.9));
+    upd.setAttribute('opacity', (smooth(hailT) * (0.6 + 0.4 * Math.sin(s.T * 8))).toFixed(2));
+    // Rising vapour: faint dots that fade out as they become cloud.
+    if (ad > 0 && Math.random() < ad * (evap > 0 ? 16 : 3)) up.spawn((p) => { p.x = rnd(26, 86); p.y = 232; p.ph = rnd(0, TAU); });
     up.step(ad, (p, d) => {
       p.y -= 70 * d;
-      p.x += Math.sin(p.age * 3 + p.ph) * 10 * d + 38 * d * smooth((150 - p.y) / 60);
-      if (p.y < 100) { p.y = 232; p.x = rnd(26, 86); }
-      A(p.el, { cx: f1(p.x), cy: f1(p.y), opacity: p.y < 150 ? 0 : 0.95 });
+      p.x += Math.sin(p.age * 3 + p.ph) * 10 * d + 60 * d * smooth((190 - p.y) / 80);
+      if (p.y < 100) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), opacity: (0.95 * smooth((p.y - 110) / 60)).toFixed(2) });
     });
-    if (ad > 0) { let n = ad * 26; while (n > 0) { if (Math.random() < n) emit(); n -= 1; } }
+    merge.step(ad, (p, d) => {
+      const u = Math.min(1, p.age / 1);
+      if (p.age > 1.1) return false;
+      A(p.el, { cx: f1(lerp(p.x, p.tx, ease(u))), cy: f1(lerp(p.y, p.ty, ease(u))), r: f1(2.2 + u * 2.5), opacity: 1 });
+    });
+    if (falling && ad > 0) { let n = ad * 26; while (n > 0) { if (Math.random() < n) emit(); n -= 1; } }
     fall.step(ad, (p, d) => {
-      if (p.m === 1) { p.x += Math.sin(p.age * 2.4 + p.ph) * 14 * d; }
+      if (p.ice) {
+        p.x += Math.sin(p.age * 2.4 + p.ph) * 14 * d;
+        if (p.y > meltY) styleP(p, false);
+      }
       p.y += p.v * d;
-      if (p.m === 2 && p.y > 246 && p.b < 1) { p.y = 246; p.v = -p.v * 0.35; p.b++; }
-      if (p.m === 2 && p.b > 0) p.v += 900 * d;
-      if (p.y > 250 && p.v > 0) return false;
-      if (p.m === 0) A(p.el, { x: f1(p.x), y: f1(p.y) });
-      else A(p.el, { x: f1(p.x), y: f1(p.y) });
+      if (p.y > 250) return false;
+      A(p.el, { x: f1(p.x), y: f1(p.y) });
     });
+    if ((hailT > 0 || hailOn) && ad > 0 && Math.random() < ad * 1.6) hailBatch();
+    pel.step(ad, (p, d) => {
+      if (p.st === 0) {
+        p.a -= d * 4.2;
+        const k = Math.min(1, p.age / p.loop);
+        p.x = CX + p.ox * 0.4 + Math.cos(p.a) * 46;
+        p.y = CY + 4 + Math.sin(p.a) * 26;
+        p.r = 1.5 + k * 4.5;
+        if (k >= 1 && Math.sin(p.a) > 0.6) { p.st = 1; p.vy = 40; }
+      } else {
+        p.vy += 700 * d;
+        p.y += p.vy * d;
+        if (p.y > 244 && p.b < 1) { p.y = 244; p.vy = -p.vy * 0.3; p.b++; }
+        if (p.y > 250 && p.vy > 0) return false;
+      }
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(p.r) });
+    });
+  };
+  const apply = () => {
+    hailOn = mode === 2;
+    meltTo = mode === 1 ? 262 : 195;
+    temp = mode === 1 ? '−5°C' : '+8°C';
   };
   s.tap = () => {
     mode = (mode + 1) % 3;
-    fall.clear();
+    apply();
     s.wake = 5;
-    for (let i = 0; i < 40; i++) emit(rnd(142, 244));
   };
+  const scene = (o) => {
+    cloudTo = o.cloud; falling = o.fall; meltTo = 195; hailOn = false; hailT = 0; temp = ''; iconsOn = false;
+    if (o.snap) { meltY = meltTo; snow = 0; }
+  };
+  s.steps = [
+    { enter: () => { scene({ cloud: 0.3, fall: false }); fall.clear(); pel.clear(); }, act: () => { evap = 3; cloudTo = 1; }, wait: 3.2 },
+    {
+      enter: () => { scene({ cloud: 1, fall: false }); fall.clear(); },
+      act: () => {
+        const ctr = [[170, 112], [220, 120], [265, 110]];
+        for (let i = 0; i < 18; i++) merge.spawn((p) => { const k = ctr[i % 3]; p.x = k[0] + rnd(-36, 36); p.y = k[1] + rnd(-40, 14); p.tx = k[0]; p.ty = k[1] + 10; });
+        after(s, 1.1, () => { falling = true; });
+      },
+      wait: 2.6,
+    },
+    {
+      pick: ['warm', 'cold'],
+      enter: () => { scene({ cloud: 1, fall: false, snap: true }); meltTo = meltY = 150; fall.clear(); },
+      act: (k) => { falling = true; meltTo = k === 'warm' ? 195 : 262; temp = k === 'warm' ? '+8°C' : '−5°C'; },
+      wait: 3.2,
+    },
+    { enter: () => { scene({ cloud: 1, fall: true }); pel.clear(); }, act: () => { hailT = 4.5; hailBatch(); }, wait: 4.4 },
+  ];
+  s.free = () => { iconsOn = true; mode = 0; apply(); falling = true; cloudTo = 1; };
   for (let i = 0; i < 40; i++) emit(rnd(142, 244));
 });
 
@@ -855,10 +1643,6 @@ makeSpot('tornado', 408, 578, 384, 296, [0, 0, 384, 296], '#9aa7b8', (s) => {
   E('rect', { width: w, height: h, fill: G([[0, '#59647a'], [0.7, '#a9b6a4'], [1, '#c6c59a']]) }, c);
   E('path', { d: `M0,${h} V250 Q100,236 200,250 T${w},244 V${h}Z`, fill: '#b6a463' }, c);
   E('path', { d: `M0,${h} V270 Q130,258 250,272 T${w},266 V${h}Z`, fill: '#9e8d4f' }, c);
-  const cl = E('g', null, c);
-  cloud(cl, 80, 40, 2.4, '#4a5368');
-  cloud(cl, 210, 34, 2.8, '#3f475a');
-  cloud(cl, 330, 44, 2.2, '#4a5368');
   const houses = [60, 168, 322].map((hx) => {
     const g = E('g', null, c);
     E('rect', { x: -12, y: -18, width: 24, height: 18, fill: '#f4d9a0' }, g);
@@ -867,15 +1651,24 @@ makeSpot('tornado', 408, 578, 384, 296, [0, 0, 384, 296], '#9aa7b8', (s) => {
     mv(g, hx, 262);
     return { g, x: hx, hot: 0 };
   });
+  const riseP = new Pool(c, 16, () => E('path', { d: 'M0,-8 L6,0 H2 V8 H-2 V0 H-6Z', fill: '#ff8a4d', stroke: '#fff', 'stroke-width': 1 }));
   const layers = [];
   const N = 15;
   const fun = E('g', null, c);
   for (let i = 0; i < N; i++) layers.push(E('ellipse', { fill: i % 2 ? '#7d8799' : '#939caa', stroke: '#5f687a', 'stroke-width': 1.2 }, fun));
+  // The storm cloud sits on top of the funnel, so it grows down out of it.
+  const cl = E('g', null, c);
+  cloud(cl, 80, 40, 2.4, '#4a5368');
+  cloud(cl, 210, 34, 2.8, '#3f475a');
+  cloud(cl, 330, 44, 2.2, '#4a5368');
   const dust = new Pool(c, 16, () => E('circle', { r: 8, fill: '#b9a46a' }));
   const deb = new Pool(c, 16, () => E('rect', { width: 6, height: 4, fill: '#d9604f' }));
-  let tx = 192, target = 192, lean = 0;
+  let tx = 192, target = 192, lean = 0, reach = 1, reachTo = 1, rise = 0;
   s.update = (dt, ad) => {
     const T = s.T;
+    rise = Math.max(0, rise - ad);
+    reach = lerp(reach, reachTo, 1 - Math.exp(-ad * (reachTo > reach ? 0.9 : 2.5)));
+    const down = reach > 0.9;
     tx += (target - tx) * (1 - Math.exp(-ad * 1.6));
     lean = lerp(lean, clamp((target - tx) * 0.25, -22, 22), 1 - Math.exp(-ad * 4));
     for (let i = 0; i < N; i++) {
@@ -883,16 +1676,24 @@ makeSpot('tornado', 408, 578, 384, 296, [0, 0, 384, 296], '#9aa7b8', (s) => {
       const y = lerp(70, 252, u);
       const rx = lerp(86, 8, Math.pow(u, 0.8));
       const ox = lean * u * 1.4 + Math.sin(T * 3.2 + i * 0.6) * (3 + 10 * (1 - u)) * 0.6;
-      A(layers[i], { cx: f1(tx + ox), cy: f1(y), rx: f1(rx + Math.sin(T * 5 + i) * 1.5), ry: f1(lerp(11, 4, u)) });
+      A(layers[i], { cx: f1(tx + ox), cy: f1(y), rx: f1(rx + Math.sin(T * 5 + i) * 1.5), ry: f1(lerp(11, 4, u)), opacity: smooth((reach * 1.08 - u) * 6).toFixed(2) });
     }
     houses.forEach((hh) => {
-      const near = Math.abs(hh.x - tx) < 40;
+      const near = down && Math.abs(hh.x - tx) < 40;
       hh.hot = lerp(hh.hot, near ? 1 : 0, 1 - Math.exp(-ad * 5));
       mv(hh.g, hh.x + Math.sin(T * 40) * 1.6 * hh.hot, 262, Math.sin(T * 33) * 4 * hh.hot);
-      if (near && ad > 0 && Math.random() < ad * 10) deb.spawn((p) => { p.a = rnd(0, TAU); p.h = 0; p.r = rnd(8, 20); p.col = Math.random() < 0.5 ? '#d9604f' : '#f4d9a0'; p.el.setAttribute('fill', p.col); });
+      if (near && ad > 0 && Math.random() < ad * 10) deb.spawn((p) => { p.a = rnd(0, TAU); p.h = 0; p.r = rnd(8, 20); p.el.setAttribute('fill', Math.random() < 0.5 ? '#d9604f' : '#f4d9a0'); });
     });
-    if (ad > 0 && Math.random() < ad * 14) dust.spawn((p) => { p.x = tx + rnd(-14, 14); });
-    dust.step(ad, (p, d) => {
+    if (rise > 0 && ad > 0 && Math.random() < ad * 12) riseP.spawn((p) => { p.x0 = tx + rnd(-70, 70); p.y = 250; p.ph = rnd(0, TAU); });
+    riseP.step(ad, (p, d) => {
+      p.y -= 75 * d;
+      if (p.y < 80) return false;
+      const k = (250 - p.y) / 170;
+      mv(p.el, lerp(p.x0, tx, k * 0.7) + Math.sin(p.age * 5 + p.ph) * 14 * k, p.y);
+      p.el.setAttribute('opacity', Math.min(1, (p.y - 80) / 40).toFixed(2));
+    });
+    if (down && ad > 0 && Math.random() < ad * 14) dust.spawn((p) => { p.x = tx + rnd(-14, 14); });
+    dust.step(ad, (p) => {
       const u = p.age / 1.1;
       if (u >= 1) return false;
       A(p.el, { cx: f1(p.x + u * 30 * (p.x > tx ? 1 : -1)), cy: f1(256 - u * 22), r: f1(5 + u * 12), opacity: (0.6 * (1 - u)).toFixed(2) });
@@ -912,16 +1713,25 @@ makeSpot('tornado', 408, 578, 384, 296, [0, 0, 384, 296], '#9aa7b8', (s) => {
     s.wake = 8;
     for (let i = 0; i < 8; i++) deb.spawn((p) => { p.a = rnd(0, TAU); p.h = 0; p.r = rnd(8, 24); p.age = 0; p.el.setAttribute('fill', '#d9604f'); });
   };
+  s.steps = [
+    { enter: () => { reachTo = 0; }, act: () => { rise = 3.5; reachTo = 1; }, wait: 3.6 },
+    { enter: () => { reachTo = 1; }, act: (k, x) => { s.tap(x); return houses.some((hh) => Math.abs(hh.x - target) < 44) ? 'house' : 'field'; }, wait: 2.6 },
+    { pick: ['window', 'basement', 'car'], safe: ['basement'], enter: () => { reachTo = 1; }, act: () => s.tap(target > 192 ? 70 : 314), wait: 2.6 },
+  ];
 });
 
 // ---------------------------------------------------------------- typhoon
 makeSpot('typhoon', 808, 578, 384, 296, [0, 0, 384, 296], '#e8f4ff', (s) => {
   const c = s.c, w = s.w, h = s.h;
   E('rect', { width: w, height: h, fill: G([[0, '#0f4c8f'], [1, '#1a7bc0']]) }, c);
-  // Latitude lines and warm water under the storm.
+  // Cold water to the north, warm water to the south.
+  E('rect', { width: w, height: 100, fill: G([[0, '#cfeeff', 0.55], [1, '#cfeeff', 0]]) }, c);
+  E('rect', { y: 190, width: w, height: h - 190, fill: G([[0, '#ff8a3d', 0], [1, '#ff8a3d', 0.7]]) }, c);
+  for (const [ix, iy, ir] of [[30, 18, 14], [64, 30, 9], [104, 14, 11], [140, 34, 7]]) E('path', { d: `M${ix - ir},${iy} L${ix - ir * 0.4},${iy - ir * 0.6} L${ix + ir},${iy - ir * 0.3} L${ix + ir * 0.6},${iy + ir * 0.5} Z`, fill: '#f4fbff', stroke: '#9fc7ee', 'stroke-width': 1.5 }, c);
+  // Latitude lines.
   for (let i = 1; i < 6; i++) E('line', { x1: 0, y1: i * 50, x2: w, y2: i * 50 - 14, stroke: '#fff', opacity: 0.1, 'stroke-width': 1.5 }, c);
   const warm = E('circle', { r: 110, fill: RG([[0, '#ff9a4d', 0.55], [1, '#ff9a4d', 0]]) }, c);
-  // An archipelago in the corner.
+  // An archipelago in the corner: the "town" the storm heads for.
   const isl = E('g', { fill: '#5bb870', stroke: '#2f7f4a', 'stroke-width': 2 }, c);
   E('path', { d: 'M290,20 Q320,10 350,30 Q372,44 384,70 L384,0 L300,0Z' }, isl);
   E('path', { d: 'M262,62 Q276,54 286,66 Q276,78 262,72Z' }, isl);
@@ -929,34 +1739,40 @@ makeSpot('typhoon', 808, 578, 384, 296, [0, 0, 384, 296], '#e8f4ff', (s) => {
   const ty = E('g', null, c);
   const body = E('g', null, ty);
   E('circle', { r: 118, fill: RG([[0, '#fff', 0.55], [0.55, '#fff', 0.25], [1, '#fff', 0]]) }, body);
-  const arms = [];
   for (let k = 0; k < 4; k++) {
     const pts = [];
     for (let r = 16; r <= 118; r += 5) { const a = k * (TAU / 4) + (r - 16) * 0.024; pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
     const d = pathOf(pts);
     for (const [sw, op] of [[24, 0.28], [14, 0.5], [6, 0.9]]) E('path', { d, fill: 'none', stroke: '#fff', 'stroke-width': sw, 'stroke-linecap': 'round', opacity: op }, body);
-    arms.push(d);
   }
-  E('circle', { r: 17, fill: '#1c63a8' }, ty);
+  const eye = E('circle', { r: 17, fill: '#1c63a8' }, ty);
   E('circle', { r: 17, fill: 'none', stroke: '#fff', 'stroke-width': 4, opacity: 0.95 }, ty);
+  const eyeRing = E('circle', { r: 26, fill: 'none', stroke: '#ffd24a', 'stroke-width': 4, opacity: 0 }, ty);
   const ripples = new Pool(c, 4, () => E('circle', { fill: 'none', stroke: '#fff', 'stroke-width': 2 }));
   const spray = new Pool(c, 20, () => E('rect', { width: 10, height: 2.4, rx: 1.2, fill: '#fff' }));
-  let px = 170, py = 160, tx = 170, ty2 = 160, rot = 0, pow = 0;
+  // Power relaxes toward what the water underneath can feed it.
+  const fuel = (y) => 0.1 + 1.25 * smooth((y - 110) / 100);
+  let px = 170, py = 160, tx = 170, ty2 = 160, rot = 0, pow = 0.7, eyeT = 0;
   s.update = (dt, ad) => {
-    pow = Math.max(0, pow - ad * 0.18);
+    const T = s.T;
     px += (tx - px) * (1 - Math.exp(-ad * 1.4));
     py += (ty2 - py) * (1 - Math.exp(-ad * 1.4));
+    pow += (fuel(py) - pow) * (1 - Math.exp(-ad * 0.8));
+    eyeT = Math.max(0, eyeT - ad);
     rot -= (24 + pow * 90) * ad;
-    const sc = 0.78 + pow * 0.3;
+    const sc = 0.5 + pow * 0.42;
     mv(ty, px, py, 0, sc);
     body.setAttribute('transform', `rotate(${f1(rot)})`);
-    mv(warm, px, py, 0, 0.8 + pow * 0.5);
+    mv(warm, px, py, 0, 0.6 + pow * 0.5);
+    const ek = smooth(eyeT);
+    eye.setAttribute('fill', ek > 0 ? `rgb(${Math.round(lerp(28, 110, ek))},${Math.round(lerp(99, 190, ek))},${Math.round(lerp(168, 255, ek))})` : '#1c63a8');
+    A(eyeRing, { r: f1(26 + Math.sin(T * 6) * 4), opacity: (ek * 0.9).toFixed(2) });
     ripples.step(ad, (p) => {
       const u = p.age / 1.2;
       if (u >= 1) return false;
       A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(4 + u * 40), opacity: (1 - u).toFixed(2) });
     });
-    if (pow > 0.2 && ad > 0 && Math.random() < ad * 18 * pow) spray.spawn((p) => { p.a = rnd(0, TAU); p.r = 20; });
+    if (pow > 0.5 && ad > 0 && Math.random() < ad * 14 * pow) spray.spawn((p) => { p.a = rnd(0, TAU); p.r = 20; });
     spray.step(ad, (p, d) => {
       p.r += 90 * d; p.a -= 1.2 * d;
       if (p.r > 130) return false;
@@ -966,10 +1782,15 @@ makeSpot('typhoon', 808, 578, 384, 296, [0, 0, 384, 296], '#e8f4ff', (s) => {
   };
   s.tap = (x, y) => {
     tx = clamp(x, 80, w - 80); ty2 = clamp(y, 90, h - 70);
-    pow = 1;
+    pow = Math.min(1.6, pow + 0.4);
     s.wake = 8;
     ripples.spawn((p) => { p.x = x; p.y = y; });
   };
+  s.steps = [
+    { pick: ['warm', 'cold'], enter: () => { tx = 190; ty2 = 160; }, act: (k) => { tx = 190; ty2 = k === 'warm' ? 226 : 90; }, wait: 3.6 },
+    { act: () => { eyeT = 4; }, wait: 2 },
+    { pick: ['beach', 'inside'], safe: ['inside'], cardAt: [80, 230], act: () => { tx = 300; ty2 = 110; pow = Math.max(pow, 1.3); }, wait: 2.4 },
+  ];
 });
 
 // ---------------------------------------------------------------- volcano
@@ -986,47 +1807,55 @@ makeSpot('volcano', 8, 888, 384, 312, [0, 0, 384, 312], '#ff6a2b', (s) => {
   E('path', { d: polyOf([[150, 112], [172, 86], [192, 86], [160, 150], [90, 152]]), fill: '#9d7c62' }, sh);
   E('path', { d: 'M-20,206 H404', stroke: '#4a8f55', 'stroke-width': 7 }, sh);
   const chamber = E('ellipse', { cx: 192, cy: 272, rx: 96, ry: 36, fill: RG([[0, '#ffd24a'], [0.6, '#ff7a2b'], [1, '#c8341a']]) }, sh);
-  E('ellipse', { cx: 192, cy: 272, rx: 96, ry: 36, fill: 'none', stroke: '#3c2517', 'stroke-width': 4 }, sh);
-  const pipe = E('path', { d: 'M185,240 L185,92 L199,92 L199,240Z', fill: '#ff7a2b' }, sh);
+  const rim = E('ellipse', { cx: 192, cy: 272, rx: 96, ry: 36, fill: 'none', stroke: '#3c2517', 'stroke-width': 4 }, sh);
+  E('path', { d: 'M185,240 L185,92 L199,92 L199,240Z', fill: '#ff7a2b' }, sh);
   E('path', { d: 'M192,240 V96', stroke: '#ffd24a', 'stroke-width': 3, opacity: 0.8 }, sh);
-  const bub = new Pool(sh, 10, () => E('circle', { r: 4, fill: '#ffe27a' }));
-  const smoke = new Pool(sh, 18, () => E('circle', { r: 10, fill: '#7d7f88' }));
+  // Pressure gauge, cut into the rock beside the chamber.
+  E('rect', { x: 344, y: 222, width: 20, height: 80, rx: 6, fill: '#3c2517', stroke: '#fff', 'stroke-width': 2.5 }, sh);
+  const gauge = E('rect', { x: 348, width: 12, rx: 3, fill: '#ffd24a' }, sh);
+  const bub = new Pool(sh, 16, () => E('circle', { r: 4, fill: '#ffe27a' }));
+  const smoke = new Pool(sh, 34, () => E('circle', { r: 10, fill: '#7d7f88' }));
   const flows = [
     'M180,88 L150,112 L90,152 L-12,206',
     'M204,88 L234,112 L300,152 L396,206',
   ].map((d) => { const p = E('path', { d, fill: 'none', stroke: '#ff5a1f', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, sh); const len = p.getTotalLength(); A(p, { 'stroke-dasharray': len, 'stroke-dashoffset': len, opacity: 0 }); return { p, len }; });
   const crater = E('ellipse', { cx: 192, cy: 86, rx: 24, ry: 9, fill: '#ffb22b' }, sh);
-  const bombs = new Pool(sh, 30, () => E('circle', { r: 5, fill: '#ff6a2b', stroke: '#ffd24a', 'stroke-width': 1.5 }));
+  const bombs = new Pool(sh, 44, () => E('circle', { r: 5, fill: '#ff6a2b', stroke: '#ffd24a', 'stroke-width': 1.5 }));
   const flashC = E('circle', { cx: 192, cy: 86, r: 60, fill: RG([[0, '#fff3a8', 0.9], [1, '#ff9a3d', 0]]), opacity: 0 }, sh);
-  let er = 0, flowP = 0, flowOp = 0, quake = 0;
+  let er = 0, kind = 'mid', flowP = 0, flowOp = 0, quake = 0, pr = 0, prTo = 0;
   s.update = (dt, ad) => {
     const T = s.T;
-    er = Math.max(0, er - ad / 3);
+    er = Math.max(0, er - ad / (kind === 'runny' ? 4.5 : 3));
     quake = Math.max(0, quake - ad * 1.6);
+    pr = lerp(pr, prTo, 1 - Math.exp(-ad * 4));
     mv(sh, Math.sin(T * 60) * 3 * quake, Math.cos(T * 52) * 2 * quake);
-    chamber.setAttribute('opacity', (0.88 + 0.12 * Math.sin(T * 2 + er * 6)).toFixed(2));
+    A(chamber, { rx: f1(96 + pr * 10), ry: f1(36 + pr * 7), opacity: (0.88 + 0.12 * Math.sin(T * (2 + pr * 10) + er * 6)).toFixed(2) });
+    A(rim, { rx: f1(96 + pr * 10), ry: f1(36 + pr * 7) });
+    const gh = 72 * clamp(pr, 0, 1);
+    A(gauge, { y: f1(298 - gh), height: f1(gh), fill: pr > 0.66 ? '#ff4a2b' : pr > 0.33 ? '#ff9a2b' : '#ffd24a' });
     A(crater, { fill: er > 0 ? '#ffe45c' : '#ff9a2b' });
-    flashC.setAttribute('opacity', Math.max(0, er - 0.6).toFixed(2));
-    if (flowP > 0 || er > 0) {
-      flowP = Math.min(1.001, flowP + ad / 3.2);
+    flashC.setAttribute('opacity', (kind === 'runny' ? 0 : Math.max(0, er - 0.6)).toFixed(2));
+    if (flowP > 0 || (er > 0 && kind !== 'thick')) {
+      flowP = Math.min(1.001, flowP + ad / (kind === 'runny' ? 2.4 : 3.2));
       flowOp = er > 0 ? 1 : Math.max(0, flowOp - ad / 4);
-      flows.forEach((f) => A(f.p, { 'stroke-dashoffset': f1(f.len * (1 - ease(Math.min(1, flowP)))), opacity: flowOp.toFixed(2) }));
+      flows.forEach((f) => A(f.p, { 'stroke-dashoffset': f1(f.len * (1 - ease(Math.min(1, flowP)))), opacity: flowOp.toFixed(2), 'stroke-width': kind === 'runny' ? 12 : 9 }));
       if (er <= 0 && flowOp <= 0) { flowP = 0; flows.forEach((f) => A(f.p, { 'stroke-dashoffset': f.len })); }
     }
-    if (ad > 0 && Math.random() < ad * 2.5) bub.spawn((p) => { p.x = 192 + rnd(-70, 70); p.y = 285; p.vx = rnd(-8, 8); });
+    if (ad > 0 && Math.random() < ad * (2.5 + pr * 14)) bub.spawn((p) => { p.x = 192 + rnd(-70, 70); p.y = 285; p.vx = rnd(-8, 8); });
     bub.step(ad, (p, d) => {
-      p.y -= 18 * d; p.x += p.vx * d;
-      if (p.age > 1.4 || p.y < 255) return false;
+      p.y -= (18 + pr * 20) * d; p.x += p.vx * d;
+      if (p.age > 1.4 || p.y < 252) return false;
       A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(2.5 + Math.sin(p.age * 5) * 0.8), opacity: Math.min(1, (1.4 - p.age) * 2).toFixed(2) });
     });
-    const rate = er > 0 ? 16 : 1.6;
-    if (ad > 0 && Math.random() < ad * rate) smoke.spawn((p) => { p.x = 192 + rnd(-10, 10); p.er = er > 0; });
-    smoke.step(ad, (p, d) => {
+    const rate = er > 0 ? (kind === 'thick' ? 30 : kind === 'runny' ? 5 : 16) : 1.6;
+    if (ad > 0 && Math.random() < ad * rate) smoke.spawn((p) => { p.x = 192 + rnd(-10, 10); p.er = er > 0; p.big = er > 0 && kind === 'thick'; });
+    smoke.step(ad, (p) => {
       const life = p.er ? 4.5 : 5;
       const u = p.age / life;
       if (u >= 1) return false;
       const wind = 26 + (p.er ? 10 : 0);
-      A(p.el, { cx: f1(p.x + u * wind * 4), cy: f1(82 - u * (p.er ? 90 : 55) * 2.2), r: f1((p.er ? 12 : 8) + u * (p.er ? 34 : 22)), fill: p.er ? '#4a4a55' : '#9a9ca6', opacity: (0.75 * (1 - u)).toFixed(2) });
+      const lift = p.big ? 34 : p.er ? 90 : 55;
+      A(p.el, { cx: f1(p.x + u * wind * 4), cy: f1(82 - u * lift * 2.2), r: f1((p.big ? 16 : p.er ? 12 : 8) + u * (p.big ? 56 : p.er ? 34 : 22)), fill: p.er ? '#4a4a55' : '#9a9ca6', opacity: (0.75 * (1 - u)).toFixed(2) });
     });
     bombs.step(ad, (p, d) => {
       p.vy += 330 * d; p.x += p.vx * d; p.y += p.vy * d;
@@ -1034,11 +1863,39 @@ makeSpot('volcano', 8, 888, 384, 312, [0, 0, 384, 312], '#ff6a2b', (s) => {
       A(p.el, { cx: f1(p.x), cy: f1(p.y), r: f1(p.r) });
     });
   };
-  s.tap = () => {
-    er = 1; flowP = Math.max(0.001, flowP); quake = 1;
-    s.wake = 9;
-    for (let i = 0; i < 24; i++) bombs.spawn((p) => { p.x = 192 + rnd(-8, 8); p.y = 86; p.vx = rnd(-95, 95); p.vy = -rnd(190, 340); p.r = rnd(3, 6.5); });
+  const erupt = (k) => {
+    kind = k;
+    er = 1; quake = k === 'thick' ? 1.4 : k === 'runny' ? 0.5 : 1;
+    if (k !== 'thick') flowP = Math.max(0.001, flowP);
+    const n = k === 'thick' ? 40 : k === 'runny' ? 8 : 24;
+    for (let i = 0; i < n; i++) bombs.spawn((p) => {
+      p.x = 192 + rnd(-8, 8); p.y = 86;
+      p.vx = rnd(-95, 95) * (k === 'thick' ? 1.3 : 1);
+      p.vy = k === 'thick' ? -rnd(280, 430) : k === 'runny' ? -rnd(90, 170) : -rnd(190, 340);
+      p.r = rnd(3, 6.5);
+    });
   };
+  s.tap = () => { erupt('mid'); s.wake = 9; };
+  const calm = () => {
+    er = 0; flowP = 0; flowOp = 0;
+    flows.forEach((f) => A(f.p, { 'stroke-dashoffset': f.len, opacity: 0 }));
+    bombs.clear(); smoke.clear();
+  };
+  s.steps = [
+    {
+      need: 3,
+      enter: () => { prTo = 0; },
+      act: (k, x, y, n) => {
+        prTo = n / 3;
+        quake = Math.max(quake, 0.2 * n);
+        if (n >= 3) after(s, 0.7, () => { prTo = 0; erupt('mid'); });
+      },
+      wait: 3,
+    },
+    { pick: ['runny', 'thick'], enter: calm, act: (k) => erupt(k), wait: 3.4 },
+    { pick: ['look', 'leave'], safe: ['leave'], cardAt: [312, 60], enter: () => { calm(); prTo = 0.8; }, act: () => after(s, 0.4, () => { prTo = 0; erupt('thick'); }), wait: 2.6 },
+  ];
+  s.free = () => { prTo = 0; };
 });
 
 // -------------------------------------------------------------- avalanche
@@ -1062,6 +1919,9 @@ makeSpot('avalanche', 408, 888, 384, 312, [0, 0, 384, 312], '#cfe2f5', (s) => {
   const snowLine = P.map((p) => [p[0], p[1] + 15]);
   E('path', { d: pathOf(snowLine), fill: 'none', stroke: '#fff', 'stroke-width': 40, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, c);
   E('path', { d: pathOf(snowLine.map((p) => [p[0], p[1] + 10])), fill: 'none', stroke: '#dbe9f7', 'stroke-width': 14, 'stroke-linejoin': 'round', opacity: 0.8 }, c);
+  // A fresh layer on top of the old snow, and the weak boundary between them.
+  const fresh = E('path', { fill: 'none', stroke: '#fbfdff', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, c);
+  const weak = E('path', { d: pathOf(P.map((p) => [p[0], p[1] - 4])), fill: 'none', stroke: '#7f9cc4', 'stroke-width': 2.5, 'stroke-dasharray': '6 6', 'stroke-linecap': 'round' }, c);
   // Pines at the foot of the slope.
   const trees = E('g', null, c);
   for (const tx of [290, 318, 346, 372]) {
@@ -1071,21 +1931,25 @@ makeSpot('avalanche', 408, 888, 384, 312, [0, 0, 384, 312], '#cfe2f5', (s) => {
     E('path', { d: `M${tx - 6},${ty - 30} q6,-6 12,0 q-6,3 -12,0Z`, fill: '#fff' }, trees);
   }
   const pile = E('ellipse', { cx: 360, cy: 296, rx: 70, ry: 18, fill: '#fff', stroke: '#cfe2f5', 'stroke-width': 2 }, c);
-  const flakes = new Pool(c, 26, () => E('circle', { r: 2, fill: '#fff' }));
+  const flakes = new Pool(c, 70, () => E('circle', { r: 2, fill: '#fff' }));
   const crack = E('path', { fill: 'none', stroke: '#6d86a8', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0 }, c);
   const powder = new Pool(c, 30, () => E('circle', { fill: '#fff' }));
   const chunks = new Pool(c, 46, () => E('circle', { fill: '#fff', stroke: '#c5d8ee', 'stroke-width': 1.2 }));
-  let pileK = 0.15, crackT = 0;
+  let pileK = 0.15, crackT = 0, fk = 0, fkTo = 0, snowT = 0;
   s.update = (dt, ad) => {
     const T = s.T;
     mv(cl, 60 + ((T * 6) % 440) - 40, 36, 0, 0.9);
     pileK = Math.max(0.15, pileK - ad * 0.03);
+    snowT = Math.max(0, snowT - ad);
+    fk = lerp(fk, fkTo, 1 - Math.exp(-ad * (fkTo > fk ? 0.9 : 2.2)));
+    A(fresh, { d: pathOf(P.map((p) => [p[0], p[1] + 4 - fk * 10])), 'stroke-width': f1(fk * 22), opacity: fk > 0.02 ? 1 : 0 });
+    weak.setAttribute('opacity', smooth((fk - 0.5) / 0.4).toFixed(2));
     A(pile, { ry: f1(8 + pileK * 40), rx: f1(30 + pileK * 70) });
-    if (ad > 0 && Math.random() < ad * 8) flakes.spawn((p) => { p.x = rnd(0, w); p.y = -4; p.ph = rnd(0, TAU); });
+    if (ad > 0 && Math.random() < ad * (snowT > 0 ? 70 : 8)) flakes.spawn((p) => { p.x = rnd(0, w); p.y = -4; p.ph = rnd(0, TAU); p.v = snowT > 0 ? rnd(50, 80) : 28; });
     flakes.step(ad, (p, d) => {
-      p.y += 28 * d; p.x += Math.sin(p.age * 2 + p.ph) * 10 * d;
-      if (p.y > h) return false;
-      A(p.el, { cx: f1(p.x), cy: f1(p.y) });
+      p.y += p.v * d; p.x += Math.sin(p.age * 2 + p.ph) * 10 * d;
+      if (p.y > h || p.y > slopeY(p.x) + 4) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), r: snowT > 0 ? 2.6 : 2 });
     });
     crackT = Math.max(0, crackT - ad);
     crack.setAttribute('opacity', Math.min(1, crackT * 2).toFixed(2));
@@ -1099,7 +1963,7 @@ makeSpot('avalanche', 408, 888, 384, 312, [0, 0, 384, 312], '#cfe2f5', (s) => {
       A(p.el, { cx: f1(p.x), cy: f1(y), r: f1(p.r), opacity: 1 });
       if (Math.random() < d * 10) powder.spawn((q) => { q.x = p.x - 10; q.y = y - 4; q.r0 = rnd(8, 14); });
     });
-    powder.step(ad, (p, d) => {
+    powder.step(ad, (p) => {
       const u = p.age / 1.5;
       if (u >= 1) return false;
       A(p.el, { cx: f1(p.x), cy: f1(p.y - u * 26), r: f1(p.r0 + u * 26), opacity: (0.55 * (1 - u)).toFixed(2) });
@@ -1108,6 +1972,7 @@ makeSpot('avalanche', 408, 888, 384, 312, [0, 0, 384, 312], '#cfe2f5', (s) => {
   s.tap = (x) => {
     const sx = clamp(x, 80, 280);
     s.wake = 9;
+    fkTo = 0;
     const y = slopeY(sx) + 8;
     const d = dirAt(sx);
     const nx = -d[1], ny = d[0];
@@ -1117,6 +1982,11 @@ makeSpot('avalanche', 408, 888, 384, 312, [0, 0, 384, 312], '#cfe2f5', (s) => {
       p.x = sx + rnd(-26, 30); p.v = rnd(10, 50); p.r = rnd(3.5, 9); p.age = -rnd(0.35, 1.1); p.hop = rnd(3, 11); p.ph = rnd(0, TAU);
     });
   };
+  s.steps = [
+    { enter: () => { fkTo = 0; }, act: () => { snowT = 3.2; fkTo = 1; }, wait: 3.2 },
+    { enter: () => { fkTo = 1; }, act: (k, x) => s.tap(x), wait: 2.8 },
+    { pick: ['steep', 'trail'], safe: ['trail'], cardAt: [310, 64], enter: () => { fkTo = fk = 1; }, act: (k) => { if (k === 'steep') after(s, 0.5, () => s.tap(150)); }, wait: 2.4 },
+  ];
 });
 
 // ----------------------------------------------------------------- tsunami
@@ -1126,66 +1996,94 @@ makeSpot('tsunami', 808, 888, 384, 312, [0, 0, 384, 312], '#2aa7ff', (s) => {
   E('rect', { width: w, height: h, fill: G([[0, '#8fd0ff'], [1, '#e9f6ff']]) }, sh);
   E('circle', { cx: 60, cy: 48, r: 22, fill: '#ffe27a' }, sh);
   cloud(sh, 250, 44, 0.8, '#fff', 0.9);
-  const BED = [[0, 292], [150, 268], [230, 206], [285, 156], [330, 124], [384, 110]];
+  // The sea floor shelves up to a beach, a town, and a hill behind it that is
+  // taller than any wave.
+  const BED = [[0, 292], [150, 268], [230, 206], [285, 156], [318, 130], [342, 118], [366, 64], [384, 56]];
   const bed = (x) => { for (let i = 0; i < BED.length - 1; i++) if (x <= BED[i + 1][0]) return lerp(BED[i][1], BED[i + 1][1], (x - BED[i][0]) / (BED[i + 1][0] - BED[i][0])); return BED[BED.length - 1][1]; };
-  const SEA = 142;
+  const SEA = 142, WALL = 298, WALL_TOP = 78;
   // A town on the shore, drawn before the water so a flood can cover it.
-  const town = [326, 352].map((hx, i) => {
+  const town = [314, 334].map((hx, i) => {
     const g = E('g', null, sh);
-    E('rect', { x: -11, y: -17, width: 22, height: 17, fill: i ? '#9bd0f5' : '#ffd24a' }, g);
-    E('path', { d: 'M-14,-17 L0,-30 L14,-17Z', fill: '#e0524f' }, g);
-    E('rect', { x: -3, y: -9, width: 6, height: 9, fill: '#8d6e63' }, g);
+    E('rect', { x: -10, y: -16, width: 20, height: 16, fill: i ? '#9bd0f5' : '#ffd24a' }, g);
+    E('path', { d: 'M-13,-16 L0,-28 L13,-16Z', fill: '#e0524f' }, g);
+    E('rect', { x: -3, y: -8, width: 6, height: 8, fill: '#8d6e63' }, g);
     mv(g, hx, bed(hx) + 1);
     return { g, x: hx, y: bed(hx) + 1 };
   });
-  const sand = E('path', { d: polyOf(BED.concat([[384, h], [0, h]])), fill: '#e8cf98' }, sh);
+  E('path', { d: polyOf(BED.concat([[384, h], [0, h]])), fill: '#e8cf98' }, sh);
+  E('path', { d: polyOf([[342, 118], [366, 64], [384, 56], [384, 124], [342, 124]]), fill: '#7cc48a' }, sh);
   E('path', { d: pathOf(BED), fill: 'none', stroke: '#c4a86b', 'stroke-width': 4 }, sh);
+  const kidG = kid(sh);
+  kidG.style.display = 'none';
+  const wall = E('rect', { x: WALL - 4, y: WALL_TOP, width: 9, height: bed(WALL) - WALL_TOP + 2, rx: 2, fill: '#8f9bb0', stroke: '#5f6a80', 'stroke-width': 2 }, sh);
   const water = E('path', { fill: G([[0, '#3db4ff', 0.88], [1, '#0b4fa0', 0.95]]) }, sh);
   const foam = E('path', { fill: 'none', stroke: '#fff', 'stroke-width': 2.5, 'stroke-linecap': 'round' }, sh);
   const boat = E('g', null, sh);
   E('path', { d: 'M-16,0 H16 L11,9 H-11Z', fill: '#e0524f' }, boat);
   E('path', { d: 'M0,-3 V-24 L14,-6Z', fill: '#fff', stroke: '#c9d0dc', 'stroke-width': 1 }, boat);
+  const ring = E('circle', { r: 22, fill: 'none', stroke: '#ff3b3b', 'stroke-width': 4, opacity: 0 }, sh);
   const rings = new Pool(sh, 3, () => E('circle', { fill: 'none', stroke: '#ffd24a', 'stroke-width': 3 }));
+  const spray = new Pool(sh, 16, () => E('circle', { r: 3, fill: '#fff' }));
   const star = E('path', { d: 'M0,-14 L4,-4 L14,0 L4,4 L0,14 L-4,4 L-14,0 L-4,-4Z', fill: '#ffd24a', opacity: 0 }, sh);
-  let wave = null, shk = 0;
+  let wave = null, shk = 0, wallOn = false, kidOn = false, kidX = 320, kidTX = 320, danger = 0;
   const N = 64;
   const surf = (x, T) => {
     let y = SEA + 2.6 * Math.sin(x * 0.04 + T * 1.6) + 1.8 * Math.sin(x * 0.09 - T * 1.1);
     if (wave) {
-      const sg = wave.sig, d1 = (x - wave.px) / sg, d2 = (x - wave.px + sg * 1.9) / (sg * 1.1);
-      y -= wave.amp * (Math.exp(-d1 * d1) - 0.3 * Math.exp(-d2 * d2));
+      // The crest, with a trough running ahead of it: the sea pulls back
+      // from the beach just before the wave arrives.
+      const sg = wave.sig, d1 = (x - wave.px) / sg, d2 = (x - wave.px - sg * 1.9) / (sg * 1.1);
+      y -= wave.amp * (Math.exp(-d1 * d1) - 0.35 * Math.exp(-d2 * d2));
     }
+    if (wallOn) y = Math.max(y, WALL_TOP + 3);
     return y;
   };
+  const level = (x, T) => (wallOn && x > WALL ? bed(x) : Math.min(surf(x, T), bed(x)));
   s.update = (dt, ad) => {
     const T = s.T;
     shk = Math.max(0, shk - ad * 1.6);
+    danger = Math.max(0, danger - ad * 0.2);
     mv(sh, Math.sin(T * 55) * 2.5 * shk, Math.cos(T * 47) * 2 * shk);
     if (wave) {
       const depth = clamp((bed(wave.px) - SEA) / 150, 0, 1);
       wave.px += (46 + 70 * depth) * ad;
       const grow = smooth((wave.px - 130) / 190);
-      wave.amp = (12 + 70 * grow) * (wave.px > 400 ? Math.max(0, 1 - (wave.px - 400) / 130) : 1);
+      wave.amp = (12 + 58 * grow) * (wave.px > 400 ? Math.max(0, 1 - (wave.px - 400) / 130) : 1);
       wave.sig = lerp(44, 24, grow);
+      if (wallOn && Math.abs(wave.px - WALL) < 30 && ad > 0 && Math.random() < ad * 30) spray.spawn((p) => { p.x = WALL - rnd(0, 10); p.y = WALL_TOP + rnd(0, 10); p.vx = rnd(-60, 10); p.vy = rnd(-160, -80); });
       if (wave.px > 540) wave = null;
     }
+    wall.style.display = wallOn ? '' : 'none';
     const top = [], bot = [];
     for (let i = 0; i <= N; i++) {
       const x = (i / N) * w;
-      const b = bed(x);
-      top.push([x, Math.min(surf(x, T), b)]);
-      bot.push([x, b]);
+      top.push([x, level(x, T)]);
+      bot.push([x, bed(x)]);
     }
     water.setAttribute('d', polyOf(top.concat(bot.reverse())));
     foam.setAttribute('d', pathOf(top));
     const by = surf(130, T);
     mv(boat, 130, by - 5, Math.atan2(surf(138, T) - surf(122, T), 16) * 57.3, 0.9);
     for (const t of town) {
-      const depthW = bed(t.x) - surf(t.x, T);
+      const depthW = bed(t.x) - level(t.x, T);
       const k = clamp((depthW - 5) / 40, 0, 1);
       mv(t.g, t.x - k * 4, t.y, -k * 16);
     }
+    kidG.style.display = kidOn ? '' : 'none';
+    if (kidOn) {
+      kidX += clamp(kidTX - kidX, -60 * ad, 60 * ad);
+      const walking = Math.abs(kidTX - kidX) > 0.5;
+      mv(kidG, kidX, bed(kidX) + 1, walking ? Math.sin(T * 14) * 5 : 0, 0.7);
+      if (bed(kidX) - level(kidX, T) > 10) danger = 1;
+    }
+    A(ring, { cx: f1(kidX), cy: f1(bed(kidX) - 14), r: f1(20 + Math.sin(T * 9) * 3), opacity: (kidOn ? Math.min(1, danger * 3) * (0.6 + 0.4 * Math.sin(T * 10)) : 0).toFixed(2) });
+    spray.step(ad, (p, d) => {
+      p.vy += 400 * d; p.x += p.vx * d; p.y += p.vy * d;
+      if (p.age > 0.8) return false;
+      A(p.el, { cx: f1(p.x), cy: f1(p.y), opacity: (1 - p.age / 0.8).toFixed(2) });
+    });
     rings.step(ad, (p) => {
+      if (p.age < 0) { p.el.setAttribute('opacity', 0); return; }
       const u = p.age / 1.1;
       if (u >= 1) return false;
       A(p.el, { cx: 90, cy: 282, r: f1(6 + u * 60), opacity: (1 - u).toFixed(2) });
@@ -1193,11 +2091,28 @@ makeSpot('tsunami', 808, 888, 384, 312, [0, 0, 384, 312], '#2aa7ff', (s) => {
     star.setAttribute('opacity', Math.max(0, shk - 0.3).toFixed(2));
     mv(star, 90, 282, T * 120, 0.8 + shk);
   };
-  s.tap = () => {
+  const launch = () => {
     wave = { px: 90, amp: 12, sig: 44 };
-    shk = 1; s.wake = 14;
+    shk = 1;
     for (let i = 0; i < 3; i++) rings.spawn((p) => { p.age = -i * 0.25; });
   };
+  s.tap = () => { launch(); s.wake = 14; };
+  s.steps = [
+    { enter: () => { wave = null; kidOn = false; wallOn = false; }, act: launch, wait: 4.5 },
+    {
+      pick: ['look', 'high'], safe: ['high'], cardAt: [70, 66],
+      enter: () => { wave = null; wallOn = false; kidOn = true; kidX = kidTX = 320; danger = 0; },
+      act: (k) => { shk = 1; kidTX = k === 'look' ? 298 : 378; after(s, 0.9, launch); },
+      wait: 5,
+    },
+    {
+      pick: ['wall', 'none'], safe: ['wall'], cardAt: [70, 66],
+      enter: () => { wave = null; wallOn = false; kidOn = true; kidX = kidTX = 378; danger = 0; },
+      act: (k) => { wallOn = k === 'wall'; after(s, 0.5, launch); },
+      wait: 4.6,
+    },
+  ];
+  s.free = () => { kidOn = false; };
   s.update(0, 0);
 });
 
@@ -1226,6 +2141,12 @@ makeSpot('currents', 808, 1214, 384, 296, [0, 0, 384, 296], '#ff8c42', (s) => {
   const colOf = (y) => { const k = clamp((y - Y0) / (Y1 - Y0), 0, 1); return `rgb(${Math.round(lerp(255, 120, k))},${Math.round(lerp(150, 215, k))},${Math.round(lerp(70, 255, k))})`; };
   const arrows = [];
   for (let i = 0; i < 30; i++) arrows.push(E('path', { d: 'M-6,-5 L6,0 L-6,5 L-2,0Z' }, c));
+  // Big arrows for "cold water sinks here, warm water rises there".
+  const big = [[X1 + 22, 1, '#4fc3f7'], [X0 - 22, -1, '#ff8c42']].map(([bx, dir, col]) => {
+    const g = E('g', null, c);
+    for (let i = 0; i < 3; i++) E('path', { d: `M-9,${i * 34 - 10} L0,${i * 34 + 4} L9,${i * 34 - 10}`, fill: 'none', stroke: col, 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', transform: dir < 0 ? `rotate(180 0 ${i * 34 - 3})` : '' }, g);
+    return { g, x: bx, dir };
+  });
   const fish = [0.04, 0.5].map((u) => { const g = E('g', null, c); E('ellipse', { rx: 9, ry: 5, fill: '#ffb84d' }, g); E('path', { d: 'M-8,0 L-15,-5 V5Z', fill: '#ffb84d' }, g); E('circle', { cx: 4, cy: -1, r: 1.3, fill: '#23304a' }, g); return { g, u }; });
   const ducks = [];
   const mkDuck = () => {
@@ -1237,9 +2158,17 @@ makeSpot('currents', 808, 1214, 384, 296, [0, 0, 384, 296], '#ff8c42', (s) => {
     E('path', { d: 'M-6,-1 Q-1,-8 5,-1Z', fill: '#f2c200' }, g);
     return g;
   };
+  let sinkT = 0;
   s.update = (dt, ad) => {
     const T = s.T;
+    sinkT = Math.max(0, sinkT - ad);
     arrows.forEach((a, i) => { const p = at(i / arrows.length + T * 0.05); mv(a, p[0], p[1], p[2]); A(a, { fill: colOf(p[1]), stroke: '#fff', 'stroke-width': 1 }); });
+    const bk = smooth(sinkT);
+    for (const b of big) {
+      b.g.style.display = bk > 0 ? '' : 'none';
+      mv(b.g, b.x, 112 + ((T * 30) % 34) * b.dir, 0, 1);
+      b.g.setAttribute('opacity', (bk * (b.dir > 0 ? 1 : 0.7)).toFixed(2));
+    }
     fish.forEach((f) => { const p = at(f.u + T * 0.03); mv(f.g, p[0], p[1] + 20 * (p[1] < 100 ? 1 : 0.0), Math.abs(p[2]) > 90 ? p[2] + 180 : p[2], 1); });
     weeds.forEach((k) => { const sw = Math.sin(T * 1.5 + k.x) * 5; A(k.g, { d: `M${k.x},268 q${f1(sw)},-14 0,-26 t0,-24` }); });
     for (const d of ducks) {
@@ -1259,6 +2188,10 @@ makeSpot('currents', 808, 1214, 384, 296, [0, 0, 384, 296], '#ff8c42', (s) => {
     ducks.push({ g: mkDuck(), u: bi / NS_, ph: rnd(0, TAU) });
     s.wake = 10;
   };
+  s.steps = [
+    { act: (k, x, y) => s.tap(x, y), wait: 3 },
+    { pick: ['float', 'sink'], act: () => { sinkT = 7; }, wait: 2.4 },
+  ];
   s.tap(X0 + 100, Y0);
 });
 
@@ -1270,12 +2203,14 @@ makeSpot('river', 8, 1214, 384, 296, [0, 0, 384, 296], '#3ec6e0', (s) => {
   E('path', { d: `M0,150 L40,96 L70,120 L110,70 L150,126 L210,100 L260,132 L320,92 L384,130 V${h} H0Z`, fill: '#a6b4cf' }, c);
   E('path', { d: 'M110,70 L128,92 L118,90 L110,100 L100,90 L92,92Z', fill: '#fff' }, c);
   E('path', { d: `M0,170 Q60,150 120,176 Q200,200 280,170 Q340,152 384,168 V${h} H0Z`, fill: '#79c488' }, c);
-  E('path', { d: `M60,250 H384 V${h} H60Z`, fill: '#e3c97c', opacity: 0.0 }, c);
   const clo = cloud(c, 0, 0, 0.8, '#fff', 0.9);
   const fields = E('g', null, c);
   for (const [fx, fy, fc] of [[200, 232, '#e8d27a'], [236, 222, '#b6d96a'], [266, 238, '#e8d27a'], [150, 250, '#b6d96a']]) E('path', { d: `M${fx},${fy} h28 l8,12 h-28Z`, fill: fc, stroke: '#fff', 'stroke-width': 1, opacity: 0.9 }, fields);
-  const lake = E('ellipse', { cx: 318, cy: 270, rx: 64, ry: 20, fill: '#3db4ff', stroke: '#fff', 'stroke-width': 3 }, c);
+  // Floodwater spreads over the fields when the river overflows.
+  const flood = E('ellipse', { cx: 214, cy: 232, rx: 0, ry: 0, fill: '#3db4ff', opacity: 0.72 }, c);
+  E('ellipse', { cx: 318, cy: 270, rx: 64, ry: 20, fill: '#3db4ff', stroke: '#fff', 'stroke-width': 3 }, c);
   const RD = 'M104,128 C118,160 78,176 112,200 S190,206 214,226 S272,252 300,266';
+  const levee = E('path', { d: RD, fill: 'none', stroke: '#9c7650', 'stroke-width': 30, 'stroke-linecap': 'round' }, c);
   const riv = E('path', { d: RD, fill: 'none', stroke: '#2aa7ff', 'stroke-width': 10, 'stroke-linecap': 'round' }, c);
   const rlen = riv.getTotalLength();
   const rflow = E('path', { d: RD, fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '2 11', 'stroke-linecap': 'round', opacity: 0.8 }, c);
@@ -1286,16 +2221,22 @@ makeSpot('river', 8, 1214, 384, 296, [0, 0, 384, 296], '#3ec6e0', (s) => {
     E('path', { d: 'M-10,-11 L0,-20 L10,-11Z', fill: '#e0524f' }, g);
     mv(g, hx, hy);
   }
-  const drops = new Pool(c, 40, () => E('rect', { width: 1.8, height: 9, rx: 0.9, fill: '#3b86d8' }));
+  const drops = new Pool(c, 70, () => E('rect', { width: 1.8, height: 9, rx: 0.9, fill: '#3b86d8' }));
   const splash = new Pool(c, 20, () => E('ellipse', { rx: 4, ry: 1.5, fill: 'none', stroke: '#fff', 'stroke-width': 1.5 }));
   const boats = new Pool(c, 5, () => { const g = E('g', null); E('path', { d: 'M-8,0 H8 L5,5 H-5Z', fill: '#e0524f' }, g); E('path', { d: 'M0,-1 L0,-12 L8,-2Z', fill: '#fff', stroke: '#c9d0dc', 'stroke-width': 0.8 }, g); return g; });
-  let swell = 0;
+  let swell = 0, fk = 0, leveeOn = false, stormT = 0, stormK = 0;
   s.update = (dt, ad) => {
     const T = s.T;
-    swell = Math.max(0, swell - ad * 0.14);
+    if (stormT > 0) { stormT = Math.max(0, stormT - ad); swell = Math.min(1.8, swell + stormK * ad / 2.5); }
+    else swell = Math.max(0, swell - ad * 0.14);
+    const over = !leveeOn && swell > 0.95;
+    fk = lerp(fk, over ? 1 : 0, 1 - Math.exp(-ad * (over ? 0.9 : 0.3)));
+    A(flood, { rx: f1(124 * fk), ry: f1(36 * fk) });
+    levee.style.display = leveeOn ? '' : 'none';
     mv(clo, 40 + ((T * 7) % 460) - 40, 34, 0, 0.8);
-    A(riv, { 'stroke-width': f1(9 + swell * 10) });
+    A(riv, { 'stroke-width': f1(9 + Math.min(swell, leveeOn ? 1.3 : 1.8) * 10) });
     A(rflow, { 'stroke-dashoffset': f1(-T * (22 + swell * 40)), 'stroke-width': f1(3 + swell * 2) });
+    if (stormT > 0 && ad > 0) { let n = ad * 50; while (n > 0) { if (Math.random() < n) drops.spawn((p) => { p.x = rnd(4, w - 4); p.y = -rnd(0, 30); p.ty = rnd(100, 280); }); n -= 1; } }
     drops.step(ad, (p, d) => {
       p.y += 260 * d;
       if (p.y > p.ty) { splash.spawn((q) => { q.x = p.x; q.y = p.ty; }); return false; }
@@ -1319,6 +2260,13 @@ makeSpot('river', 8, 1214, 384, 296, [0, 0, 384, 296], '#3ec6e0', (s) => {
     for (let i = 0; i < 18; i++) drops.spawn((p) => { p.x = clamp(x + rnd(-50, 50), 4, w - 4); p.y = -rnd(0, 120); p.ty = clamp(y, 100, 250) + rnd(-10, 40); });
     boats.spawn((p) => { p.d = 0; });
   };
+  const storm = (k) => { stormT = 2.5; stormK = k; boats.spawn((p) => { p.d = 0; }); };
+  const dry = () => { swell = 0; fk = 0; stormT = 0; leveeOn = false; };
+  s.steps = [
+    { enter: dry, act: (k, x, y) => s.tap(x, Math.min(y, 140)), wait: 3 },
+    { pick: ['little', 'lot'], enter: dry, act: (k) => storm(k === 'lot' ? 1.8 : 0.5), wait: 3.6 },
+    { pick: ['levee', 'none'], safe: ['levee'], cardAt: [70, 60], enter: dry, act: (k) => { leveeOn = k === 'levee'; storm(1.8); }, wait: 3.6 },
+  ];
   s.update(0, 0);
 });
 
@@ -1326,24 +2274,28 @@ makeSpot('river', 8, 1214, 384, 296, [0, 0, 384, 296], '#3ec6e0', (s) => {
 makeSpot('landslide', 408, 1214, 384, 296, [0, 0, 384, 296], '#9c6b3f', (s) => {
   const c = s.c, w = s.w, h = s.h;
   const sh = E('g', null, c);
-  const sky = E('rect', { width: w, height: h, fill: G([[0, '#8f9db4'], [1, '#d5e4f0']]) }, sh);
+  E('rect', { width: w, height: h, fill: G([[0, '#8f9db4'], [1, '#d5e4f0']]) }, sh);
   const P = [[-10, 96], [80, 100], [180, 152], [260, 204], [384, 238]];
   const slopeY = (x) => { for (let i = 0; i < P.length - 1; i++) if (x <= P[i + 1][0]) return lerp(P[i][1], P[i + 1][1], (x - P[i][0]) / (P[i + 1][0] - P[i][0])); return 238; };
   const dirAt = (x) => { const m = (slopeY(x + 4) - slopeY(x - 4)) / 8; const l = Math.hypot(1, m); return [1 / l, m / l]; };
   E('path', { d: polyOf(P.concat([[384, h], [-10, h]])), fill: '#8a8f99' }, sh);
   const soilTop = P.map((p) => [p[0], p[1]]);
   const soilBot = P.map((p) => [p[0], p[1] + 40]).reverse();
-  const soil = E('path', { d: polyOf(soilTop.concat(soilBot)), fill: '#b58b57' }, sh);
+  E('path', { d: polyOf(soilTop.concat(soilBot)), fill: '#b58b57' }, sh);
   const wet = E('path', { d: polyOf(soilTop.concat(soilBot)), fill: '#4b2f1c', opacity: 0 }, sh);
-  const grass = E('path', { d: pathOf(P), fill: 'none', stroke: '#5fae5f', 'stroke-width': 8, 'stroke-linecap': 'round' }, sh);
+  E('path', { d: pathOf(P), fill: 'none', stroke: '#5fae5f', 'stroke-width': 8, 'stroke-linecap': 'round' }, sh);
   const cl = cloud(sh, 0, 0, 1.4, '#6e7890');
-  // Trees ride the slope, houses wait at the bottom.
+  const stumps = E('g', null, sh);
+  // Trees ride the slope, houses wait at the bottom. The roots reach into the
+  // soil and are what holds a planted hill together.
   const trees = [34, 108, 164, 222].map((tx) => {
+    E('rect', { x: tx - 4, y: slopeY(tx) - 2, width: 8, height: 8, rx: 1.5, fill: '#7a5a48' }, stumps);
     const g = E('g', null, sh);
+    const roots = E('path', { d: 'M0,0 L-13,13 M0,0 L-5,20 M0,0 L5,19 M0,0 L14,10 M-7,7 L-12,20', stroke: '#5a3a28', 'stroke-width': 2.4, 'stroke-linecap': 'round', fill: 'none' }, g);
     E('rect', { x: -3, y: -22, width: 6, height: 22, fill: '#6d5144' }, g);
     E('path', { d: 'M0,-54 l-16,38 h32Z', fill: '#2f8a4f' }, g);
     E('path', { d: 'M0,-66 l-12,28 h24Z', fill: '#3fa65a' }, g);
-    return { g, x0: tx, x: tx, v: 0, slide: false, fade: 1 };
+    return { g, roots, x0: tx, x: tx, v: 0, slide: false, fade: 1 };
   });
   const houses = E('g', null, sh);
   for (const hx of [316, 352]) {
@@ -1357,13 +2309,24 @@ makeSpot('landslide', 408, 1214, 384, 296, [0, 0, 384, 296], '#9c6b3f', (s) => {
   const crack = E('path', { d: 'M120,112 l12,10 l-6,10 l14,12 l-6,12', fill: 'none', stroke: '#3a2415', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0 }, sh);
   const rain = new Pool(sh, 44, () => E('rect', { width: 1.8, height: 10, rx: 0.9, fill: '#3b86d8' }));
   const chunks = new Pool(sh, 40, () => E('rect', { fill: '#7a5230' }));
-  let wetness = 0, phase = 0, pt = 0, mudK = 0, rainT = 0, rainAt = 120;
+  // wetTo is how much water the soil has taken in; `wetness` follows it.
+  let wetness = 0, wetTo = 0, phase = 0, pt = 0, mudK = 0, rainT = 0, rainAt = 120, rainRate = 0, treesOn = true;
   const placeTree = (t) => { mv(t.g, t.x, slopeY(t.x) + 6, t.rot || 0, 1); t.g.setAttribute('opacity', t.fade.toFixed(2)); };
   trees.forEach(placeTree);
+  const slide = () => {
+    phase = 1; pt = 0;
+    trees.forEach((t, i) => { t.slide = treesOn; t.v = rnd(0, 20) + i * 4; });
+    for (let i = 0; i < 38; i++) chunks.spawn((p) => { p.x = rnd(70, 230); p.v = rnd(10, 40); p.r = rnd(4, 9); p.age = -rnd(0.1, 1.1); p.hop = rnd(2, 9); p.ph = rnd(0, TAU); p.el.setAttribute('fill', Math.random() < 0.35 ? '#8a8f99' : '#7a5230'); });
+    s.wake = Math.max(s.wake, 8);
+  };
   s.update = (dt, ad) => {
     const T = s.T;
     mv(cl, 60 + ((T * 6) % 460) - 40, 34, 0, 1.4);
     rainT = Math.max(0, rainT - ad);
+    const cap = treesOn ? 0.8 : 1.08;
+    if (rainT > 0 && rainRate > 0) wetTo = Math.min(cap, wetTo + rainRate * ad);
+    wetness = lerp(wetness, wetTo, 1 - Math.exp(-ad * 2));
+    if (phase === 0 && wetTo >= 1 && wetness > 0.93) slide();
     if (rainT > 0 && ad > 0) { for (let i = 0; i < 2; i++) if (Math.random() < 0.9) rain.spawn((p) => { p.x = clamp(rainAt + rnd(-130, 130), 0, w); p.y = 40; p.v = rnd(220, 280); }); }
     rain.step(ad, (p, d) => {
       p.y += p.v * d;
@@ -1371,7 +2334,11 @@ makeSpot('landslide', 408, 1214, 384, 296, [0, 0, 384, 296], '#9c6b3f', (s) => {
       A(p.el, { x: f1(p.x), y: f1(p.y) });
     });
     A(wet, { opacity: Math.min(0.75, wetness * 0.75).toFixed(2) });
-    crack.setAttribute('opacity', smooth((wetness - 0.65) / 0.3).toFixed(2));
+    crack.setAttribute('opacity', (treesOn ? 0 : smooth((wetness - 0.65) / 0.3)).toFixed(2));
+    // Roots light up while they are holding a soaked hill together.
+    const grip = treesOn ? smooth((wetness - 0.4) / 0.3) : 0;
+    for (const t of trees) A(t.roots, { stroke: grip > 0 ? `rgb(${Math.round(lerp(90, 255, grip))},${Math.round(lerp(58, 210, grip))},${Math.round(lerp(40, 74, grip))})` : '#5a3a28', 'stroke-width': f1(2.4 + grip * 1.4) });
+    stumps.style.display = treesOn ? 'none' : '';
     if (phase === 1) {
       pt += ad;
       for (const t of trees) {
@@ -1384,11 +2351,11 @@ makeSpot('landslide', 408, 1214, 384, 296, [0, 0, 384, 296], '#9c6b3f', (s) => {
         placeTree(t);
       }
       mudK = Math.min(1, mudK + ad * 0.4);
-      if (pt > 3.2) { phase = 2; pt = 0; wetness = 0; }
+      if (pt > 3.2) { phase = 2; pt = 0; wetness = wetTo = 0; }
     } else if (phase === 2) {
       pt += ad;
       mudK = Math.max(0, mudK - ad * 0.25);
-      for (const t of trees) { t.x = t.x0; t.rot = 0; t.slide = false; t.v = 0; t.fade = smooth(pt / 1.6); placeTree(t); }
+      for (const t of trees) { t.x = t.x0; t.rot = 0; t.slide = false; t.v = 0; t.fade = treesOn ? smooth(pt / 1.6) : 0; placeTree(t); }
       if (pt > 1.6) phase = 0;
     }
     mud.setAttribute('opacity', (mudK * 0.9).toFixed(2));
@@ -1407,15 +2374,23 @@ makeSpot('landslide', 408, 1214, 384, 296, [0, 0, 384, 296], '#9c6b3f', (s) => {
   s.tap = (x) => {
     s.wake = 8;
     if (phase !== 0) return;
-    rainT = 1.8; rainAt = x;
-    wetness += 0.36;
-    if (wetness >= 1) {
-      wetness = 1; phase = 1; pt = 0;
-      trees.forEach((t, i) => { t.slide = true; t.v = rnd(0, 20) + i * 4; });
-      for (let i = 0; i < 38; i++) chunks.spawn((p) => { p.x = rnd(70, 230); p.v = rnd(10, 40); p.r = rnd(4, 9); p.age = -rnd(0.1, 1.1); p.hop = rnd(2, 9); p.ph = rnd(0, TAU); p.el.setAttribute('fill', Math.random() < 0.35 ? '#8a8f99' : '#7a5230'); });
-      s.wake = 8;
-    }
+    rainT = 1.8; rainAt = x; rainRate = 0;
+    wetTo = Math.min(treesOn ? 0.8 : 1.08, wetTo + 0.36);
   };
+  const reset = (on) => {
+    treesOn = on; wetness = wetTo = 0; phase = 0; pt = 0; mudK = 0; rainT = 0;
+    chunks.clear();
+    for (const t of trees) { t.x = t.x0; t.rot = 0; t.slide = false; t.v = 0; t.fade = on ? 1 : 0; placeTree(t); }
+  };
+  s.steps = [
+    { need: 3, enter: () => reset(false), act: (k, x) => s.tap(x), wait: 3.2 },
+    {
+      pick: ['plant', 'none'], safe: ['plant'], cardAt: [312, 60],
+      enter: () => reset(false),
+      act: (k) => { reset(k === 'plant'); rainT = 3.2; rainAt = 170; rainRate = 0.4; },
+      wait: 4.6,
+    },
+  ];
 });
 
 // ------------------------------------------------------------------ plates
@@ -1439,7 +2414,8 @@ makeSpot('plates', 8, 1524, 1184, 400, [292, 0, 600, 400], '#ff6a2b', (s) => {
   const creep = E('path', { d: slabPath, fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '12 22', opacity: 0.6 }, slab);
   E('rect', { y: 148, width: 546, height: 44, fill: '#2f9ae6', opacity: 0.92 }, sh);
   E('rect', { y: 148, width: 546, height: 4, fill: '#fff', opacity: 0.7 }, sh);
-  // Continental plate and what stands on it.
+  // Continental plate and what stands on it. It bends as the slab drags its
+  // edge down, and springs back up when it slips.
   const land = E('g', null, sh);
   E('path', { d: polyOf([[540, 196], [592, 152], [w + 20, 152], [w + 20, 262], [760, 262], [644, 246]]), fill: '#9c8466', stroke: '#6b5a42', 'stroke-width': 4 }, land);
   E('path', { d: polyOf([[592, 152], [w + 20, 152], [w + 20, 164], [610, 164]]), fill: '#5fae5f' }, land);
@@ -1455,11 +2431,18 @@ makeSpot('plates', 8, 1524, 1184, 400, [292, 0, 600, 400], '#ff6a2b', (s) => {
   });
   const tree = (tx) => { const g = E('g', null, land); E('rect', { x: -3, y: -16, width: 6, height: 16, fill: '#6d5144' }, g); E('circle', { cy: -26, r: 14, fill: '#3fa65a' }, g); mv(g, tx, 154); };
   tree(710); tree(1020); tree(1150);
+  // Strain marks where the plates are stuck together.
+  const strain = E('g', null, sh);
+  for (const [a, l] of [[-150, 26], [-110, 32], [-70, 26], [20, 22], [60, 28]]) {
+    const r = a * Math.PI / 180;
+    const x0 = 556 + Math.cos(r) * 18, y0 = 226 + Math.sin(r) * 18, x1 = 556 + Math.cos(r) * (18 + l), y1 = 226 + Math.sin(r) * (18 + l);
+    const mx = (x0 + x1) / 2 + Math.sin(r) * 5, my = (y0 + y1) / 2 - Math.cos(r) * 5;
+    E('path', { d: `M${f1(x0)},${f1(y0)} L${f1(mx)},${f1(my)} L${f1(x1)},${f1(y1)}`, fill: 'none', stroke: '#fff3a8', 'stroke-width': 4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, strain);
+  }
   // Plate arrows.
-  const arrow = (x, y, dir, col) => { const g = E('g', null, sh); E('path', { d: 'M-34,-6 H10 V-16 L34,0 L10,16 V6 H-34Z', fill: col, stroke: '#23304a', 'stroke-width': 2.5 }, g); mv(g, x, y, 0, 1); g.setAttribute('data-dir', dir); return g; };
-  const a1 = arrow(260, 222, 1, '#ffe27a');
-  const a2 = arrow(1020, 210, -1, '#ffe27a');
-  a2.setAttribute('transform', 'translate(1020 210) scale(-1 1)');
+  const arrow = (x, y, col) => { const g = E('g', null, sh); E('path', { d: 'M-34,-6 H10 V-16 L34,0 L10,16 V6 H-34Z', fill: col, stroke: '#23304a', 'stroke-width': 2.5 }, g); mv(g, x, y, 0, 1); return g; };
+  const a1 = arrow(260, 222, '#ffe27a');
+  const a2 = arrow(1020, 210, '#ffe27a');
   // Seismograph.
   const sg = E('g', null, c);
   E('rect', { x: 18, y: 14, width: 220, height: 70, rx: 12, fill: '#fff9ec', stroke: '#23304a', 'stroke-width': 3 }, sg);
@@ -1468,19 +2451,64 @@ makeSpot('plates', 8, 1524, 1184, 400, [292, 0, 600, 400], '#ff6a2b', (s) => {
   const tbuf = new Array(50).fill(0);
   const rings = new Pool(sh, 12, () => E('circle', { fill: 'none', stroke: '#ffe27a', 'stroke-width': 5 }));
   const star = E('path', { d: 'M0,-22 L6,-7 L22,0 L6,7 L0,22 L-6,7 L-22,0 L-6,-7Z', fill: '#fff3a8', stroke: '#ff9a2b', 'stroke-width': 3, opacity: 0 }, sh);
-  let q = 0, ex = 0, ey = 0, acc = 0, slip = 0;
+
+  // Inside a house, for "what do you do when it shakes?". Local units, placed
+  // over the middle of the zoomed view.
+  const RX0 = 340, RY0 = 30;
+  const room = E('g', null, c);
+  E('rect', { width: 500, height: 290, rx: 14, fill: '#fff3d9' }, room);
+  E('rect', { y: 228, width: 500, height: 62, fill: '#c98f5a' }, room);
+  E('rect', { width: 500, height: 290, rx: 14, fill: 'none', stroke: '#23304a', 'stroke-width': 5 }, room);
+  E('rect', { x: 30, y: 50, width: 100, height: 120, fill: '#bfe6ff', stroke: '#8d6e63', 'stroke-width': 6 }, room);
+  E('path', { d: 'M80,50 V170 M30,110 H130', stroke: '#8d6e63', 'stroke-width': 4 }, room);
+  const cracks = E('path', { d: 'M62,70 L78,96 L70,118 L90,142 M78,96 L104,90 L118,64 M70,118 L46,130', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, room);
+  E('rect', { x: 196, y: 158, width: 132, height: 13, rx: 3, fill: '#a0522d' }, room);
+  E('rect', { x: 206, y: 171, width: 10, height: 58, fill: '#8b4423' }, room);
+  E('rect', { x: 308, y: 171, width: 10, height: 58, fill: '#8b4423' }, room);
+  E('rect', { x: 320, y: 78, width: 86, height: 7, rx: 2, fill: '#8b4423' }, room);
+  E('rect', { x: 412, y: 98, width: 62, height: 132, rx: 4, fill: '#8d6e63', stroke: '#6d5144', 'stroke-width': 3 }, room);
+  E('circle', { cx: 462, cy: 168, r: 4, fill: '#ffd24a' }, room);
+  const BOOKS = ['#e0524f', '#4a7ff0', '#ffd24a', '#5bd66f', '#ff9a3d', '#9a5cf0'];
+  const books = BOOKS.map((col, i) => {
+    const bw = 10, bh = 20 + (i % 3) * 3;
+    const e = E('rect', { x: -bw / 2, y: -bh / 2, width: bw, height: bh, rx: 1.5, fill: col, stroke: '#23304a', 'stroke-width': 1.2 }, room);
+    return { e, hx: 330 + i * 12, hy: 78 - bh / 2, bh, x: 0, y: 0, vy: 0, vx: 0, r: 0, vr: 0, t: 0, st: 0 };
+  });
+  const frame = E('g', null, room);
+  E('rect', { x: -18, y: -14, width: 36, height: 28, fill: '#fff', stroke: '#c9a227', 'stroke-width': 4 }, frame);
+  E('path', { d: 'M-12,8 L-3,-3 L4,4 L8,0 L12,8Z', fill: '#5fae5f' }, frame);
+  const fr = { x: 262, y: 104, vy: 0, st: 0, r: 0 };
+  const shards = new Pool(room, 14, () => E('path', { d: 'M0,-4 L3,2 L-3,3Z', fill: '#e8f6ff', stroke: '#8fb6d8', 'stroke-width': 0.8 }));
+  const kidG = kid(room);
+  const kidRing = E('circle', { r: 30, fill: 'none', stroke: '#ff3b3b', 'stroke-width': 5, opacity: 0 }, room);
+  room.style.display = 'none';
+  let roomOn = false, roomK = 0, rq = 0, kidX = 150, kidTX = 150, broken = false, danger = 0;
+
+  let q = 0, ex = 0, ey = 0, acc = 0, slip = 0, stress = 0, stressTo = 0, bend = 0, bv = 0;
   s.update = (dt, ad) => {
     const T = s.T;
     q = Math.max(0, q - ad * 0.45);
     slip = Math.max(0, slip - ad * 1.4);
+    stress = lerp(stress, stressTo, 1 - Math.exp(-ad * 5));
+    // A damped spring: the plate edge is dragged down while stuck and
+    // overshoots when it lets go.
+    bv += ((stress * 1.8 - bend) * 60 - bv * 5) * ad;
+    bend += bv * ad;
     mv(sh, Math.sin(T * 61) * 5 * q * q, Math.cos(T * 53) * 3.5 * q * q);
+    land.setAttribute('transform', `rotate(${(-bend).toFixed(3)} 1204 158)`);
+    strain.setAttribute('opacity', (smooth(stress / 0.4) * (0.7 + 0.3 * Math.sin(T * 12))).toFixed(2));
+    strain.setAttribute('transform', `translate(${f1(rnd(-1, 1) * stress * 2)} ${f1(rnd(-1, 1) * stress * 2)})`);
     A(creep, { 'stroke-dashoffset': f1(-T * 7) });
     conv.forEach((k) => A(k.p, { 'stroke-dashoffset': f1(-T * 16 * k.dir) }));
     // Slabs lurch toward each other, then relax.
     mv(slab, slip * 7, 0);
     mv(a1, 260 + Math.sin(T * 1.2) * 6, 222, 0, 1);
     a2.setAttribute('transform', `translate(${f1(1020 - Math.sin(T * 1.2) * 3)} 210) scale(-0.8 0.8)`);
-    houses.forEach((hh, i) => mv(hh.g, hh.x + Math.sin(T * 38 + i) * 3 * q, 155, Math.sin(T * 29 + i * 2) * 5 * q));
+    // The nearer a house is to the quake, the harder it shakes.
+    houses.forEach((hh, i) => {
+      const k = q * clamp(1.15 - Math.abs(hh.x - ex) / 450, 0.12, 1);
+      mv(hh.g, hh.x + Math.sin(T * 38 + i) * 4 * k, 155, Math.sin(T * 29 + i * 2) * 8 * k);
+    });
     if (ad > 0 && Math.random() < ad * 1.5) bub.spawn((p) => { p.x = rnd(40, 1100); p.y = rnd(300, 390); });
     bub.step(ad, (p, d) => {
       p.y -= 14 * d;
@@ -1499,15 +2527,86 @@ makeSpot('plates', 8, 1524, 1184, 400, [292, 0, 600, 400], '#ff6a2b', (s) => {
     if (acc > 0.05) {
       acc = 0;
       tbuf.shift();
-      tbuf.push((Math.random() * 2 - 1) * (2 + q * 24) + Math.sin(T * 40) * q * 10);
+      tbuf.push((Math.random() * 2 - 1) * (2 + q * 24 + stress * 4) + Math.sin(T * 40) * q * 10);
       trace.setAttribute('d', pathOf(tbuf.map((v, i) => [28 + i * 4, 49 + clamp(v, -20, 20)])));
     }
+    // The room.
+    roomK = lerp(roomK, roomOn ? 1 : 0, 1 - Math.exp(-ad * 6));
+    room.style.display = roomK > 0.02 ? '' : 'none';
+    if (roomK <= 0.02) return;
+    rq = Math.max(0, rq - ad * 0.36);
+    danger = Math.max(0, danger - ad * 0.2);
+    room.setAttribute('opacity', roomK.toFixed(2));
+    mv(room, RX0 + Math.sin(T * 47) * 7 * rq, RY0 + Math.cos(T * 41) * 4 * rq);
+    kidX += clamp(kidTX - kidX, -200 * ad, 200 * ad);
+    const there = Math.abs(kidTX - kidX) < 0.5, under = there && kidTX === 262;
+    A(kidG, { transform: `translate(${f1(kidX)} 229) rotate(${there ? 0 : f1(Math.sin(T * 14) * 6)}) scale(1.5 ${under ? 1.05 : 1.5})` });
+    cracks.setAttribute('opacity', broken ? 1 : 0);
+    if (rq > 0.3) {
+      for (const b of books) if (b.st === 0 && Math.random() < ad * 3) { b.st = 1; b.vx = rnd(-30, 30); b.vr = rnd(-300, 300); }
+      if (fr.st === 0 && Math.random() < ad * 2) fr.st = 1;
+      if (!broken && Math.random() < ad * 1.2) {
+        broken = true;
+        for (let i = 0; i < 12; i++) shards.spawn((p) => { p.x = rnd(40, 120); p.y = rnd(60, 160); p.vx = rnd(30, 140); p.vy = rnd(-60, 20); p.r = rnd(0, 360); });
+      }
+    }
+    for (const b of books) {
+      if (b.st === 0) { b.x = b.hx + (rq > 0 ? Math.sin(T * 30 + b.hx) * 1.5 * rq : 0); b.y = b.hy; b.r = 0; }
+      else if (b.st === 1) {
+        b.vy += 900 * ad; b.x += b.vx * ad; b.y += b.vy * ad; b.r += b.vr * ad;
+        if (b.y > 224) { b.y = 224; b.st = 2; b.r = 90; }
+      }
+      A(b.e, { transform: `translate(${f1(b.x)} ${f1(b.y)}) rotate(${f1(b.r)})` });
+    }
+    if (fr.st === 1) {
+      fr.vy += 900 * ad; fr.y += fr.vy * ad; fr.r += 120 * ad;
+      if (fr.y > 144) { fr.y = 144; fr.vy = -fr.vy * 0.3; fr.r = 8; if (Math.abs(fr.vy) < 60) fr.st = 2; }
+    }
+    mv(frame, 262, fr.y, fr.r, 1);
+    shards.step(ad, (p, d) => {
+      p.vy += 500 * d; p.x += p.vx * d; p.y += p.vy * d; p.r += 400 * d;
+      if (p.y > 228) { p.y = 228; p.vx *= 0.3; p.vy = 0; }
+      if (p.age > 3) return false;
+      mv(p.el, p.x, p.y, p.r, 1.4);
+    });
+    if (there && rq > 0.2 && kidTX !== 262) danger = 1;
+    A(kidRing, { cx: f1(kidX), cy: 182, r: f1(30 + Math.sin(T * 9) * 4), opacity: (Math.min(1, danger * 3) * (0.6 + 0.4 * Math.sin(T * 10))).toFixed(2) });
   };
-  s.tap = (x, y) => {
+  const quake = (x, y) => {
     ex = clamp(x, 40, w - 40); ey = clamp(y, 200, h - 30);
-    q = 1; slip = 1; s.wake = 6;
+    q = 1; slip = 1;
     for (let i = 0; i < 3; i++) rings.spawn((p) => { p.age = -i * 0.3; });
   };
+  s.tap = (x, y) => { quake(x, y); s.wake = 6; };
+  const tidy = () => {
+    rq = 0; danger = 0; broken = false; kidX = kidTX = 150;
+    for (const b of books) { b.st = 0; b.x = b.hx; b.y = b.hy; b.r = 0; }
+    fr.st = 0; fr.y = 104; fr.vy = 0; fr.r = 0;
+    shards.clear();
+  };
+  s.steps = [
+    {
+      need: 3,
+      enter: () => { roomOn = false; stressTo = 0; },
+      act: (k, x, y, n) => {
+        stressTo = n / 3;
+        q = Math.max(q, 0.12);
+        if (n >= 3) after(s, 0.7, () => { stressTo = 0; stress = 0; bv = -45; quake(556, 236); });
+      },
+      wait: 2.6,
+    },
+    { enter: () => { roomOn = false; stressTo = 0; }, act: (k, x, y) => quake(x, y), wait: 2.6 },
+    {
+      pick: ['run', 'window', 'table'], safe: ['table'], cardAt: [540, 96],
+      enter: () => { roomOn = true; tidy(); },
+      act: (k) => {
+        kidTX = k === 'run' ? 442 : k === 'window' ? 86 : 262;
+        after(s, 1.1, () => { rq = 2.6; quake(556, 300); });
+      },
+      wait: 3.8,
+    },
+  ];
+  s.free = () => { roomOn = false; };
   s.update(0, 0);
 });
 
@@ -1515,6 +2614,10 @@ makeSpot('plates', 8, 1524, 1184, 400, [292, 0, 600, 400], '#ff6a2b', (s) => {
 const labelsEl = document.getElementById('labels');
 const sheet = document.getElementById('sheet');
 const introEl = document.getElementById('intro');
+const cardEl = document.getElementById('s-card');
+const sayEl = document.getElementById('s-say');
+const doEl = document.getElementById('s-do');
+const dotsEl = document.getElementById('s-dots');
 const cam = { cx: 600, cy: 966, s: 0.3 };
 let tw = null;
 let current = null;
@@ -1572,6 +2675,145 @@ function resize() {
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
 
+// In portrait the tile is framed above the sheet, so when the sheet's height
+// changes (a longer explanation, more buttons) the camera follows it.
+let sheetH = 0;
+if ('ResizeObserver' in window) {
+  new ResizeObserver(() => {
+    const hh = sheet.offsetHeight;
+    if (Math.abs(hh - sheetH) < 12) return;
+    sheetH = hh;
+    if (!current) return;
+    if (tw) tw.to = target(); else flyTo(0.35);
+  }).observe(sheet);
+}
+
+// ------------------------------------------------------------------ stories
+const said = (v, k) => (v && typeof v === 'object' ? v[k] : v);
+
+function enterStep(sp, i, keepTried) {
+  cancelTimers(sp);
+  const tried = keepTried && sp.st && sp.st.i === i ? sp.st.tried : {};
+  sp.st = { i, ph: 'ask', n: 0, out: null, t: 0, tried };
+  sp.card.hide();
+  const step = sp.steps[i];
+  if (step.enter) step.enter();
+  sp.wake = Math.max(sp.wake, 3);
+}
+
+function goFree(sp) {
+  cancelTimers(sp);
+  sp.st = { i: sp.steps.length, ph: 'free', n: 0, out: null, t: 0, tried: {} };
+  sp.card.hide();
+  if (sp.free) sp.free();
+  sp.wake = Math.max(sp.wake, 3);
+}
+
+function act(sp, k, x, y) {
+  const S = sp.st, step = sp.steps[S.i];
+  if (step.need) {
+    S.n++;
+    const r = step.act(k, x, y, S.n);
+    sp.wake = Math.max(sp.wake, 5);
+    if (S.n < step.need) { render(); return; }
+    S.out = r;
+  } else {
+    S.out = step.act(k, x, y, 1);
+  }
+  if (step.pick) {
+    S.tried[k] = true;
+    if (step.safe) sp.card.show(TXT[sp.id][lang].s[S.i].pick[k].split(' ')[0], step.cardAt || [76, 66]);
+  }
+  if (S.out == null) S.out = k;
+  S.ph = 'now';
+  S.t = step.wait || 2.5;
+  sp.wake = Math.max(sp.wake, S.t + 4);
+  render();
+}
+
+function reveal(sp) {
+  const S = sp.st, step = sp.steps[S.i];
+  S.ph = 'done';
+  if (step.pick && step.safe) sp.card.verdict(step.safe.includes(S.out));
+  render();
+}
+
+function button(label, cls, fn) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = label;
+  if (cls) b.className = cls;
+  b.addEventListener('click', fn);
+  doEl.appendChild(b);
+  return b;
+}
+
+function render() {
+  if (!current) return;
+  const sp = current, S = sp.st, T = TXT[sp.id], L = T[lang], u = UI[lang];
+  document.getElementById('s-emoji').textContent = T.e;
+  document.getElementById('s-name').textContent = L.name;
+  document.getElementById('s-title').textContent = L.q;
+  sheet.style.setProperty('--accent', sp.accent);
+  dotsEl.textContent = '';
+  for (let i = 0; i < sp.steps.length; i++) {
+    const d = document.createElement('i');
+    if (i < S.i || (i === S.i && S.ph === 'done')) d.className = 'done';
+    else if (i === S.i) d.className = 'on';
+    dotsEl.appendChild(d);
+  }
+  cardEl.dataset.ph = S.ph;
+  document.getElementById('s-phase').textContent = u.ph[S.ph];
+  doEl.textContent = '';
+  if (S.ph === 'free') {
+    sayEl.textContent = u.freeDone + ' ' + L.free;
+    button(u.restart, 'alt', () => { enterStep(sp, 0); render(); });
+    return;
+  }
+  const step = sp.steps[S.i], tx = L.s[S.i];
+  if (S.ph === 'ask') {
+    sayEl.textContent = S.n > 0 && tx.more ? tx.more.replace('{n}', step.need - S.n) : tx.ask;
+    if (step.pick) for (const k of step.pick) button(tx.pick[k], null, () => act(sp, k));
+    else {
+      const d = document.createElement('div');
+      d.className = 'hint';
+      d.textContent = '👆 ' + tx.do;
+      doEl.appendChild(d);
+    }
+  } else if (S.ph === 'now') {
+    sayEl.textContent = said(tx.now, S.out);
+    const d = document.createElement('div');
+    d.className = 'wait';
+    d.innerHTML = '<span>•</span><span>•</span><span>•</span>';
+    doEl.appendChild(d);
+  } else {
+    sayEl.textContent = said(tx.done, S.out);
+    // Offer the other choices, so "this happened" can be set against "that".
+    if (step.pick) {
+      for (const k of step.pick) {
+        if (S.tried[k]) continue;
+        button(`${u.try}: ${tx.pick[k]}`, 'alt', () => { enterStep(sp, S.i, true); act(sp, k); });
+      }
+    } else button(u.again, 'alt', () => { enterStep(sp, S.i); render(); });
+    const last = S.i === sp.steps.length - 1;
+    button(last ? u.finish : u.go, 'go', () => { if (last) goFree(sp); else enterStep(sp, S.i + 1); render(); });
+  }
+}
+
+function nudge() {
+  doEl.classList.remove('nudge');
+  void doEl.offsetWidth;
+  doEl.classList.add('nudge');
+}
+
+function tileTap(sp, x, y) {
+  const S = sp.st;
+  if (S.ph === 'free') { sp.tap(x, y); return; }
+  const step = sp.steps[S.i];
+  if (S.ph === 'ask' && !step.pick) act(sp, undefined, x, y);
+  else if (S.ph !== 'now') nudge();
+}
+
 function setText() {
   const u = UI[lang];
   document.documentElement.lang = lang;
@@ -1580,26 +2822,20 @@ function setText() {
   document.getElementById('b-map-t').textContent = u.map;
   document.getElementById('b-prev').setAttribute('aria-label', u.prev);
   document.getElementById('b-next').setAttribute('aria-label', u.next);
-  for (const sp of spots) sp.label.textContent = TXT[sp.id][lang][0];
+  for (const sp of spots) sp.label.textContent = TXT[sp.id].e + ' ' + TXT[sp.id][lang].name;
   document.querySelectorAll('#langs button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
-  if (current) fillSheet();
-}
-
-function fillSheet() {
-  const t = TXT[current.id][lang];
-  document.getElementById('s-title').textContent = t[0];
-  document.getElementById('s-body').textContent = t[1];
-  document.getElementById('s-hint').textContent = t[2];
-  sheet.style.setProperty('--accent', current.accent);
+  render();
 }
 
 function openSpot(sp) {
   current = sp;
+  if (!sp.st) enterStep(sp, 0);
   sp.wake = Math.max(sp.wake, 2);
-  fillSheet();
+  render();
   sheet.classList.add('open');
   labelsEl.classList.add('hide');
   introEl.classList.add('hide');
+  sheetH = sheet.offsetHeight;
   flyTo(0.8);
   try { history.replaceState(null, '', '#' + sp.id); } catch (e) {}
 }
@@ -1644,7 +2880,7 @@ svg.addEventListener('pointerdown', (e) => {
   const hit = spots.find((sp) => wx >= sp.x && wx <= sp.x + sp.w && wy >= sp.y && wy <= sp.y + sp.h);
   if (!hit) return;
   if (!current) openSpot(hit);
-  else if (hit === current && !tw) hit.tap(wx - hit.x, wy - hit.y);
+  else if (hit === current && !tw) tileTap(hit, wx - hit.x, wy - hit.y);
 });
 
 // --------------------------------------------------------------- main loop
@@ -1662,6 +2898,16 @@ function loop(ts) {
     cam.cy = lerp(tw.from.cy, tw.to.cy, u);
     if (tw.t >= tw.dur) tw = null;
     applyCam();
+  }
+  for (let i = timers.length - 1; i >= 0; i--) {
+    const k = timers[i];
+    k.t -= dt;
+    if (k.t <= 0) { timers.splice(i, 1); k.fn(); }
+  }
+  if (current) {
+    current.card.step(dt);
+    const S = current.st;
+    if (S.ph === 'now') { S.t -= dt; if (S.t <= 0) reveal(current); }
   }
   // Tiles off-screen aren't worth animating. While zoomed, the neighbours
   // stay paused; the one you're looking at is the only one that moves.
